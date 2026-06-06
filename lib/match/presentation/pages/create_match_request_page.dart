@@ -1,0 +1,188 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:footrank/core/utils/error_text.dart';
+import 'package:footrank/core/widgets/premium.dart';
+import 'package:footrank/match/data/match_repository.dart';
+import 'package:footrank/team/data/team_repository.dart';
+
+class CreateMatchRequestPage extends StatefulWidget {
+  /// The captain's team id (required to create a request).
+  final String teamId;
+  const CreateMatchRequestPage({super.key, required this.teamId});
+
+  @override
+  State<CreateMatchRequestPage> createState() => _CreateMatchRequestPageState();
+}
+
+class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _cityCtrl = TextEditingController();
+  final _repo = MatchRepository();
+  final _teamRepo = TeamRepository();
+
+  DateTime? _date;
+  TimeOfDay? _time;
+  String _matchType = 'casual';
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Sensible defaults so a captain can create a match in a couple of taps.
+    final now = DateTime.now();
+    _date = now;
+    _time = TimeOfDay(hour: (now.hour + 1) % 24, minute: 0);
+    _prefillCity();
+  }
+
+  Future<void> _prefillCity() async {
+    final team = await _teamRepo.fetchById(widget.teamId);
+    if (mounted && _cityCtrl.text.isEmpty && team.city != null) {
+      _cityCtrl.text = team.city!;
+    }
+  }
+
+  @override
+  void dispose() {
+    _cityCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date ?? now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _time ?? TimeOfDay.now(),
+    );
+    if (picked != null) setState(() => _time = picked);
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_date == null || _time == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please pick a date and time')),
+      );
+      return;
+    }
+    final scheduledAt = DateTime(
+      _date!.year,
+      _date!.month,
+      _date!.day,
+      _time!.hour,
+      _time!.minute,
+    );
+
+    setState(() => _loading = true);
+    try {
+      await _repo.createMatchRequest(
+        teamId: widget.teamId,
+        city: _cityCtrl.text.trim(),
+        scheduledAt: scheduledAt,
+        matchType: _matchType,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Match request created')),
+        );
+        context.pop(true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dateLabel =
+        _date == null ? 'Select date' : _date!.toString().split(' ').first;
+    final timeLabel = _time == null ? 'Select time' : _time!.format(context);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Create Match')),
+      body: AmbientBackground(
+        child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _pickDate,
+                  icon: const Icon(Icons.calendar_today),
+                  label: Text(dateLabel),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _pickTime,
+                  icon: const Icon(Icons.access_time),
+                  label: Text(timeLabel),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _cityCtrl,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'City',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'City is required' : null,
+                ),
+                const SizedBox(height: 20),
+                Text('Match Type',
+                    style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 8),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'casual', label: Text('Casual')),
+                    ButtonSegment(value: 'ranked', label: Text('Ranked')),
+                  ],
+                  selected: {_matchType},
+                  onSelectionChanged: (s) =>
+                      setState(() => _matchType = s.first),
+                ),
+                const SizedBox(height: 20),
+                const ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.groups),
+                  title: Text('Format'),
+                  trailing: Text('5v5'),
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: _loading ? null : _submit,
+                  child: _loading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Create Match Request'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        ),
+      ),
+    );
+  }
+}
