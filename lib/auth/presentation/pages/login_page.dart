@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
+import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
@@ -66,8 +67,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(gradient: AppColors.authGradient),
+      body: AuthVideoBackground(
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -98,7 +98,7 @@ class _LoginPageState extends State<LoginPage> {
                   FadeSlideIn(
                     delay: const Duration(milliseconds: 140),
                     child: Text(
-                      'Rank up. Find matches. Play. ⚽',
+                      'Rank up. Find matches. Play.',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.85),
                         fontSize: 15,

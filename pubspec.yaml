@@ -22,6 +22,7 @@ dependencies:
   image_picker: ^1.1.2
   image_picker_android: ^0.8.12
   image_picker_platform_interface: ^2.10.0
+  video_player: ^2.9.2
 
 dev_dependencies:
   flutter_test:
@@ -46,12 +47,15 @@ flutter_launcher_icons:
 flutter_native_splash:
   color: "#FFFFFF"
   image: "assets/branding/splash_clean.png"
-  color_dark: "#FFFFFF"
-  image_dark: "assets/branding/splash_clean.png"
+  color_dark: "#BFBFBF"
+  image_dark: "assets/branding/splash_darkmode.png"
   android_12:
     image: "assets/branding/splash_clean.png"
     color: "#FFFFFF"
-    color_dark: "#FFFFFF"
+    image_dark: "assets/branding/splash_darkmode.png"
+    color_dark: "#BFBFBF"
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/video/auth_bg.mp4

@@ -182,19 +182,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       height: 54,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: AppColors.lime,
+                        color: AppColors.brand(context),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: _saving
-                          ? const SizedBox(
+                          ? SizedBox(
                               height: 22,
                               width: 22,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: AppColors.onBrand),
+                                  strokeWidth: 2, color: AppColors.onBrand(context)),
                             )
-                          : const Text('Save Changes',
+                          : Text('Save Changes',
                               style: TextStyle(
-                                  color: AppColors.onBrand,
+                                  color: AppColors.onBrand(context),
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800)),
                     ),
@@ -245,18 +245,18 @@ class _AvatarPicker extends StatelessWidget {
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.lime, width: 3),
+              border: Border.all(color: AppColors.brand(context), width: 3),
             ),
             child: avatar,
           ),
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(
-              color: AppColors.lime,
+            decoration: BoxDecoration(
+              color: AppColors.brand(context),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.camera_alt,
-                color: AppColors.onBrand, size: 18),
+            child: Icon(Icons.camera_alt,
+                color: AppColors.onBrand(context), size: 18),
           ),
         ],
       ),

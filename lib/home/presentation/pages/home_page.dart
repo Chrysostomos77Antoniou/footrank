@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/notifications/data/notification_repository.dart';
+import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 
 class HomePage extends StatefulWidget {
@@ -16,6 +20,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _notifRepo = NotificationRepository();
   Future<int> _unread = Future.value(0);
+  bool _syncing = false;
 
   @override
   void initState() {
@@ -27,6 +32,33 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _unread = _notifRepo.unreadCount();
     });
+  }
+
+  Future<void> _sync() async {
+    if (_syncing) return;
+    setState(() => _syncing = true);
+    // Drop cached state and tell every tab to re-fetch fresh data.
+    ProfileRepository.invalidateCache();
+    triggerAppRefresh();
+    String message;
+    try {
+      final count = await _notifRepo
+          .unreadCount()
+          .timeout(const Duration(seconds: 10));
+      if (!mounted) return;
+      setState(() {
+        _unread = Future.value(count);
+      });
+      message = 'Synced — data refreshed';
+    } on TimeoutException {
+      message = 'Sync timed out — check your connection';
+    } catch (e) {
+      message = 'Sync failed: ${e.toString().replaceFirst('Exception: ', '')}';
+    }
+    if (!mounted) return;
+    setState(() => _syncing = false);
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -61,6 +93,25 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     ),
+                    PressableScale(
+                      onTap: _sync,
+                      child: GlassCard(
+                        padding: const EdgeInsets.all(12),
+                        radius: 16,
+                        child: _syncing
+                            ? SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: AppColors.iconAccent(context),
+                                ),
+                              )
+                            : Icon(Icons.sync,
+                                color: Theme.of(context).colorScheme.onSurface),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
                     FutureBuilder<int>(
                       future: _unread,
                       builder: (context, snapshot) {
@@ -96,8 +147,10 @@ class _HomePageState extends State<HomePage> {
               FadeSlideIn(
                 delay: const Duration(milliseconds: 180),
                 child: _ActionCard(
-                  emoji: '🔔',
-                  color: AppColors.brand(context),
+                  emoji: '',
+                  iconWidget: Icon(Icons.notifications_active_outlined,
+                      color: AppColors.iconAccent(context)),
+                  color: AppColors.iconAccent(context),
                   title: 'Notifications',
                   subtitle: 'Match & team updates',
                   onTap: () async {
@@ -112,7 +165,7 @@ class _HomePageState extends State<HomePage> {
                 child: _ActionCard(
                   emoji: '📄',
                   iconWidget: const _NoContractIcon(),
-                  color: AppColors.brand(context),
+                  color: AppColors.iconAccent(context),
                   title: 'Free Agents',
                   subtitle: 'Find players without a team',
                   onTap: () => context.push(AppRoutes.freeAgents),
@@ -122,8 +175,10 @@ class _HomePageState extends State<HomePage> {
               FadeSlideIn(
                 delay: const Duration(milliseconds: 340),
                 child: _ActionCard(
-                  emoji: '✉️',
-                  color: AppColors.brand(context),
+                  emoji: '',
+                  iconWidget: Icon(Icons.mail_outline,
+                      color: AppColors.iconAccent(context)),
+                  color: AppColors.iconAccent(context),
                   title: 'Team Invitations',
                   subtitle: 'Invitations from team captains',
                   onTap: () => context.push(AppRoutes.invitations),
@@ -152,23 +207,24 @@ class _HeroBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Climb the ranks 🏆',
+                Text('Climb the ranks',
                     style: TextStyle(
-                        color: AppColors.onBrand,
+                        color: AppColors.onBrand(context),
                         fontSize: 20,
                         fontWeight: FontWeight.w800)),
                 const SizedBox(height: 6),
                 Text(
                   'Win matches to boost your ELO and lead the leaderboard.',
                   style: TextStyle(
-                      color: AppColors.onBrand.withValues(alpha: 0.8),
+                      color: AppColors.onBrand(context).withValues(alpha: 0.8),
                       fontSize: 13),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          const Text('⚽', style: TextStyle(fontSize: 46)),
+          Icon(Icons.emoji_events,
+              color: AppColors.onBrand(context), size: 46),
         ],
       ),
     );

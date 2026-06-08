@@ -13,11 +13,22 @@ class MatchModel {
   final String? scoreProposedBy;
   final bool homeConfirmed;
   final bool awayConfirmed;
+  final bool homeOk; // home captain confirmed the fixture
+  final bool awayOk; // away captain confirmed the fixture
+  final int? homeReportH; // home captain's reported home score
+  final int? homeReportA; // home captain's reported away score
+  final int? awayReportH; // away captain's reported home score
+  final int? awayReportA; // away captain's reported away score
+  final bool scoreDisputed;
   final DateTime createdAt;
 
-  // Optional joined team names
+  // Optional joined team fields
   final String? homeTeamName;
   final String? awayTeamName;
+  final String? homeTeamLogo;
+  final String? awayTeamLogo;
+  final int? homeTeamRating;
+  final int? awayTeamRating;
 
   const MatchModel({
     required this.id,
@@ -34,9 +45,20 @@ class MatchModel {
     this.scoreProposedBy,
     this.homeConfirmed = false,
     this.awayConfirmed = false,
+    this.homeOk = false,
+    this.awayOk = false,
+    this.homeReportH,
+    this.homeReportA,
+    this.awayReportH,
+    this.awayReportA,
+    this.scoreDisputed = false,
     required this.createdAt,
     this.homeTeamName,
     this.awayTeamName,
+    this.homeTeamLogo,
+    this.awayTeamLogo,
+    this.homeTeamRating,
+    this.awayTeamRating,
   });
 
   bool get hasScore => homeScore != null && awayScore != null;
@@ -59,9 +81,20 @@ class MatchModel {
       scoreProposedBy: json['score_proposed_by'] as String?,
       homeConfirmed: (json['home_confirmed'] as bool?) ?? false,
       awayConfirmed: (json['away_confirmed'] as bool?) ?? false,
+      homeOk: (json['home_ok'] as bool?) ?? false,
+      awayOk: (json['away_ok'] as bool?) ?? false,
+      homeReportH: json['home_report_h'] as int?,
+      homeReportA: json['home_report_a'] as int?,
+      awayReportH: json['away_report_h'] as int?,
+      awayReportA: json['away_report_a'] as int?,
+      scoreDisputed: (json['score_disputed'] as bool?) ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
       homeTeamName: home?['name'] as String?,
       awayTeamName: away?['name'] as String?,
+      homeTeamLogo: home?['logo_url'] as String?,
+      awayTeamLogo: away?['logo_url'] as String?,
+      homeTeamRating: home?['rating'] as int?,
+      awayTeamRating: away?['rating'] as int?,
     );
   }
 }

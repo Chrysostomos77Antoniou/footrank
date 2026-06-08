@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:footrank/core/app_refresh.dart';
+import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_request_model.dart';
@@ -25,11 +28,19 @@ class _MatchesPageState extends State<MatchesPage> {
   bool _loadingTeam = true;
   Future<List<MatchRequestModel>>? _future;
   Future<List<MatchModel>>? _matchesFuture;
+  Future<List<MatchRequestModel>>? _opponentsFuture;
 
   @override
   void initState() {
     super.initState();
     _load();
+    appRefresh.addListener(_load);
+  }
+
+  @override
+  void dispose() {
+    appRefresh.removeListener(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -44,6 +55,8 @@ class _MatchesPageState extends State<MatchesPage> {
           team == null ? null : _matchRepo.fetchMyTeamRequests(team.id);
       _matchesFuture =
           team == null ? null : _matchRepo.fetchTeamMatches(team.id);
+      _opponentsFuture =
+          team == null ? null : _matchRepo.findAllOpponents(team.id);
     });
   }
 
@@ -53,7 +66,72 @@ class _MatchesPageState extends State<MatchesPage> {
     setState(() {
       _future = _matchRepo.fetchMyTeamRequests(team.id);
       _matchesFuture = _matchRepo.fetchTeamMatches(team.id);
+      _opponentsFuture = _matchRepo.findAllOpponents(team.id);
     });
+  }
+
+  Future<void> _accept(MatchRequestModel opponent) async {
+    final team = _team;
+    if (team == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Request this match?'),
+        content: Text(
+            'Propose a match against ${opponent.teamName ?? 'this team'} in '
+            '${opponent.city}. It becomes confirmed once their captain also '
+            'confirms.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Send Request')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await _matchRepo.acceptMatchRequest(
+          requestId: opponent.id, awayTeamId: team.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                'Match requested vs ${opponent.teamName}. Waiting for their '
+                'captain to confirm.')),
+      );
+      _reloadRequests();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmFixture(MatchModel m) async {
+    try {
+      final status = await _matchRepo.confirmFixture(m.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(status == 'confirmed'
+                ? 'Match confirmed!'
+                : 'Confirmed on your side. Waiting for the opponent.')),
+      );
+      _reloadRequests();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
   }
 
   Future<void> _openCreate() async {
@@ -63,13 +141,76 @@ class _MatchesPageState extends State<MatchesPage> {
       AppRoutes.createMatch,
       extra: team.id,
     );
-    if (created == true) _reloadRequests();
+    if (created == true) {
+      _reloadRequests();
+      if (!mounted) return;
+      final findNow = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Request created'),
+          content: const Text(
+              'Find an opponent now? We\'ll show nearby teams looking for a '
+              'match at a similar time and rating.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Later'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Find Opponents'),
+            ),
+          ],
+        ),
+      );
+      if (findNow == true) _openDiscovery();
+    }
   }
 
-  void _openDiscovery() {
+  Future<void> _cancelRequest(MatchRequestModel r) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel match request?'),
+        content: Text(
+            'This will remove your open request for ${r.city}. '
+            'You can create a new one anytime.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancel Request'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await _matchRepo.deleteRequest(r.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Match request cancelled')),
+      );
+      _reloadRequests();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  Future<void> _openDiscovery() async {
     final team = _team;
     if (team == null) return;
-    context.push(AppRoutes.discoverMatches, extra: team.id);
+    await context.push(AppRoutes.discoverMatches, extra: team.id);
+    _reloadRequests();
   }
 
   @override
@@ -148,12 +289,54 @@ class _MatchesPageState extends State<MatchesPage> {
                 );
               }
               return Column(
-                children:
-                    requests.map((r) => _RequestCard(request: r)).toList(),
+                children: requests
+                    .map((r) => _RequestCard(
+                          request: r,
+                          onCancel: _isCaptain ? () => _cancelRequest(r) : null,
+                        ))
+                    .toList(),
               );
             },
           ),
-          _SectionHeader(title: 'Confirmed Matches'),
+          if (_isCaptain) ...[
+            _SectionHeader(title: 'Available Opponents'),
+            FutureBuilder<List<MatchRequestModel>>(
+              future: _opponentsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text('Error loading opponents: ${snapshot.error}'),
+                  );
+                }
+                final opponents = snapshot.data ?? [];
+                if (opponents.isEmpty) {
+                  return const Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text(
+                        'No matching opponents yet. Opponents appear when '
+                        'another team has an open request in the same city, '
+                        'on the same date (±30 min), with a similar rating.'),
+                  );
+                }
+                return Column(
+                  children: opponents
+                      .map((o) => _OpponentCard(
+                            opponent: o,
+                            onAccept: () => _accept(o),
+                          ))
+                      .toList(),
+                );
+              },
+            ),
+          ],
           FutureBuilder<List<MatchModel>>(
             future: _matchesFuture,
             builder: (context, snapshot) {
@@ -163,16 +346,36 @@ class _MatchesPageState extends State<MatchesPage> {
                   child: Center(child: CircularProgressIndicator()),
                 );
               }
-              final matches = snapshot.data ?? [];
-              if (matches.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text('No confirmed matches yet.'),
-                );
-              }
+              final all = snapshot.data ?? [];
+              final myTeamId = _team?.id;
+              final pending =
+                  all.where((m) => m.status == 'pending').toList();
+              final confirmed =
+                  all.where((m) => m.status != 'pending').toList();
               return Column(
-                children:
-                    matches.map((m) => _MatchCard(match: m)).toList(),
+                children: [
+                  if (pending.isNotEmpty) ...[
+                    _SectionHeader(title: 'Pending Confirmation'),
+                    ...pending.map((m) {
+                      final iAmHome = m.homeTeamId == myTeamId;
+                      final iConfirmed = iAmHome ? m.homeOk : m.awayOk;
+                      return _PendingMatchCard(
+                        match: m,
+                        iConfirmed: iConfirmed,
+                        onConfirm: () => _confirmFixture(m),
+                      );
+                    }),
+                  ],
+                  _SectionHeader(title: 'Confirmed Matches'),
+                  if (confirmed.isEmpty)
+                    const Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Text('No confirmed matches yet.'),
+                    )
+                  else
+                    ...confirmed.map((m) => _MatchCard(match: m)),
+                ],
               );
             },
           ),
@@ -205,20 +408,116 @@ class _MatchCard extends StatelessWidget {
     final when =
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
         '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-    final score = (match.homeScore != null && match.awayScore != null)
+    final center = (match.homeScore != null && match.awayScore != null)
         ? '${match.homeScore} - ${match.awayScore}'
         : 'vs';
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: ListTile(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
         onTap: () => context.push(AppRoutes.matchDetail, extra: match.id),
-        title: Text(
-          '${match.homeTeamName ?? 'Home'}  $score  ${match.awayTeamName ?? 'Away'}',
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _TeamMini(
+                      name: match.homeTeamName ?? 'Home',
+                      logo: match.homeTeamLogo,
+                      rating: match.homeTeamRating,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(center,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900)),
+                  ),
+                  Expanded(
+                    child: _TeamMini(
+                      name: match.awayTeamName ?? 'Away',
+                      logo: match.awayTeamLogo,
+                      rating: match.awayTeamRating,
+                      alignEnd: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('${match.city} · $when · ${match.matchType}',
+                      style: Theme.of(context).textTheme.bodySmall),
+                  Text(MatchStatus.fromString(match.status).label,
+                      style: Theme.of(context).textTheme.labelLarge),
+                ],
+              ),
+            ],
+          ),
         ),
-        subtitle: Text('${match.city} · $when · ${match.matchType}'),
-        trailing: Text(
-          MatchStatus.fromString(match.status).label,
-          style: Theme.of(context).textTheme.labelLarge,
+      ),
+    );
+  }
+}
+
+/// Compact team identity: logo + name + ELO chip. Used in match cards.
+class _TeamMini extends StatelessWidget {
+  final String name;
+  final String? logo;
+  final int? rating;
+  final bool alignEnd;
+  const _TeamMini({
+    required this.name,
+    this.logo,
+    this.rating,
+    this.alignEnd = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final avatar = GradientAvatar(name: name, imageUrl: logo, radius: 18);
+    final texts = Column(
+      crossAxisAlignment:
+          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 2),
+        _EloChip(rating: rating),
+      ],
+    );
+    final children = alignEnd
+        ? [Expanded(child: texts), const SizedBox(width: 8), avatar]
+        : [avatar, const SizedBox(width: 8), Expanded(child: texts)];
+    return Row(children: children);
+  }
+}
+
+class _EloChip extends StatelessWidget {
+  final int? rating;
+  const _EloChip({this.rating});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.iconAccent(context).withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        'ELO ${rating ?? '-'}',
+        style: TextStyle(
+          color: AppColors.iconAccent(context),
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
         ),
       ),
     );
@@ -227,7 +526,8 @@ class _MatchCard extends StatelessWidget {
 
 class _RequestCard extends StatelessWidget {
   final MatchRequestModel request;
-  const _RequestCard({required this.request});
+  final VoidCallback? onCancel;
+  const _RequestCard({required this.request, this.onCancel});
 
   String get _when {
     final d = request.scheduledAt;
@@ -248,20 +548,154 @@ class _RequestCard extends StatelessWidget {
         ),
         title: Text('${request.city} · ${request.format}'),
         subtitle: Text(_when),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _Chip(
-              label: request.matchType,
-              color: request.isRanked
-                  ? Theme.of(context).colorScheme.tertiary
-                  : Theme.of(context).colorScheme.secondary,
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _Chip(
+                  label: request.matchType,
+                  color: request.isRanked
+                      ? Theme.of(context).colorScheme.tertiary
+                      : Theme.of(context).colorScheme.secondary,
+                ),
+                const SizedBox(height: 4),
+                Text(MatchStatus.fromString(request.status).label,
+                    style: Theme.of(context).textTheme.bodySmall),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(MatchStatus.fromString(request.status).label,
-                style: Theme.of(context).textTheme.bodySmall),
+            if (onCancel != null)
+              IconButton(
+                tooltip: 'Cancel request',
+                icon: const Icon(Icons.delete_outline),
+                color: Theme.of(context).colorScheme.error,
+                onPressed: onCancel,
+              ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingMatchCard extends StatelessWidget {
+  final MatchModel match;
+  final bool iConfirmed;
+  final VoidCallback onConfirm;
+  const _PendingMatchCard({
+    required this.match,
+    required this.iConfirmed,
+    required this.onConfirm,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final d = match.scheduledAt;
+    final when =
+        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _TeamMini(
+                    name: match.homeTeamName ?? 'Home',
+                    logo: match.homeTeamLogo,
+                    rating: match.homeTeamRating,
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('vs',
+                      style: TextStyle(fontWeight: FontWeight.w900)),
+                ),
+                Expanded(
+                  child: _TeamMini(
+                    name: match.awayTeamName ?? 'Away',
+                    logo: match.awayTeamLogo,
+                    rating: match.awayTeamRating,
+                    alignEnd: true,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text('${match.city} · $when · ${match.matchType}',
+                      style: Theme.of(context).textTheme.bodySmall),
+                ),
+                iConfirmed
+                    ? Text('Waiting…',
+                        style: Theme.of(context).textTheme.bodySmall)
+                    : SizedBox(
+                        height: 36,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(0, 36),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 14),
+                          ),
+                          onPressed: onConfirm,
+                          child: const Text('Confirm'),
+                        ),
+                      ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OpponentCard extends StatelessWidget {
+  final MatchRequestModel opponent;
+  final VoidCallback onAccept;
+  const _OpponentCard({required this.opponent, required this.onAccept});
+
+  @override
+  Widget build(BuildContext context) {
+    final d = opponent.scheduledAt;
+    final when =
+        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: ListTile(
+        leading: GradientAvatar(
+          name: opponent.teamName ?? '?',
+          imageUrl: opponent.teamLogo,
+          radius: 22,
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(opponent.teamName ?? 'Unknown team',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+            ),
+            _EloChip(rating: opponent.teamRating),
+          ],
+        ),
+        subtitle: Text('${opponent.city} · $when · ${opponent.matchType}'),
+        trailing: SizedBox(
+          height: 38,
+          child: FilledButton(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 38),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+            ),
+            onPressed: onAccept,
+            child: const Text('Confirm'),
+          ),
         ),
       ),
     );

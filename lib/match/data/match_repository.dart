@@ -42,7 +42,7 @@ class MatchRepository {
   Future<List<MatchRequestModel>> fetchMyTeamRequests(String teamId) async {
     final data = await SupabaseService.client
         .from(_requests)
-        .select('*, teams(name, rating)')
+        .select('*, teams(name, rating, logo_url)')
         .eq('team_id', teamId)
         .order('scheduled_at');
 
@@ -55,7 +55,7 @@ class MatchRepository {
   Future<List<MatchRequestModel>> fetchSearchingRequests(String teamId) async {
     final data = await SupabaseService.client
         .from(_requests)
-        .select('*, teams(name, rating)')
+        .select('*, teams(name, rating, logo_url)')
         .eq('team_id', teamId)
         .eq('status', 'searching')
         .order('scheduled_at');
@@ -85,7 +85,7 @@ class MatchRepository {
 
     final data = await SupabaseService.client
         .from(_requests)
-        .select('*, teams(name, rating)')
+        .select('*, teams(name, rating, logo_url)')
         .eq('status', 'searching')
         .neq('team_id', myTeamId)
         .ilike('city', city.trim())
@@ -103,6 +103,54 @@ class MatchRepository {
       if (rating == null) return false;
       return (rating - myTeamRating).abs() <= eloThreshold;
     }).toList();
+  }
+
+  /// Captain cancels/deletes one of their own open match requests.
+  /// Only allowed while still 'searching' (no opponent matched yet).
+  Future<void> deleteRequest(String requestId) async {
+    await SupabaseService.client
+        .from(_requests)
+        .delete()
+        .eq('id', requestId)
+        .eq('status', 'searching');
+  }
+
+  /// ALL open ('searching') requests from OTHER teams — a simple, always-visible
+  /// list of opponents to confirm a match against. No time/rating windowing, so
+  /// nothing is ever silently hidden.
+  Future<List<MatchRequestModel>> fetchOpenOpponentRequests(
+      String myTeamId) async {
+    final data = await SupabaseService.client
+        .from(_requests)
+        .select('*, teams(name, rating, logo_url)')
+        .eq('status', 'searching')
+        .neq('team_id', myTeamId)
+        .order('scheduled_at');
+
+    return (data as List)
+        .map((e) => MatchRequestModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Aggregates matchable opponents across ALL of the team's open requests,
+  /// de-duplicated by request id. Used to surface opponents directly on the
+  /// Matches screen (no manual "Find Opponents" step needed).
+  Future<List<MatchRequestModel>> findAllOpponents(String teamId) async {
+    final myRequests = await fetchSearchingRequests(teamId);
+    final seen = <String>{};
+    final all = <MatchRequestModel>[];
+    for (final ref in myRequests) {
+      final opponents = await findOpponents(
+        myTeamId: teamId,
+        myTeamRating: ref.teamRating ?? 1500,
+        city: ref.city,
+        scheduledAt: ref.scheduledAt,
+      );
+      for (final o in opponents) {
+        if (seen.add(o.id)) all.add(o);
+      }
+    }
+    return all;
   }
 
   // ---- Accept / Reject (Task 5.3) ----
@@ -123,12 +171,19 @@ class MatchRepository {
     return result as String;
   }
 
+  /// The other captain confirms the fixture. Returns 'pending' or 'confirmed'.
+  Future<String> confirmFixture(String matchId) async {
+    final result = await SupabaseService.client
+        .rpc('confirm_fixture', params: {'p_match_id': matchId});
+    return result as String;
+  }
+
   /// A single match with both team names.
   Future<MatchModel> fetchMatchById(String matchId) async {
     final data = await SupabaseService.client
         .from(_matches)
         .select(
-            '*, home_team:home_team_id(name), away_team:away_team_id(name)')
+            '*, home_team:home_team_id(name, logo_url, rating), away_team:away_team_id(name, logo_url, rating)')
         .eq('id', matchId)
         .single();
     return MatchModel.fromJson(data);
@@ -139,7 +194,7 @@ class MatchRepository {
     final data = await SupabaseService.client
         .from(_matches)
         .select(
-            '*, home_team:home_team_id(name), away_team:away_team_id(name)')
+            '*, home_team:home_team_id(name, logo_url, rating), away_team:away_team_id(name, logo_url, rating)')
         .or('home_team_id.eq.$teamId,away_team_id.eq.$teamId')
         .order('scheduled_at', ascending: false);
 
@@ -184,17 +239,20 @@ class MatchRepository {
 
   // ---- Score submission (Task 6.3) ----
 
-  /// A captain submits/re-submits the final score (their side auto-confirms).
-  Future<void> submitScore({
+  /// A captain submits/re-submits their reported scoreline. Returns one of:
+  /// 'completed' (both captains agree on the winner), 'disputed' (they report
+  /// opposite winners), or 'awaiting_opponent' (other captain hasn't submitted).
+  Future<String> submitScore({
     required String matchId,
     required int homeScore,
     required int awayScore,
   }) async {
-    await SupabaseService.client.rpc('submit_match_score', params: {
+    final result = await SupabaseService.client.rpc('submit_match_score', params: {
       'p_match_id': matchId,
       'p_home_score': homeScore,
       'p_away_score': awayScore,
     });
+    return result as String;
   }
 
   /// The other captain confirms. Returns 'completed' or 'pending'.

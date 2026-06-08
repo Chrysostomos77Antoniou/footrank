@@ -28,18 +28,19 @@ class _NotificationsPageState extends State<NotificationsPage> {
     });
   }
 
-  ({String emoji, Color color}) _styleFor(String type) {
+  ({IconData icon, Color color}) _styleFor(BuildContext context, String type) {
+    final accent = AppColors.iconAccent(context);
     switch (type) {
       case 'match_request':
-        return (emoji: '⚽', color: AppColors.lime);
+        return (icon: Icons.sports_soccer, color: accent);
       case 'match_accepted':
-        return (emoji: '✅', color: AppColors.success);
+        return (icon: Icons.check_circle_outline, color: AppColors.success);
       case 'match_reminder':
-        return (emoji: '⏰', color: AppColors.gold);
+        return (icon: Icons.alarm, color: AppColors.gold);
       case 'player_invite':
-        return (emoji: '✉️', color: AppColors.lime);
+        return (icon: Icons.mail_outline, color: accent);
       default:
-        return (emoji: '🔔', color: AppColors.lime);
+        return (icon: Icons.notifications_outlined, color: accent);
     }
   }
 
@@ -65,7 +66,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 return ListView(
                   children: const [
                     SizedBox(height: 120),
-                    Center(child: Text('🔔', style: TextStyle(fontSize: 48))),
+                    Center(
+                        child: Icon(Icons.notifications_off_outlined,
+                            size: 48, color: Colors.grey)),
                     SizedBox(height: 12),
                     Center(child: Text('No notifications yet')),
                   ],
@@ -76,7 +79,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 itemCount: items.length,
                 itemBuilder: (context, i) {
                   final n = items[i];
-                  final s = _styleFor(n.type);
+                  final s = _styleFor(context, n.type);
                   return FadeSlideIn(
                     delay: Duration(milliseconds: 30 * i),
                     child: Padding(
@@ -93,8 +96,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               alignment: Alignment.center,
-                              child: Text(s.emoji,
-                                  style: const TextStyle(fontSize: 22)),
+                              child: Icon(s.icon, color: s.color),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
@@ -118,8 +120,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                               Container(
                                 width: 10,
                                 height: 10,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.lime,
+                                decoration: BoxDecoration(
+                                  color: AppColors.brand(context),
                                   shape: BoxShape.circle,
                                 ),
                               ),

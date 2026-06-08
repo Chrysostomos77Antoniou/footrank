@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
-import 'package:footrank/core/utils/emojis.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -28,9 +28,17 @@ class _TeamPageState extends State<TeamPage> {
   void initState() {
     super.initState();
     _reload();
+    appRefresh.addListener(_reload);
+  }
+
+  @override
+  void dispose() {
+    appRefresh.removeListener(_reload);
+    super.dispose();
   }
 
   void _reload() {
+    if (!mounted) return;
     setState(() {
       _teamFuture = _repo.fetchMyTeam();
     });
@@ -91,7 +99,8 @@ class _NoTeamView extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('⚽', style: TextStyle(fontSize: 56)),
+                Icon(Icons.shield_outlined,
+                    size: 56, color: AppColors.iconAccent(context)),
                 const SizedBox(height: 12),
                 const GradientText(
                   'No team yet',
@@ -166,7 +175,8 @@ class _TeamView extends StatelessWidget {
               children: [
                 Expanded(
                   child: _MiniStat(
-                    emoji: '⭐',
+                    leading: Icon(Icons.star_rounded,
+                        color: AppColors.iconAccent(context)),
                     value: '${team.rating}',
                     label: 'Team Rating',
                   ),
@@ -176,8 +186,7 @@ class _TeamView extends StatelessWidget {
                   child: _MiniStat(
                     leading: _isCaptain
                         ? const CaptainArmband(label: 'C')
-                        : null,
-                    emoji: _isCaptain ? null : '🎽',
+                        : Icon(Icons.person, color: AppColors.iconAccent(context)),
                     value: _isCaptain ? 'Captain' : 'Player',
                     label: 'Your Role',
                   ),
@@ -197,7 +206,7 @@ class _TeamView extends StatelessWidget {
           const SizedBox(height: 18),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text('Squad 👕',
+            child: Text('Squad',
                 style: Theme.of(context)
                     .textTheme
                     .titleMedium
@@ -265,12 +274,11 @@ class _TeamHeaderCard extends StatelessWidget {
 }
 
 class _MiniStat extends StatelessWidget {
-  final String? emoji;
-  final Widget? leading;
+  final Widget leading;
   final String value;
   final String label;
   const _MiniStat(
-      {this.emoji, this.leading, required this.value, required this.label});
+      {required this.leading, required this.value, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -278,13 +286,7 @@ class _MiniStat extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
       child: Column(
         children: [
-          SizedBox(
-            height: 26,
-            child: Center(
-              child: leading ??
-                  Text(emoji ?? '', style: const TextStyle(fontSize: 22)),
-            ),
-          ),
+          SizedBox(height: 26, child: Center(child: leading)),
           const SizedBox(height: 8),
           GradientText(value,
               style:
@@ -306,7 +308,8 @@ class _InviteCodeCard extends StatelessWidget {
     return GlassCard(
       child: Row(
         children: [
-          const Text('🔑', style: TextStyle(fontSize: 26)),
+          Icon(Icons.vpn_key_outlined,
+              size: 26, color: AppColors.iconAccent(context)),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -360,11 +363,11 @@ class _GradientButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: AppColors.onBrand),
+            Icon(icon, color: AppColors.onBrand(context)),
             const SizedBox(width: 8),
             Text(label,
-                style: const TextStyle(
-                    color: AppColors.onBrand,
+                style: TextStyle(
+                    color: AppColors.onBrand(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 16)),
           ],
@@ -446,7 +449,7 @@ class _PendingRequestsState extends State<_PendingRequests> {
             const SizedBox(height: 18),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text('Join Requests 📩',
+              child: Text('Join Requests',
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
@@ -622,7 +625,11 @@ class _MemberListState extends State<_MemberList> {
                             ],
                           ),
                           Text(
-                            '${positionEmoji(m.position)} ${[if (m.position != null) m.position, 'ELO ${m.elo}', '${m.reliability}%'].join(' · ')}',
+                            [
+                              if (m.position != null) m.position,
+                              'ELO ${m.elo}',
+                              '${m.reliability}%'
+                            ].join(' · '),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],

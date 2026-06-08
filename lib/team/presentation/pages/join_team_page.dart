@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/team/data/team_repository.dart';
 
@@ -65,7 +66,9 @@ class _JoinTeamPageState extends State<JoinTeamPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 8),
-                  const Center(child: Text('🔑', style: TextStyle(fontSize: 52))),
+                  Center(
+                      child: Icon(Icons.vpn_key_outlined,
+                          size: 52, color: AppColors.iconAccent(context))),
                   const SizedBox(height: 8),
                   const Center(
                     child: GradientText('Join a team',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/utils/emojis.dart';
@@ -26,6 +27,18 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _profileFuture = _profileRepo.fetchMyProfile();
+    appRefresh.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    appRefresh.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (!mounted) return;
+    setState(() => _profileFuture = _profileRepo.fetchMyProfile());
   }
 
   Future<void> _signOut() async {
@@ -64,12 +77,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      TextButton.icon(
-                        onPressed: () => _openEdit(user),
-                        icon: const Icon(Icons.edit_outlined, size: 20),
-                        label: const Text('Edit'),
-                      ),
-                      const Spacer(),
                       AnimatedBuilder(
                         animation: themeController,
                         builder: (context, _) {
@@ -94,7 +101,12 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  FadeSlideIn(child: _ProfileHero(user: user)),
+                  FadeSlideIn(
+                    child: _ProfileHero(
+                      user: user,
+                      onEdit: () => _openEdit(user),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   FadeSlideIn(
                     delay: const Duration(milliseconds: 120),
@@ -103,13 +115,13 @@ class _ProfilePageState extends State<ProfilePage> {
                         _StatCard(
                           label: 'ELO',
                           value: '${user.elo}',
-                          emoji: '📈',
+                          icon: Icons.trending_up,
                         ),
                         const SizedBox(width: 12),
                         _StatCard(
                           label: 'Matches',
                           value: '${user.matchesPlayed}',
-                          emoji: '⚽',
+                          icon: Icons.sports_soccer,
                         ),
                       ],
                     ),
@@ -122,13 +134,13 @@ class _ProfilePageState extends State<ProfilePage> {
                         _StatCard(
                           label: 'Reliability',
                           value: '${user.reliability}%',
-                          emoji: '🛡️',
+                          icon: Icons.verified_user_outlined,
                         ),
                         const SizedBox(width: 12),
                         _StatCard(
                           label: 'Behavior',
                           value: user.behaviorLabel,
-                          emoji: '🤝',
+                          icon: Icons.handshake_outlined,
                         ),
                       ],
                     ),
@@ -145,13 +157,32 @@ class _ProfilePageState extends State<ProfilePage> {
 
 class _ProfileHero extends StatelessWidget {
   final UserModel user;
-  const _ProfileHero({required this.user});
+  final VoidCallback onEdit;
+  const _ProfileHero({required this.user, required this.onEdit});
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-      child: Column(
+      child: Stack(
+        children: [
+          Align(
+            alignment: Alignment.topRight,
+            child: IconButton(
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit Profile',
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+          _heroColumn(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroColumn(BuildContext context) {
+    return Column(
         children: [
           Container(
             padding: const EdgeInsets.all(4),
@@ -177,12 +208,36 @@ class _ProfileHero extends StatelessWidget {
           if (user.position != null || user.city != null) ...[
             const SizedBox(height: 12),
             GradientPill(
-              text:
-                  '${positionEmoji(user.position)} ${[user.position, user.city].where((e) => e != null).join(' · ')}',
+              icon: positionIcon(user.position),
+              text: [user.position, user.city]
+                  .where((e) => e != null)
+                  .join(' · '),
+            ),
+          ],
+          if (user.flagged) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.danger.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.flag, color: AppColors.danger, size: 16),
+                  SizedBox(width: 6),
+                  Text('Flagged for repeated score disputes',
+                      style: TextStyle(
+                          color: AppColors.danger,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12)),
+                ],
+              ),
             ),
           ],
         ],
-      ),
     );
   }
 }
@@ -190,12 +245,12 @@ class _ProfileHero extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
-  final String emoji;
+  final IconData icon;
 
   const _StatCard({
     required this.label,
     required this.value,
-    required this.emoji,
+    required this.icon,
   });
 
   @override
@@ -205,7 +260,15 @@ class _StatCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 12),
         child: Column(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 26)),
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: AppColors.iconAccent(context).withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, color: AppColors.iconAccent(context)),
+            ),
             const SizedBox(height: 10),
             GradientText(
               value,

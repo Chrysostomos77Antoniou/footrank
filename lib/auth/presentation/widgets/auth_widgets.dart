@@ -78,11 +78,11 @@ class AuthPrimaryButton extends StatelessWidget {
                 height: 22,
                 width: 22,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: AppColors.onBrand),
+                    strokeWidth: 2, color: AppColors.navy),
               )
             : Text(label,
                 style: const TextStyle(
-                    color: AppColors.onBrand,
+                    color: AppColors.navy,
                     fontSize: 16,
                     fontWeight: FontWeight.w800)),
       ),

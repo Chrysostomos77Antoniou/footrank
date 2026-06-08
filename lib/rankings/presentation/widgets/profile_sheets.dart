@@ -117,8 +117,8 @@ class _PlayerSheet extends StatelessWidget {
             children: [
               if (user.position != null)
                 GradientPill(
-                    text:
-                        '${positionEmoji(user.position)} ${user.position}'),
+                    icon: positionIcon(user.position),
+                    text: user.position!),
               FutureBuilder<String?>(
                 future: teamRepo.fetchUserTeamName(user.id),
                 builder: (context, snap) {
@@ -134,10 +134,13 @@ class _PlayerSheet extends StatelessWidget {
           const SizedBox(height: 20),
           Row(
             children: [
-              _Stat(emoji: '📈', value: '${user.elo}', label: 'ELO'),
+              _Stat(
+                  icon: Icons.trending_up,
+                  value: '${user.elo}',
+                  label: 'ELO'),
               const SizedBox(width: 10),
               _Stat(
-                  emoji: '⚽',
+                  icon: Icons.sports_soccer,
                   value: '${user.matchesPlayed}',
                   label: 'Matches'),
             ],
@@ -146,12 +149,14 @@ class _PlayerSheet extends StatelessWidget {
           Row(
             children: [
               _Stat(
-                  emoji: '🛡️',
+                  icon: Icons.verified_user_outlined,
                   value: '${user.reliability}%',
                   label: 'Reliability'),
               const SizedBox(width: 10),
               _Stat(
-                  emoji: '🤝', value: user.behaviorLabel, label: 'Behavior'),
+                  icon: Icons.handshake_outlined,
+                  value: user.behaviorLabel,
+                  label: 'Behavior'),
             ],
           ),
         ],
@@ -204,7 +209,7 @@ class _TeamSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          Text('Squad 👕',
+          Text('Squad',
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
@@ -241,7 +246,10 @@ class _TeamSheet extends StatelessWidget {
                                         style: const TextStyle(
                                             fontWeight: FontWeight.w700)),
                                     Text(
-                                      '${positionEmoji(m.position)} ${[if (m.position != null) m.position, 'ELO ${m.elo}'].join(' · ')}',
+                                      [
+                                        if (m.position != null) m.position,
+                                        'ELO ${m.elo}'
+                                      ].join(' · '),
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall,
@@ -268,11 +276,11 @@ class _TeamSheet extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  final String emoji;
+  final IconData icon;
   final String value;
   final String label;
   const _Stat(
-      {required this.emoji, required this.value, required this.label});
+      {required this.icon, required this.value, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -281,7 +289,15 @@ class _Stat extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
         child: Column(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 22)),
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppColors.iconAccent(context).withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: AppColors.iconAccent(context), size: 22),
+            ),
             const SizedBox(height: 8),
             GradientText(value,
                 style: const TextStyle(

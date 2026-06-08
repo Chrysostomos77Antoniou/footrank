@@ -12,14 +12,16 @@ class AppTheme {
 
   static ThemeData _base(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
-    const accent = AppColors.lime;
+    // Bright lime in dark mode; deep green in light mode (more readable on white).
+    final accent = isDark ? AppColors.lime : AppColors.limeDeep;
+    final onAccent = isDark ? AppColors.navy : Colors.white;
     final scheme = ColorScheme.fromSeed(
       seedColor: accent,
       brightness: brightness,
       primary: accent,
-      onPrimary: AppColors.onBrand,
+      onPrimary: onAccent,
       secondary: accent,
-      onSecondary: AppColors.onBrand,
+      onSecondary: onAccent,
     ).copyWith(
       surface: isDark ? _darkBg : _lightBg,
     );

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:footrank/core/utils/emojis.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/user_model.dart';
@@ -24,6 +24,18 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
   void initState() {
     super.initState();
     _future = _repo.fetchPlayers();
+    appRefresh.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    appRefresh.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (!mounted) return;
+    setState(() => _future = _repo.fetchPlayers(position: _position));
   }
 
   void _setPosition(String? position) {
@@ -52,7 +64,7 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                 child: Text('All positions'),
               ),
               ..._positions.map((p) => DropdownMenuItem(
-                  value: p, child: Text('${positionEmoji(p)}  $p'))),
+                  value: p, child: Text(p))),
             ],
             onChanged: _setPosition,
           ),
@@ -110,7 +122,7 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                                           fontWeight: FontWeight.w700)),
                                   Text(
                                     '@${p.username}'
-                                    '${p.position != null ? '  ${positionEmoji(p.position)}' : ''}',
+                                    '${p.position != null ? '  ·  ${p.position}' : ''}',
                                     style:
                                         Theme.of(context).textTheme.bodySmall,
                                   ),

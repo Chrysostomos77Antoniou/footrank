@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/team/data/team_repository.dart';
@@ -63,7 +64,9 @@ class _CreateTeamPageState extends State<CreateTeamPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 8),
-                  const Center(child: Text('🛡️', style: TextStyle(fontSize: 52))),
+                  Center(
+                      child: Icon(Icons.shield_outlined,
+                          size: 52, color: AppColors.iconAccent(context))),
                   const SizedBox(height: 8),
                   const Center(
                     child: GradientText('Start your squad',

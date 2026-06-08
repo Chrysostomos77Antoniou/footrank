@@ -10,6 +10,8 @@ class UserModel {
   final int behaviorNegative;
   final int matchesPlayed;
   final String? avatarUrl;
+  final int disputeCount;
+  final bool flagged;
   final DateTime createdAt;
 
   const UserModel({
@@ -24,6 +26,8 @@ class UserModel {
     this.behaviorNegative = 0,
     this.matchesPlayed = 0,
     this.avatarUrl,
+    this.disputeCount = 0,
+    this.flagged = false,
     required this.createdAt,
   });
 
@@ -50,6 +54,8 @@ class UserModel {
         behaviorNegative: (json['behavior_negative'] as int?) ?? 0,
         matchesPlayed: (json['matches_played'] as int?) ?? 0,
         avatarUrl: json['avatar_url'] as String?,
+        disputeCount: (json['dispute_count'] as int?) ?? 0,
+        flagged: (json['flagged'] as bool?) ?? false,
         createdAt: DateTime.parse(json['created_at'] as String),
       );
 

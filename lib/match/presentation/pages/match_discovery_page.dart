@@ -47,7 +47,8 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
       setState(() => _dismissed.add(opponent.id));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('Match confirmed against ${opponent.teamName}')),
+            content: Text('Match requested against ${opponent.teamName}. '
+                'Waiting for their captain to confirm.')),
       );
     } catch (e) {
       if (mounted) {
@@ -153,11 +154,22 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
             .where((o) => !_dismissed.contains(o.id))
             .toList();
         if (opponents.isEmpty) {
-          return const Center(
+          final ref = _reference;
+          final refLine = ref == null
+              ? ''
+              : '\n\nLooking for: ${ref.city} on '
+                  '${ref.scheduledAt.day.toString().padLeft(2, '0')}/'
+                  '${ref.scheduledAt.month.toString().padLeft(2, '0')}/'
+                  '${ref.scheduledAt.year} around '
+                  '${ref.scheduledAt.hour.toString().padLeft(2, '0')}:'
+                  '${ref.scheduledAt.minute.toString().padLeft(2, '0')}.';
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(24),
+              padding: const EdgeInsets.all(24),
               child: Text(
-                'No matching opponents found.\nSame city, ±30 min, and similar rating.',
+                'No matching opponents found.\n'
+                'Opponents must be in the same city, on the same date '
+                '(±60 min), and a similar rating.$refLine',
                 textAlign: TextAlign.center,
               ),
             ),

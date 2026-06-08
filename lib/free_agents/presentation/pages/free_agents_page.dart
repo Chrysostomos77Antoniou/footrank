@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
-import 'package:footrank/core/utils/emojis.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -33,6 +33,19 @@ class _FreeAgentsPageState extends State<FreeAgentsPage> {
   void initState() {
     super.initState();
     _future = _repo.fetchFreeAgents(_filter);
+    _loadCaptainContext();
+    appRefresh.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    appRefresh.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (!mounted) return;
+    setState(() => _future = _repo.fetchFreeAgents(_filter));
     _loadCaptainContext();
   }
 
@@ -165,7 +178,7 @@ class _AgentCard extends StatelessWidget {
                             fontWeight: FontWeight.w800, fontSize: 15)),
                     const SizedBox(height: 2),
                     Text(
-                      '@${agent.username} · ${positionEmoji(agent.position)} ${agent.position ?? '—'}',
+                      '@${agent.username} · ${agent.position ?? '—'}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -259,7 +272,7 @@ class _FilterBar extends StatelessWidget {
                 child: Text('Any position'),
               ),
               ..._positions.map((p) => DropdownMenuItem(
-                  value: p, child: Text('${positionEmoji(p)}  $p'))),
+                  value: p, child: Text(p))),
             ],
             onChanged: (v) => onChanged(
               filter.copyWith(position: v, clearPosition: v == null),

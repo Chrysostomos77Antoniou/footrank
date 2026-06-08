@@ -94,7 +94,7 @@ class BrandLogo extends StatelessWidget {
         ],
       ),
       child: Icon(Icons.sports_soccer,
-          color: AppColors.onBrand, size: size * 0.55),
+          color: AppColors.onBrand(context), size: size * 0.55),
     );
   }
 }
@@ -127,13 +127,13 @@ class GradientAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: AppColors.navy,
-        border: Border.all(color: AppColors.lime, width: 1.6),
+        border: Border.all(color: AppColors.brand(context), width: 1.6),
       ),
       alignment: Alignment.center,
       child: Text(
         initial,
         style: TextStyle(
-          color: AppColors.lime,
+          color: AppColors.brand(context),
           fontWeight: FontWeight.w800,
           fontSize: radius * 0.8,
         ),

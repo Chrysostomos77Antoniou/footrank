@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/match_repository.dart';
@@ -63,6 +64,9 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
     final picked = await showTimePicker(
       context: context,
       initialTime: _time ?? TimeOfDay.now(),
+      // Default to the keyboard (type the time) — far clearer than the clock dial.
+      initialEntryMode: TimePickerEntryMode.input,
+      helpText: 'Enter kick-off time',
     );
     if (picked != null) setState(() => _time = picked);
   }
@@ -109,8 +113,9 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel =
-        _date == null ? 'Select date' : _date!.toString().split(' ').first;
+    final dateLabel = _date == null
+        ? 'Select date'
+        : '${_date!.day.toString().padLeft(2, '0')}/${_date!.month.toString().padLeft(2, '0')}/${_date!.year}';
     final timeLabel = _time == null ? 'Select time' : _time!.format(context);
 
     return Scaffold(
@@ -124,16 +129,26 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                OutlinedButton.icon(
-                  onPressed: _pickDate,
-                  icon: const Icon(Icons.calendar_today),
-                  label: Text(dateLabel),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: _pickTime,
-                  icon: const Icon(Icons.access_time),
-                  label: Text(timeLabel),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _PickerField(
+                        label: 'Date',
+                        value: dateLabel,
+                        icon: Icons.calendar_today,
+                        onTap: _pickDate,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _PickerField(
+                        label: 'Kick-off time',
+                        value: timeLabel,
+                        icon: Icons.access_time,
+                        onTap: _pickTime,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -177,11 +192,67 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
                         )
                       : const Text('Create Match Request'),
                 ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.iconAccent(context).withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 20, color: AppColors.iconAccent(context)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'After creating, tap "Find Opponents" to match with a '
+                          'nearby team at a similar time and rating.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
         ),
         ),
+      ),
+    );
+  }
+}
+
+/// A tappable, clearly-labelled date / time field (replaces the bare buttons).
+class _PickerField extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _PickerField({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          prefixIcon: Icon(icon, color: AppColors.iconAccent(context)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        ),
+        child: Text(value,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
     );
   }

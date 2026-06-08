@@ -96,21 +96,21 @@ class _NavItem extends StatelessWidget {
         padding:
             EdgeInsets.symmetric(horizontal: selected ? 14 : 10, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? AppColors.lime : Colors.transparent,
+          color: selected ? AppColors.brand(context) : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
             Icon(icon,
                 color: selected
-                    ? AppColors.onBrand
+                    ? AppColors.onBrand(context)
                     : onSurface.withValues(alpha: 0.5),
                 size: 24),
             if (selected) ...[
               const SizedBox(width: 8),
               Text(label,
-                  style: const TextStyle(
-                      color: AppColors.onBrand,
+                  style: TextStyle(
+                      color: AppColors.onBrand(context),
                       fontWeight: FontWeight.w800,
                       fontSize: 13)),
             ],

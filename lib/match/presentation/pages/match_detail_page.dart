@@ -113,6 +113,12 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
   Future<void> _rate(TeamMemberModel player, String rating, {String? reason}) async {
     final match = _match!;
+    if (!_matchStarted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('You can rate players 90 minutes after kick-off (from ${_kickoffLabel()}).')),
+      );
+      return;
+    }
     try {
       await _matchRepo.submitBehavior(
         matchId: match.id,
@@ -142,6 +148,12 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
   Future<void> _submitScore() async {
     final match = _match!;
+    if (!_matchStarted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('You can submit the score 90 minutes after kick-off (from ${_kickoffLabel()}).')),
+      );
+      return;
+    }
     final result = await showDialog<({int home, int away})>(
       context: context,
       builder: (ctx) => _ScoreDialog(
@@ -153,15 +165,25 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     );
     if (result == null) return;
     try {
-      await _matchRepo.submitScore(
+      final status = await _matchRepo.submitScore(
         matchId: match.id,
         homeScore: result.home,
         awayScore: result.away,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Score submitted. Awaiting confirmation.')),
-        );
+        final msg = switch (status) {
+          'completed' =>
+            'Both captains agree on the winner — match completed!',
+          'disputed' =>
+            'Your report disagrees with the opponent on the winner. '
+                'Please check and re-submit.',
+          'resolved' =>
+            'Still disagreeing — resolved automatically in favour of the more '
+                'trusted captain. Match completed.',
+          _ => 'Score submitted. Waiting for the opponent\'s report.',
+        };
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg)));
       }
       await _load();
     } catch (e) {
@@ -173,85 +195,105 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     }
   }
 
-  Future<void> _confirmScore() async {
-    final match = _match!;
-    try {
-      final status = await _matchRepo.confirmScore(match.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(status == 'completed'
-                ? 'Both confirmed — match completed!'
-                : 'Score confirmed.'),
-          ),
-        );
-      }
-      await _load();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-        );
-      }
-    }
+  /// Score & behavior unlock 90 minutes after the scheduled kick-off.
+  DateTime get _submissionOpensAt =>
+      _match!.scheduledAt.add(const Duration(minutes: 90));
+
+  bool get _matchStarted =>
+      _match != null && DateTime.now().toUtc().isAfter(_submissionOpensAt);
+
+  String _kickoffLabel() {
+    final d = _submissionOpensAt.toLocal();
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} '
+        'at ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
+
+  String? _reportText(int? h, int? a) =>
+      (h == null || a == null) ? null : '$h - $a';
 
   Widget _buildScoreSection() {
     final match = _match!;
-    final myConfirmed =
-        _myTeamId == match.homeTeamId ? match.homeConfirmed : match.awayConfirmed;
-    final oppConfirmed =
-        _myTeamId == match.homeTeamId ? match.awayConfirmed : match.homeConfirmed;
+    final iAmHome = _myTeamId == match.homeTeamId;
+    final myReport =
+        iAmHome ? _reportText(match.homeReportH, match.homeReportA)
+                : _reportText(match.awayReportH, match.awayReportA);
+    final oppReport =
+        iAmHome ? _reportText(match.awayReportH, match.awayReportA)
+                : _reportText(match.homeReportH, match.homeReportA);
 
     final List<Widget> children = [
       Text('Final Score', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 8),
     ];
 
-    if (!match.hasScore) {
-      children.add(const Text('No score submitted yet.'));
-      children.add(const SizedBox(height: 12));
-      children.add(FilledButton.icon(
-        onPressed: _submitScore,
-        icon: const Icon(Icons.scoreboard),
-        label: const Text('Submit Score'),
-      ));
-    } else {
+    if (match.status == 'completed') {
       children.add(Text(
         '${match.homeTeamName ?? 'Home'} ${match.homeScore} - '
         '${match.awayScore} ${match.awayTeamName ?? 'Away'}',
         style: Theme.of(context).textTheme.titleLarge,
       ));
+      children.add(const SizedBox(height: 4));
+      children.add(Text('Result confirmed by both captains.',
+          style: Theme.of(context).textTheme.bodySmall));
+    } else if (!_matchStarted) {
+      children.add(Row(
+        children: [
+          const Icon(Icons.lock_clock, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'The score can be submitted 90 minutes after kick-off '
+              '(from ${_kickoffLabel()}).',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ));
+    } else {
+      // Submission window open, not yet completed.
+      children.add(Text('Your team\'s report: ${myReport ?? 'not submitted'}'));
+      children.add(const SizedBox(height: 4));
+      children.add(Text('Opponent\'s report: ${oppReport ?? 'not submitted'}',
+          style: Theme.of(context).textTheme.bodySmall));
       children.add(const SizedBox(height: 8));
 
-      if (myConfirmed && !oppConfirmed) {
-        children.add(const Text('Waiting for opponent to confirm…'));
-        children.add(const SizedBox(height: 8));
-        children.add(OutlinedButton(
-          onPressed: _submitScore,
-          child: const Text('Submit a different score'),
-        ));
-      } else if (!myConfirmed) {
-        children.add(const Text('The opponent submitted this score.'));
-        children.add(const SizedBox(height: 8));
-        children.add(Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _submitScore,
-                child: const Text('Disagree / Re-submit'),
+      if (match.scoreDisputed) {
+        children.add(Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.danger.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded,
+                  color: AppColors.danger, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'The two captains reported different winners. Please check '
+                  'with each other and re-submit. If you disagree again, the '
+                  'result is decided by the more trusted captain (fewer past '
+                  'disputes). Repeated disputes can get a captain flagged and '
+                  'cost the team 500 rating.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: FilledButton(
-                onPressed: _confirmScore,
-                child: const Text('Confirm'),
-              ),
-            ),
-          ],
+            ],
+          ),
         ));
+        children.add(const SizedBox(height: 10));
+      } else if (myReport != null && oppReport == null) {
+        children.add(Text('Waiting for the opponent to submit their score.',
+            style: Theme.of(context).textTheme.bodySmall));
+        children.add(const SizedBox(height: 10));
       }
+
+      children.add(FilledButton.icon(
+        onPressed: _submitScore,
+        icon: const Icon(Icons.scoreboard),
+        label: Text(myReport == null ? 'Submit Score' : 'Re-submit Score'),
+      ));
     }
 
     return Card(
@@ -367,7 +409,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           onMark: _mark,
           canRate: _isCaptain &&
               _opponentTeamId == match.homeTeamId &&
-              status == MatchStatus.completed,
+              _matchStarted,
           behavior: _myBehavior,
           onRateGood: _rateGood,
           onRateBad: _rateBad,
@@ -382,7 +424,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           onMark: _mark,
           canRate: _isCaptain &&
               _opponentTeamId == match.awayTeamId &&
-              status == MatchStatus.completed,
+              _matchStarted,
           behavior: _myBehavior,
           onRateGood: _rateGood,
           onRateBad: _rateBad,

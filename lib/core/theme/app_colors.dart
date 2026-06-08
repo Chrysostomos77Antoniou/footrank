@@ -12,11 +12,24 @@ class AppColors {
   static const Color navy = Color(0xFF14182B);
   static const Color navySoft = Color(0xFF1B2138);
 
-  /// Accent color (same in both themes, Playtomic-style).
-  static Color brand(BuildContext context) => lime;
+  /// Deep green used for accents/icons on light surfaces (lime is too pale).
+  static const Color limeDeep = Color(0xFF1B7A3D);
+  static const Color limeDeeper = Color(0xFF14622F);
 
-  /// Readable text/icon color to place on top of the lime accent.
-  static const Color onBrand = navy;
+  /// Accent color: bright lime in dark mode, deep green in light mode —
+  /// so the brand reads clearly on white backgrounds.
+  static Color brand(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? lime : limeDeep;
+
+  /// Readable text/icon color to place on top of the [brand] accent:
+  /// navy on lime (dark mode), white on deep green (light mode).
+  static Color onBrand(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? navy : Colors.white;
+
+  /// Theme-aware icon/accent color: lime in dark, deep green in light —
+  /// so icons stay readable on light backgrounds.
+  static Color iconAccent(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? lime : limeDeep;
 
   /// Heading/number gradient — navy on light, lime on dark (for contrast).
   static LinearGradient headingGrad(BuildContext context) {
@@ -26,9 +39,11 @@ class AppColors {
         : const LinearGradient(colors: [navy, Color(0xFF2C3354)]);
   }
 
-  /// Accent gradient (always lime) for buttons/badges.
-  static const LinearGradient brandGrad2 =
-      LinearGradient(colors: [lime, limeDark]);
+  /// Accent gradient for buttons/badges: lime in dark, deep green in light.
+  static LinearGradient brandGrad2(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const LinearGradient(colors: [lime, limeDark])
+          : const LinearGradient(colors: [limeDeep, limeDeeper]);
 
   /// Fixed dark navy background for the auth screen (theme-independent).
   static const LinearGradient authGradient = LinearGradient(
@@ -38,7 +53,7 @@ class AppColors {
   );
 
   // Backwards-compatible name used around the app for the accent gradient.
-  static LinearGradient brandGrad(BuildContext context) => brandGrad2;
+  static LinearGradient brandGrad(BuildContext context) => brandGrad2(context);
 
   // Medals
   static const Color gold = Color(0xFFE6B400);

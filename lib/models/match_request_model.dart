@@ -12,6 +12,7 @@ class MatchRequestModel {
   // Optional joined team fields
   final String? teamName;
   final int? teamRating;
+  final String? teamLogo;
 
   const MatchRequestModel({
     required this.id,
@@ -25,6 +26,7 @@ class MatchRequestModel {
     required this.createdAt,
     this.teamName,
     this.teamRating,
+    this.teamLogo,
   });
 
   bool get isRanked => matchType == 'ranked';
@@ -43,6 +45,7 @@ class MatchRequestModel {
       createdAt: DateTime.parse(json['created_at'] as String),
       teamName: team?['name'] as String?,
       teamRating: team?['rating'] as int?,
+      teamLogo: team?['logo_url'] as String?,
     );
   }
 }

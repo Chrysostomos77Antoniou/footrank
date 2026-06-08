@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -29,7 +30,7 @@ class _RankingsPageState extends State<RankingsPage> {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: GradientText(
-                    'Rankings 🏆',
+                    'Rankings',
                     style:
                         TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
                   ),
@@ -39,7 +40,7 @@ class _RankingsPageState extends State<RankingsPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: _GlassTabs(
                   index: _tab,
-                  tabs: const ['⚽ Players', '🛡️ Teams'],
+                  tabs: const ['Players', 'Teams'],
                   onChanged: (i) => setState(() => _tab = i),
                 ),
               ),
@@ -130,15 +131,18 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
     super.initState();
     _future = _repo.fetchTeams();
     _cityCtrl.addListener(() => setState(() {}));
+    appRefresh.addListener(_applyCity);
   }
 
   @override
   void dispose() {
+    appRefresh.removeListener(_applyCity);
     _cityCtrl.dispose();
     super.dispose();
   }
 
   void _applyCity() {
+    if (!mounted) return;
     setState(() {
       _future = _repo.fetchTeams(city: _cityCtrl.text);
     });

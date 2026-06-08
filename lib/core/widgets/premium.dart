@@ -1,18 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 
-/// Flat solid background (no glows). Uses the theme's scaffold color.
+/// App background: solid scaffold color with a very subtle line texture and a
+/// soft accent glow at the top — adds depth without hurting readability.
 class AmbientBackground extends StatelessWidget {
   final Widget child;
   const AmbientBackground({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: child,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base = Theme.of(context).scaffoldBackgroundColor;
+    return Stack(
+      children: [
+        Positioned.fill(child: ColoredBox(color: base)),
+        // soft accent glow, top-left
+        Positioned(
+          top: -120,
+          left: -100,
+          child: Container(
+            width: 320,
+            height: 320,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(colors: [
+                AppColors.lime.withValues(alpha: isDark ? 0.08 : 0.10),
+                AppColors.lime.withValues(alpha: 0),
+              ]),
+            ),
+          ),
+        ),
+        // faint diagonal line texture
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _LineTexturePainter(
+              color: (isDark ? Colors.white : Colors.black)
+                  .withValues(alpha: isDark ? 0.025 : 0.03),
+            ),
+          ),
+        ),
+        Positioned.fill(child: child),
+      ],
     );
   }
+}
+
+class _LineTexturePainter extends CustomPainter {
+  final Color color;
+  const _LineTexturePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.2;
+    const gap = 26.0;
+    // diagonal lines (45°) across the canvas
+    for (double x = -size.height; x < size.width; x += gap) {
+      canvas.drawLine(Offset(x, 0), Offset(x + size.height, size.height), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LineTexturePainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 /// Clean solid card with a subtle border + soft neutral shadow.
@@ -265,12 +316,12 @@ class CaptainArmband extends StatelessWidget {
         color: color,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-            color: AppColors.onBrand.withValues(alpha: 0.35), width: 1.2),
+            color: AppColors.onBrand(context).withValues(alpha: 0.35), width: 1.2),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: AppColors.onBrand,
+        style: TextStyle(
+          color: AppColors.onBrand(context),
           fontWeight: FontWeight.w900,
           fontSize: 11,
           letterSpacing: 0.5,
@@ -298,12 +349,12 @@ class GradientPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, color: AppColors.onBrand, size: 15),
+            Icon(icon, color: AppColors.onBrand(context), size: 15),
             const SizedBox(width: 5),
           ],
           Text(text,
-              style: const TextStyle(
-                  color: AppColors.onBrand,
+              style: TextStyle(
+                  color: AppColors.onBrand(context),
                   fontWeight: FontWeight.w800,
                   fontSize: 13)),
         ],
