@@ -113,7 +113,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: Row(
                       children: [
                         _StatCard(
-                          label: 'ELO',
+                          label: 'Pitch Power',
                           value: '${user.elo}',
                           icon: Icons.trending_up,
                         ),

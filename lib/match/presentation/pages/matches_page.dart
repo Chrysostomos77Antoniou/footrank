@@ -350,8 +350,10 @@ class _MatchesPageState extends State<MatchesPage> {
               final myTeamId = _team?.id;
               final pending =
                   all.where((m) => m.status == 'pending').toList();
-              final confirmed =
-                  all.where((m) => m.status != 'pending').toList();
+              final upcoming =
+                  all.where((m) => m.status == 'confirmed').toList();
+              final history =
+                  all.where((m) => m.status == 'completed').toList();
               return Column(
                 children: [
                   if (pending.isNotEmpty) ...[
@@ -366,15 +368,24 @@ class _MatchesPageState extends State<MatchesPage> {
                       );
                     }),
                   ],
-                  _SectionHeader(title: 'Confirmed Matches'),
-                  if (confirmed.isEmpty)
+                  _SectionHeader(title: 'Upcoming Matches'),
+                  if (upcoming.isEmpty)
                     const Padding(
                       padding:
                           EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Text('No confirmed matches yet.'),
+                      child: Text('No upcoming matches.'),
                     )
                   else
-                    ...confirmed.map((m) => _MatchCard(match: m)),
+                    ...upcoming.map((m) => _MatchCard(match: m, myTeamId: myTeamId)),
+                  _SectionHeader(title: 'Match History'),
+                  if (history.isEmpty)
+                    const Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Text('No past matches yet.'),
+                    )
+                  else
+                    ...history.map((m) => _MatchCard(match: m, myTeamId: myTeamId)),
                 ],
               );
             },
@@ -400,7 +411,24 @@ class _SectionHeader extends StatelessWidget {
 
 class _MatchCard extends StatelessWidget {
   final MatchModel match;
-  const _MatchCard({required this.match});
+  final String? myTeamId;
+  const _MatchCard({required this.match, this.myTeamId});
+
+  /// 'win' | 'loss' | 'draw' for my team, or null if not a finished match.
+  String? get _result {
+    if (match.status != 'completed' ||
+        match.homeScore == null ||
+        match.awayScore == null ||
+        myTeamId == null) {
+      return null;
+    }
+    final iAmHome = match.homeTeamId == myTeamId;
+    final mine = iAmHome ? match.homeScore! : match.awayScore!;
+    final theirs = iAmHome ? match.awayScore! : match.homeScore!;
+    if (mine > theirs) return 'win';
+    if (mine < theirs) return 'loss';
+    return 'draw';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -411,12 +439,26 @@ class _MatchCard extends StatelessWidget {
     final center = (match.homeScore != null && match.awayScore != null)
         ? '${match.homeScore} - ${match.awayScore}'
         : 'vs';
+    final result = _result;
+    final (Color? accent, String? label) = switch (result) {
+      'win' => (AppColors.success, 'WON'),
+      'loss' => (AppColors.danger, 'LOST'),
+      'draw' => (AppColors.silver, 'DRAW'),
+      _ => (null, null),
+    };
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: () => context.push(AppRoutes.matchDetail, extra: match.id),
-        child: Padding(
+        child: Container(
+          decoration: accent == null
+              ? null
+              : BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border(
+                      left: BorderSide(color: accent, width: 5)),
+                ),
           padding: const EdgeInsets.all(12),
           child: Column(
             children: [
@@ -427,6 +469,7 @@ class _MatchCard extends StatelessWidget {
                       name: match.homeTeamName ?? 'Home',
                       logo: match.homeTeamLogo,
                       rating: match.homeTeamRating,
+                      record: match.homeTeamRecord,
                     ),
                   ),
                   Padding(
@@ -442,6 +485,7 @@ class _MatchCard extends StatelessWidget {
                       name: match.awayTeamName ?? 'Away',
                       logo: match.awayTeamLogo,
                       rating: match.awayTeamRating,
+                      record: match.awayTeamRecord,
                       alignEnd: true,
                     ),
                   ),
@@ -451,10 +495,27 @@ class _MatchCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('${match.city} · $when · ${match.matchType}',
-                      style: Theme.of(context).textTheme.bodySmall),
-                  Text(MatchStatus.fromString(match.status).label,
-                      style: Theme.of(context).textTheme.labelLarge),
+                  Expanded(
+                    child: Text('${match.city} · $when · ${match.matchType}',
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ),
+                  if (label != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: accent!.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(label,
+                          style: TextStyle(
+                              color: accent,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12)),
+                    )
+                  else
+                    Text(MatchStatus.fromString(match.status).label,
+                        style: Theme.of(context).textTheme.labelLarge),
                 ],
               ),
             ],
@@ -470,11 +531,13 @@ class _TeamMini extends StatelessWidget {
   final String name;
   final String? logo;
   final int? rating;
+  final String? record;
   final bool alignEnd;
   const _TeamMini({
     required this.name,
     this.logo,
     this.rating,
+    this.record,
     this.alignEnd = false,
   });
 
@@ -491,6 +554,14 @@ class _TeamMini extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 2),
         _EloChip(rating: rating),
+        if (record != null) ...[
+          const SizedBox(height: 2),
+          Text(record!,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(fontWeight: FontWeight.w800)),
+        ],
       ],
     );
     final children = alignEnd
@@ -513,7 +584,7 @@ class _EloChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        'ELO ${rating ?? '-'}',
+        'PWR ${rating ?? '-'}',
         style: TextStyle(
           color: AppColors.iconAccent(context),
           fontWeight: FontWeight.w800,
@@ -609,6 +680,7 @@ class _PendingMatchCard extends StatelessWidget {
                     name: match.homeTeamName ?? 'Home',
                     logo: match.homeTeamLogo,
                     rating: match.homeTeamRating,
+                      record: match.homeTeamRecord,
                   ),
                 ),
                 const Padding(
@@ -621,6 +693,7 @@ class _PendingMatchCard extends StatelessWidget {
                     name: match.awayTeamName ?? 'Away',
                     logo: match.awayTeamLogo,
                     rating: match.awayTeamRating,
+                      record: match.awayTeamRecord,
                     alignEnd: true,
                   ),
                 ),

@@ -214,7 +214,7 @@ class _HeroBanner extends StatelessWidget {
                         fontWeight: FontWeight.w800)),
                 const SizedBox(height: 6),
                 Text(
-                  'Win matches to boost your ELO and lead the leaderboard.',
+                  'Win matches to boost your Pitch Power and lead the leaderboard.',
                   style: TextStyle(
                       color: AppColors.onBrand(context).withValues(alpha: 0.8),
                       fontSize: 13),

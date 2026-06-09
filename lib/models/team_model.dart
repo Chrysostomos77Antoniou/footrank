@@ -6,6 +6,9 @@ class TeamModel {
   final String captainId;
   final int rating;
   final String? inviteCode;
+  final int wins;
+  final int losses;
+  final int draws;
   final DateTime createdAt;
 
   const TeamModel({
@@ -16,8 +19,19 @@ class TeamModel {
     required this.captainId,
     this.rating = 1500,
     this.inviteCode,
+    this.wins = 0,
+    this.losses = 0,
+    this.draws = 0,
     required this.createdAt,
   });
+
+  /// Short W–L (–D) record, e.g. "5W · 2L" or "5W · 2L · 1D".
+  String get record {
+    final base = '${wins}W · ${losses}L';
+    return draws > 0 ? '$base · ${draws}D' : base;
+  }
+
+  int get played => wins + losses + draws;
 
   factory TeamModel.fromJson(Map<String, dynamic> json) => TeamModel(
         id: json['id'] as String,
@@ -27,6 +41,9 @@ class TeamModel {
         captainId: json['captain_id'] as String,
         rating: (json['rating'] as int?) ?? 1500,
         inviteCode: json['invite_code'] as String?,
+        wins: (json['wins'] as int?) ?? 0,
+        losses: (json['losses'] as int?) ?? 0,
+        draws: (json['draws'] as int?) ?? 0,
         createdAt: DateTime.parse(json['created_at'] as String),
       );
 }

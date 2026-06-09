@@ -165,7 +165,7 @@ class _FadeSlideInState extends State<FadeSlideIn>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 520),
+    duration: const Duration(milliseconds: 280),
   );
   late final Animation<double> _fade =
       CurvedAnimation(parent: _c, curve: Curves.easeOut);
@@ -177,7 +177,11 @@ class _FadeSlideInState extends State<FadeSlideIn>
   @override
   void initState() {
     super.initState();
-    Future.delayed(widget.delay, () {
+    // Cap the stagger so long lists don't drag on slowly.
+    final capped = widget.delay > const Duration(milliseconds: 160)
+        ? const Duration(milliseconds: 160)
+        : widget.delay;
+    Future.delayed(capped, () {
       if (mounted) _c.forward();
     });
   }

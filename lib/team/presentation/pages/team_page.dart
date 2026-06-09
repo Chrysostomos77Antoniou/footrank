@@ -178,7 +178,17 @@ class _TeamView extends StatelessWidget {
                     leading: Icon(Icons.star_rounded,
                         color: AppColors.iconAccent(context)),
                     value: '${team.rating}',
-                    label: 'Team Rating',
+                    label: 'Pitch Power',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _MiniStat(
+                    leading: Icon(Icons.emoji_events_outlined,
+                        color: AppColors.iconAccent(context)),
+                    value: '${team.wins}-${team.losses}'
+                        '${team.draws > 0 ? '-${team.draws}' : ''}',
+                    label: 'W-L${team.draws > 0 ? '-D' : ''}',
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -474,7 +484,7 @@ class _PendingRequestsState extends State<_PendingRequests> {
                               Text(
                                 [
                                   if (r.position != null) r.position,
-                                  'ELO ${r.elo}'
+                                  'PWR ${r.elo}'
                                 ].join(' · '),
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
@@ -627,7 +637,7 @@ class _MemberListState extends State<_MemberList> {
                           Text(
                             [
                               if (m.position != null) m.position,
-                              'ELO ${m.elo}',
+                              'PWR ${m.elo}',
                               '${m.reliability}%'
                             ].join(' · '),
                             style: Theme.of(context).textTheme.bodySmall,

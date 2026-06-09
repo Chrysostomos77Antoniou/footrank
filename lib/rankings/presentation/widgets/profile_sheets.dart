@@ -137,7 +137,7 @@ class _PlayerSheet extends StatelessWidget {
               _Stat(
                   icon: Icons.trending_up,
                   value: '${user.elo}',
-                  label: 'ELO'),
+                  label: 'PWR'),
               const SizedBox(width: 10),
               _Stat(
                   icon: Icons.sports_soccer,
@@ -203,8 +203,17 @@ class _TeamSheet extends StatelessWidget {
                   Text('📍 ${team.city}',
                       style: Theme.of(context).textTheme.bodyMedium),
                 const SizedBox(height: 10),
-                GradientPill(
-                    text: 'Rating ${team.rating}', icon: Icons.star),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    GradientPill(
+                        text: 'PWR ${team.rating}', icon: Icons.star),
+                    GradientPill(
+                        text: team.record, icon: Icons.emoji_events_outlined),
+                  ],
+                ),
               ],
             ),
           ),
@@ -248,7 +257,7 @@ class _TeamSheet extends StatelessWidget {
                                     Text(
                                       [
                                         if (m.position != null) m.position,
-                                        'ELO ${m.elo}'
+                                        'PWR ${m.elo}'
                                       ].join(' · '),
                                       style: Theme.of(context)
                                           .textTheme

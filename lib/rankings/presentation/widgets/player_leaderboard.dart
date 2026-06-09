@@ -129,7 +129,7 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                                 ],
                               ),
                             ),
-                            GradientPill(text: '${p.elo}', icon: Icons.bolt),
+                            GradientPill(text: 'PWR ${p.elo}', icon: Icons.bolt),
                           ],
                         ),
                       ),

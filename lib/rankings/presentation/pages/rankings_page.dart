@@ -212,11 +212,22 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
                                   Text(t.name,
                                       style: const TextStyle(
                                           fontWeight: FontWeight.w700)),
-                                  if (t.city != null)
-                                    Text(t.city!,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall),
+                                  Text.rich(
+                                    TextSpan(
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall,
+                                      children: [
+                                        if (t.city != null)
+                                          TextSpan(text: '${t.city!} · '),
+                                        TextSpan(
+                                          text: t.record,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w800),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),

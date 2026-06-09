@@ -29,6 +29,8 @@ class MatchModel {
   final String? awayTeamLogo;
   final int? homeTeamRating;
   final int? awayTeamRating;
+  final String? homeTeamRecord;
+  final String? awayTeamRecord;
 
   const MatchModel({
     required this.id,
@@ -59,7 +61,18 @@ class MatchModel {
     this.awayTeamLogo,
     this.homeTeamRating,
     this.awayTeamRating,
+    this.homeTeamRecord,
+    this.awayTeamRecord,
   });
+
+  static String? _recordOf(Map<String, dynamic>? team) {
+    if (team == null) return null;
+    final w = (team['wins'] as int?) ?? 0;
+    final l = (team['losses'] as int?) ?? 0;
+    final d = (team['draws'] as int?) ?? 0;
+    final base = '${w}W · ${l}L';
+    return d > 0 ? '$base · ${d}D' : base;
+  }
 
   bool get hasScore => homeScore != null && awayScore != null;
 
@@ -95,6 +108,8 @@ class MatchModel {
       awayTeamLogo: away?['logo_url'] as String?,
       homeTeamRating: home?['rating'] as int?,
       awayTeamRating: away?['rating'] as int?,
+      homeTeamRecord: _recordOf(home),
+      awayTeamRecord: _recordOf(away),
     );
   }
 }
