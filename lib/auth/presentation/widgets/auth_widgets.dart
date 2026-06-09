@@ -90,17 +90,19 @@ class AuthPrimaryButton extends StatelessWidget {
   }
 }
 
-/// Glassy "Continue/Sign up with Google" button for auth screens.
+/// Glassy social-auth button for auth screens (Google / Apple).
 class AuthGoogleButton extends StatelessWidget {
   final bool loading;
   final String label;
   final VoidCallback onPressed;
+  final IconData icon;
 
   const AuthGoogleButton({
     super.key,
     required this.loading,
     required this.label,
     required this.onPressed,
+    this.icon = Icons.g_mobiledata,
   });
 
   @override
@@ -118,7 +120,7 @@ class AuthGoogleButton extends StatelessWidget {
               child: CircularProgressIndicator(
                   strokeWidth: 2, color: Colors.white),
             )
-          : const Icon(Icons.g_mobiledata, size: 26),
+          : Icon(icon, size: icon == Icons.g_mobiledata ? 26 : 20),
       label: Text(label),
     );
   }

@@ -23,6 +23,8 @@ class _LoginPageState extends State<LoginPage> {
   final _repo = AuthRepository();
   bool _loading = false;
   bool _googleLoading = false;
+  bool _appleLoading = false;
+  bool _facebookLoading = false;
 
   @override
   void dispose() {
@@ -61,6 +63,34 @@ class _LoginPageState extends State<LoginPage> {
       }
     } finally {
       if (mounted) setState(() => _googleLoading = false);
+    }
+  }
+
+  Future<void> _signInWithApple() async {
+    setState(() => _appleLoading = true);
+    try {
+      await _repo.signInWithApple();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _appleLoading = false);
+    }
+  }
+
+  Future<void> _signInWithFacebook() async {
+    setState(() => _facebookLoading = true);
+    try {
+      await _repo.signInWithFacebook();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _facebookLoading = false);
     }
   }
 
@@ -118,6 +148,20 @@ class _LoginPageState extends State<LoginPage> {
                               loading: _googleLoading,
                               label: 'Continue with Google',
                               onPressed: _signInWithGoogle,
+                            ),
+                            const SizedBox(height: 10),
+                            AuthGoogleButton(
+                              loading: _appleLoading,
+                              label: 'Continue with Apple',
+                              icon: Icons.apple,
+                              onPressed: _signInWithApple,
+                            ),
+                            const SizedBox(height: 10),
+                            AuthGoogleButton(
+                              loading: _facebookLoading,
+                              label: 'Continue with Facebook',
+                              icon: Icons.facebook,
+                              onPressed: _signInWithFacebook,
                             ),
                             const SizedBox(height: 18),
                             const AuthOrDivider(),

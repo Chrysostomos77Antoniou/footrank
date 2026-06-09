@@ -26,6 +26,20 @@ class AuthRepository {
         redirectTo: _redirectUrl,
       );
 
+  /// Sign in with Apple. Functional once the Apple provider is configured in
+  /// Supabase (requires a paid Apple Developer account); works on iOS/macOS.
+  Future<void> signInWithApple() => _client.auth.signInWithOAuth(
+        OAuthProvider.apple,
+        redirectTo: _redirectUrl,
+      );
+
+  /// Sign in with Facebook. Functional once the Facebook provider is enabled
+  /// in Supabase (needs a Facebook app's ID + secret).
+  Future<void> signInWithFacebook() => _client.auth.signInWithOAuth(
+        OAuthProvider.facebook,
+        redirectTo: _redirectUrl,
+      );
+
   Future<void> signOut() => _client.auth.signOut();
 
   bool get isNewUser {
