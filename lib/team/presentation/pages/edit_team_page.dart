@@ -2,7 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:footrank/core/constants/cities.dart';
+import 'package:footrank/core/services/gallery_picker.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
@@ -21,10 +22,9 @@ class EditTeamPage extends StatefulWidget {
 class _EditTeamPageState extends State<EditTeamPage> {
   final _formKey = GlobalKey<FormState>();
   final _repo = TeamRepository();
-  final _picker = ImagePicker();
 
   late final _nameCtrl = TextEditingController(text: widget.team.name);
-  late final _cityCtrl = TextEditingController(text: widget.team.city ?? '');
+  late String? _city = canonicalCity(widget.team.city);
 
   List<int>? _pickedBytes;
   String? _pickedExt;
@@ -40,21 +40,15 @@ class _EditTeamPageState extends State<EditTeamPage> {
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _cityCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage() async {
-    final file = await _picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 800,
-      imageQuality: 80,
-    );
-    if (file == null) return;
-    final bytes = await file.readAsBytes();
+    final picked = await GalleryPicker.pick();
+    if (picked == null) return;
     setState(() {
-      _pickedBytes = bytes;
-      _pickedExt = file.name.split('.').last.toLowerCase();
+      _pickedBytes = picked.bytes;
+      _pickedExt = picked.ext;
     });
   }
 
@@ -69,7 +63,7 @@ class _EditTeamPageState extends State<EditTeamPage> {
       await _repo.updateTeam(
         teamId: widget.team.id,
         name: _nameCtrl.text.trim(),
-        city: _cityCtrl.text.trim().isEmpty ? null : _cityCtrl.text.trim(),
+        city: _city,
         logoUrl: logoUrl,
       );
       if (mounted) {
@@ -125,13 +119,18 @@ class _EditTeamPageState extends State<EditTeamPage> {
                         : null,
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _cityCtrl,
-                    textCapitalization: TextCapitalization.words,
+                  DropdownButtonFormField<String>(
+                    value: _city,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'City',
                       prefixIcon: Icon(Icons.place_outlined),
                     ),
+                    items: kCities
+                        .map((c) =>
+                            DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _city = v),
                   ),
                   const SizedBox(height: 28),
                   PressableScale(

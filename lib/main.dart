@@ -18,7 +18,7 @@ Future<void> main() async {
   FlutterNativeSplash.preserve(widgetsBinding: binding);
   final startedAt = DateTime.now();
 
-  // Use Android's system Photo Picker (gallery grid) instead of the file picker.
+  // Use Android's system Photo Picker (gallery grid) where available.
   final picker = ImagePickerPlatform.instance;
   if (picker is ImagePickerAndroid) {
     picker.useAndroidPhotoPicker = true;

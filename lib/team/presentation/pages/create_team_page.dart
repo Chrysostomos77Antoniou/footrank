@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -15,14 +16,13 @@ class CreateTeamPage extends StatefulWidget {
 class _CreateTeamPageState extends State<CreateTeamPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
-  final _cityCtrl = TextEditingController();
   final _repo = TeamRepository();
+  String? _city;
   bool _loading = false;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _cityCtrl.dispose();
     super.dispose();
   }
 
@@ -32,7 +32,7 @@ class _CreateTeamPageState extends State<CreateTeamPage> {
     try {
       await _repo.createTeam(
         name: _nameCtrl.text.trim(),
-        city: _cityCtrl.text.trim().isEmpty ? null : _cityCtrl.text.trim(),
+        city: _city,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -90,13 +90,18 @@ class _CreateTeamPageState extends State<CreateTeamPage> {
                         : null,
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _cityCtrl,
-                    textCapitalization: TextCapitalization.words,
+                  DropdownButtonFormField<String>(
+                    value: _city,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'City',
                       prefixIcon: Icon(Icons.place_outlined),
                     ),
+                    items: kCities
+                        .map((c) =>
+                            DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _city = v),
                   ),
                   const SizedBox(height: 28),
                   FilledButton(

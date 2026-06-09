@@ -2,7 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:footrank/core/constants/cities.dart';
+import 'package:footrank/core/services/gallery_picker.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
@@ -23,11 +24,10 @@ class EditProfilePage extends StatefulWidget {
 class _EditProfilePageState extends State<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final _repo = ProfileRepository();
-  final _picker = ImagePicker();
 
   late final _nameCtrl = TextEditingController(text: widget.user.name);
   late final _usernameCtrl = TextEditingController(text: widget.user.username);
-  late final _cityCtrl = TextEditingController(text: widget.user.city ?? '');
+  late String? _city = canonicalCity(widget.user.city);
   late String? _position = widget.user.position;
 
   List<int>? _pickedBytes;
@@ -45,21 +45,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void dispose() {
     _nameCtrl.dispose();
     _usernameCtrl.dispose();
-    _cityCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage() async {
-    final file = await _picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 800,
-      imageQuality: 80,
-    );
-    if (file == null) return;
-    final bytes = await file.readAsBytes();
+    final picked = await GalleryPicker.pick();
+    if (picked == null) return;
     setState(() {
-      _pickedBytes = bytes;
-      _pickedExt = file.name.split('.').last.toLowerCase();
+      _pickedBytes = picked.bytes;
+      _pickedExt = picked.ext;
     });
   }
 
@@ -74,7 +68,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       await _repo.updateProfile(
         name: _nameCtrl.text.trim(),
         username: _usernameCtrl.text.trim(),
-        city: _cityCtrl.text.trim().isEmpty ? null : _cityCtrl.text.trim(),
+        city: _city,
         position: _position,
         avatarUrl: avatarUrl,
       );
@@ -154,13 +148,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _cityCtrl,
-                    textCapitalization: TextCapitalization.words,
+                  DropdownButtonFormField<String>(
+                    value: _city,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'City',
                       prefixIcon: Icon(Icons.place_outlined),
                     ),
+                    items: kCities
+                        .map((c) =>
+                            DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _city = v),
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 
@@ -16,8 +17,8 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _usernameCtrl = TextEditingController();
-  final _cityCtrl = TextEditingController();
   final _repo = ProfileRepository();
+  String? _city;
   String? _position;
   bool _loading = false;
 
@@ -25,7 +26,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   void dispose() {
     _nameCtrl.dispose();
     _usernameCtrl.dispose();
-    _cityCtrl.dispose();
     super.dispose();
   }
 
@@ -36,7 +36,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       await _repo.createProfile(
         name: _nameCtrl.text.trim(),
         username: _usernameCtrl.text.trim(),
-        city: _cityCtrl.text.trim().isEmpty ? null : _cityCtrl.text.trim(),
+        city: _city,
         position: _position,
       );
       if (mounted) context.go(AppRoutes.home);
@@ -108,13 +108,18 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                   },
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _cityCtrl,
-                  textCapitalization: TextCapitalization.words,
+                DropdownButtonFormField<String>(
+                  value: _city,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'City',
                     border: OutlineInputBorder(),
                   ),
+                  items: kCities
+                      .map((c) =>
+                          DropdownMenuItem(value: c, child: Text(c)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _city = v),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(

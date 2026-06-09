@@ -25,15 +25,35 @@ class _RankingsPageState extends State<RankingsPage> {
         child: SafeArea(
           child: Column(
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 16, 20, 12),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: GradientText(
-                    'Rankings',
-                    style:
-                        TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
-                  ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const GradientText(
+                      'Rankings',
+                      style:
+                          TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(width: 10),
+                    if (_tab == 0)
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Text(
+                            'Min. ${RankingRepository.minMatches} matches played to be ranked',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               Padding(

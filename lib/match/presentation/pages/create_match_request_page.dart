@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -17,10 +18,10 @@ class CreateMatchRequestPage extends StatefulWidget {
 
 class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
   final _formKey = GlobalKey<FormState>();
-  final _cityCtrl = TextEditingController();
   final _repo = MatchRepository();
   final _teamRepo = TeamRepository();
 
+  String? _city;
   DateTime? _date;
   TimeOfDay? _time;
   String _matchType = 'casual';
@@ -38,15 +39,9 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
 
   Future<void> _prefillCity() async {
     final team = await _teamRepo.fetchById(widget.teamId);
-    if (mounted && _cityCtrl.text.isEmpty && team.city != null) {
-      _cityCtrl.text = team.city!;
+    if (mounted && _city == null) {
+      setState(() => _city = canonicalCity(team.city));
     }
-  }
-
-  @override
-  void dispose() {
-    _cityCtrl.dispose();
-    super.dispose();
   }
 
   Future<void> _pickDate() async {
@@ -73,6 +68,12 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_city == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a city')),
+      );
+      return;
+    }
     if (_date == null || _time == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please pick a date and time')),
@@ -91,7 +92,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
     try {
       await _repo.createMatchRequest(
         teamId: widget.teamId,
-        city: _cityCtrl.text.trim(),
+        city: _city!,
         scheduledAt: scheduledAt,
         matchType: _matchType,
       );
@@ -151,15 +152,20 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _cityCtrl,
-                  textCapitalization: TextCapitalization.words,
+                DropdownButtonFormField<String>(
+                  value: _city,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'City',
                     border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.place_outlined),
                   ),
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty ? 'City is required' : null,
+                  items: kCities
+                      .map((c) =>
+                          DropdownMenuItem(value: c, child: Text(c)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _city = v),
+                  validator: (v) => v == null ? 'City is required' : null,
                 ),
                 const SizedBox(height: 20),
                 Text('Match Type',
