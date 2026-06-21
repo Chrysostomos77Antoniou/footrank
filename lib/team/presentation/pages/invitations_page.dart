@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/utils/error_text.dart';
+import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/models/invitation_model.dart';
 import 'package:footrank/team/data/team_repository.dart';
 
@@ -65,17 +66,21 @@ class _InvitationsPageState extends State<InvitationsPage> {
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const LoadingView();
             }
             if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
+              return ErrorView(onRetry: _reload);
             }
             final invites = snapshot.data ?? [];
             if (invites.isEmpty) {
               return ListView(
                 children: const [
-                  SizedBox(height: 120),
-                  Center(child: Text('No pending invitations')),
+                  SizedBox(height: 80),
+                  EmptyView(
+                    icon: Icons.mail_outline,
+                    title: 'No pending invitations',
+                    hint: 'Team captains can invite you from Free Agents.',
+                  ),
                 ],
               );
             }

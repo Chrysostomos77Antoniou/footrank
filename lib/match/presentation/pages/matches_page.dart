@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_model.dart';
@@ -240,17 +241,13 @@ class _MatchesPageState extends State<MatchesPage> {
 
   Widget _buildBody() {
     if (_loadingTeam) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingView();
     }
     if (_team == null) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'Join or create a team to organise matches.',
-            textAlign: TextAlign.center,
-          ),
-        ),
+      return const EmptyView(
+        icon: Icons.groups_outlined,
+        title: 'No team yet',
+        hint: 'Join or create a team to organise matches.',
       );
     }
     return RefreshIndicator(

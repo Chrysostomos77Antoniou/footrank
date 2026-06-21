@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -104,15 +105,18 @@ class _FreeAgentsPageState extends State<FreeAgentsPage> {
                 future: _future,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const LoadingView();
                   }
                   if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
+                    return ErrorView(
+                        onRetry: () => _applyFilter(_filter));
                   }
                   final agents = snapshot.data ?? [];
                   if (agents.isEmpty) {
-                    return const Center(
-                      child: Text('No free agents match these filters'),
+                    return const EmptyView(
+                      icon: Icons.person_search_outlined,
+                      title: 'No free agents found',
+                      hint: 'Try clearing the filters, or check back later.',
                     );
                   }
                   return ListView.builder(
