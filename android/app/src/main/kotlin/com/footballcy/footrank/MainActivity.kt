@@ -1,4 +1,4 @@
-package com.example.footrank
+package com.footballcy.footrank
 
 import android.app.Activity
 import android.content.Intent
