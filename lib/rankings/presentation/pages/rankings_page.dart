@@ -164,7 +164,7 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
   void _applyCity() {
     if (!mounted) return;
     setState(() {
-      _future = _repo.fetchTeams(city: _cityCtrl.text);
+      _future = _repo.fetchTeams();
     });
   }
 
@@ -176,20 +176,14 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: TextField(
             controller: _cityCtrl,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => _applyCity(),
             decoration: InputDecoration(
-              hintText: 'Filter by city…',
-              prefixIcon: const Icon(Icons.place_outlined),
+              hintText: 'Search teams by name or city…',
+              prefixIcon: const Icon(Icons.search),
               suffixIcon: _cityCtrl.text.isEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.search), onPressed: _applyCity)
+                  ? null
                   : IconButton(
                       icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _cityCtrl.clear();
-                        _applyCity();
-                      }),
+                      onPressed: () => _cityCtrl.clear()),
             ),
           ),
         ),
@@ -200,11 +194,27 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final teams = snapshot.data ?? [];
+              final all = snapshot.data ?? [];
+              final q = _cityCtrl.text.trim().toLowerCase();
+              final teams = q.isEmpty
+                  ? all
+                  : all
+                      .where((t) =>
+                          t.name.toLowerCase().contains(q) ||
+                          (t.city ?? '').toLowerCase().contains(q))
+                      .toList();
               if (teams.isEmpty) {
-                return const Center(child: Text('No teams found'));
+                return RefreshIndicator(
+                  onRefresh: () async => _applyCity(),
+                  child: ListView(children: const [
+                    SizedBox(height: 120),
+                    Center(child: Text('No teams found')),
+                  ]),
+                );
               }
-              return ListView.builder(
+              return RefreshIndicator(
+                onRefresh: () async => _applyCity(),
+                child: ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
                 itemCount: teams.length,
                 itemBuilder: (context, i) {
@@ -258,6 +268,7 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
                     ),
                   );
                 },
+              ),
               );
             },
           ),

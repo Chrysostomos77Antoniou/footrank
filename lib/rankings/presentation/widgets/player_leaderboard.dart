@@ -17,6 +17,7 @@ class PlayerLeaderboard extends StatefulWidget {
 
 class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
   final _repo = RankingRepository();
+  final _searchCtrl = TextEditingController();
   String? _position;
   late Future<List<UserModel>> _future;
 
@@ -24,12 +25,14 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
   void initState() {
     super.initState();
     _future = _repo.fetchPlayers();
+    _searchCtrl.addListener(() => setState(() {}));
     appRefresh.addListener(_refresh);
   }
 
   @override
   void dispose() {
     appRefresh.removeListener(_refresh);
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -50,7 +53,22 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: TextField(
+            controller: _searchCtrl,
+            decoration: InputDecoration(
+              hintText: 'Search players by name…',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchCtrl.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () => _searchCtrl.clear()),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: DropdownButtonFormField<String>(
             value: _position,
             isExpanded: true,
@@ -79,20 +97,36 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
               if (snapshot.hasError) {
                 return Center(child: Text('Error: ${snapshot.error}'));
               }
-              final players = snapshot.data ?? [];
+              final all = snapshot.data ?? [];
+              final q = _searchCtrl.text.trim().toLowerCase();
+              final players = q.isEmpty
+                  ? all
+                  : all
+                      .where((p) =>
+                          p.name.toLowerCase().contains(q) ||
+                          p.username.toLowerCase().contains(q))
+                      .toList();
               if (players.isEmpty) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      'No ranked players yet.\n'
-                      'Players appear here after playing 5+ matches.',
-                      textAlign: TextAlign.center,
-                    ),
+                return RefreshIndicator(
+                  onRefresh: () async => _refresh(),
+                  child: ListView(
+                    children: [
+                      const SizedBox(height: 120),
+                      Center(
+                        child: Text(
+                          q.isEmpty
+                              ? 'No ranked players yet.\nPlayers appear here after playing 5+ matches.'
+                              : 'No players match "$q".',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
                   ),
                 );
               }
-              return ListView.builder(
+              return RefreshIndicator(
+                onRefresh: () async => _refresh(),
+                child: ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
                 itemCount: players.length,
                 itemBuilder: (context, i) {
@@ -136,6 +170,7 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                     ),
                   );
                 },
+              ),
               );
             },
           ),

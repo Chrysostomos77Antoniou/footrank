@@ -18,6 +18,14 @@ class TeamRepository {
 
   String? get _uid => SupabaseService.client.auth.currentUser?.id;
 
+  /// A non-captain member leaves their team.
+  Future<void> leaveTeam(String teamId) =>
+      SupabaseService.client.rpc('leave_team', params: {'p_team_id': teamId});
+
+  /// The captain disbands (deletes) the team.
+  Future<void> disbandTeam(String teamId) =>
+      SupabaseService.client.rpc('disband_team', params: {'p_team_id': teamId});
+
   Future<List<TeamModel>> fetchAll() async {
     final data = await SupabaseService.client
         .from(_teams)

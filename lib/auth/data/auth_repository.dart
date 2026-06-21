@@ -40,6 +40,12 @@ class AuthRepository {
         redirectTo: _redirectUrl,
       );
 
+  /// Permanently deletes the current user's account and all their data.
+  Future<void> deleteAccount() async {
+    await _client.rpc('delete_my_account');
+    await _client.auth.signOut();
+  }
+
   Future<void> signOut() => _client.auth.signOut();
 
   bool get isNewUser {

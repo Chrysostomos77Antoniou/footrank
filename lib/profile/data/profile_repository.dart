@@ -80,6 +80,7 @@ class ProfileRepository {
     required String username,
     String? city,
     String? position,
+    String? phone,
     String? avatarUrl,
   }) async {
     final userId = SupabaseService.client.auth.currentUser?.id;
@@ -92,6 +93,7 @@ class ProfileRepository {
           'username': username,
           'city': city,
           'position': position,
+          'phone': phone,
           if (avatarUrl != null) 'avatar_url': avatarUrl,
         })
         .eq('id', userId)

@@ -171,6 +171,13 @@ class MatchRepository {
     return result as String;
   }
 
+  /// Reschedule a not-yet-completed match (either captain).
+  Future<void> rescheduleMatch(String matchId, DateTime scheduledAt) =>
+      SupabaseService.client.rpc('reschedule_match', params: {
+        'p_match_id': matchId,
+        'p_scheduled_at': scheduledAt.toIso8601String(),
+      });
+
   /// The other captain confirms the fixture. Returns 'pending' or 'confirmed'.
   Future<String> confirmFixture(String matchId) async {
     final result = await SupabaseService.client

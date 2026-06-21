@@ -229,8 +229,81 @@ class _TeamView extends StatelessWidget {
             isCaptain: _isCaptain,
             onChanged: onChanged,
           ),
+          const SizedBox(height: 24),
+          _LeaveDisbandButton(
+            team: team,
+            repo: repo,
+            isCaptain: _isCaptain,
+            onChanged: onChanged,
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _LeaveDisbandButton extends StatelessWidget {
+  final TeamModel team;
+  final TeamRepository repo;
+  final bool isCaptain;
+  final VoidCallback onChanged;
+  const _LeaveDisbandButton({
+    required this.team,
+    required this.repo,
+    required this.isCaptain,
+    required this.onChanged,
+  });
+
+  Future<void> _run(BuildContext context) async {
+    final title = isCaptain ? 'Disband team?' : 'Leave team?';
+    final body = isCaptain
+        ? 'This deletes ${team.name} and removes all its members, requests and '
+            'matches. This cannot be undone.'
+        : 'You will leave ${team.name}. You can join another team afterwards.';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(isCaptain ? 'Disband' : 'Leave'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      if (isCaptain) {
+        await repo.disbandTeam(team.id);
+      } else {
+        await repo.leaveTeam(team.id);
+      }
+      onChanged();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: () => _run(context),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.danger,
+        side: BorderSide(color: AppColors.danger.withValues(alpha: 0.5)),
+      ),
+      icon: Icon(isCaptain ? Icons.delete_outline : Icons.logout),
+      label: Text(isCaptain ? 'Disband team' : 'Leave team'),
     );
   }
 }

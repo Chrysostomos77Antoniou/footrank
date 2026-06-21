@@ -27,6 +27,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   late final _nameCtrl = TextEditingController(text: widget.user.name);
   late final _usernameCtrl = TextEditingController(text: widget.user.username);
+  late final _phoneCtrl = TextEditingController(text: widget.user.phone ?? '');
   late String? _city = canonicalCity(widget.user.city);
   late String? _position = widget.user.position;
 
@@ -45,6 +46,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void dispose() {
     _nameCtrl.dispose();
     _usernameCtrl.dispose();
+    _phoneCtrl.dispose();
     super.dispose();
   }
 
@@ -70,6 +72,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         username: _usernameCtrl.text.trim(),
         city: _city,
         position: _position,
+        phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         avatarUrl: avatarUrl,
       );
       if (mounted) {
@@ -173,6 +176,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             DropdownMenuItem(value: p, child: Text(p)))
                         .toList(),
                     onChanged: (v) => setState(() => _position = v),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Contact phone (optional)',
+                      prefixIcon: Icon(Icons.phone_outlined),
+                      helperText: 'Shared with opponents for confirmed matches',
+                    ),
                   ),
                   const SizedBox(height: 28),
                   PressableScale(

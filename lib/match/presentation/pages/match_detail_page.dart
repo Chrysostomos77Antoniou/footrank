@@ -8,9 +8,12 @@ import 'package:footrank/models/match_player_model.dart';
 import 'package:footrank/models/match_status.dart';
 import 'package:footrank/models/team_member_model.dart';
 import 'package:footrank/models/team_model.dart';
+import 'package:footrank/models/user_model.dart';
+import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MatchDetailPage extends StatefulWidget {
   final String matchId;
@@ -23,6 +26,7 @@ class MatchDetailPage extends StatefulWidget {
 class _MatchDetailPageState extends State<MatchDetailPage> {
   final _matchRepo = MatchRepository();
   final _teamRepo = TeamRepository();
+  final _profileRepo = ProfileRepository();
 
   bool _loading = true;
   Object? _error;
@@ -33,6 +37,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
   String? _opponentTeamId;
   TeamModel? _homeTeam;
   TeamModel? _awayTeam;
+  UserModel? _homeCaptain;
+  UserModel? _awayCaptain;
   Map<String, MatchPlayerModel> _attendance = {};
   Map<String, String> _myBehavior = {}; // targetUserId -> 'good'|'bad'
 
@@ -64,6 +70,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
       final attendance = await _matchRepo.fetchAttendance(match.id);
       final behavior = await _matchRepo.fetchMyBehavior(match.id);
+      final homeCap = await _profileRepo.fetchUserById(home.captainId);
+      final awayCap = await _profileRepo.fetchUserById(away.captainId);
 
       if (!mounted) return;
       setState(() {
@@ -73,6 +81,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
         _opponentTeamId = opponentTeamId;
         _homeTeam = home;
         _awayTeam = away;
+        _homeCaptain = homeCap;
+        _awayCaptain = awayCap;
         _attendance = attendance;
         _myBehavior = behavior;
         _loading = false;
@@ -195,6 +205,46 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     }
   }
 
+  Future<void> _reschedule() async {
+    final match = _match!;
+    final current = match.scheduledAt.toLocal();
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: current.isBefore(now) ? now : current,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(current),
+      initialEntryMode: TimePickerEntryMode.input,
+    );
+    if (time == null) return;
+    final newDt =
+        DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    try {
+      await _matchRepo.rescheduleMatch(match.id, newDt);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Match rescheduled')),
+      );
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  Future<void> _call(String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone);
+    await launchUrl(uri);
+  }
+
   /// Score & behavior unlock 90 minutes after the scheduled kick-off.
   DateTime get _submissionOpensAt =>
       _match!.scheduledAt.add(const Duration(minutes: 90));
@@ -210,6 +260,47 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
   String? _reportText(int? h, int? a) =>
       (h == null || a == null) ? null : '$h - $a';
+
+  Widget _buildContactCard() {
+    final rows = <Widget>[];
+    void addRow(String label, UserModel? cap) {
+      if (cap == null) return;
+      rows.add(ListTile(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        leading: GradientAvatar(
+            name: cap.name, imageUrl: cap.avatarUrl, radius: 18),
+        title: Text(cap.name,
+            style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text('$label captain'
+            '${cap.phone != null && cap.phone!.isNotEmpty ? ' · ${cap.phone}' : ''}'),
+        trailing: (cap.phone != null && cap.phone!.isNotEmpty)
+            ? IconButton(
+                icon: Icon(Icons.call, color: AppColors.iconAccent(context)),
+                onPressed: () => _call(cap.phone!),
+              )
+            : null,
+      ));
+    }
+
+    addRow(_homeTeam?.name ?? 'Home', _homeCaptain);
+    addRow(_awayTeam?.name ?? 'Away', _awayCaptain);
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Captains',
+                style: Theme.of(context).textTheme.titleMedium),
+            ...rows,
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildScoreSection() {
     final match = _match!;
@@ -309,8 +400,21 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final canReschedule = _isCaptain &&
+        _match != null &&
+        _match!.status != 'completed';
     return Scaffold(
-      appBar: AppBar(title: const Text('Match')),
+      appBar: AppBar(
+        title: const Text('Match'),
+        actions: [
+          if (canReschedule)
+            IconButton(
+              tooltip: 'Reschedule',
+              icon: const Icon(Icons.edit_calendar_outlined),
+              onPressed: _reschedule,
+            ),
+        ],
+      ),
       body: _buildBody(),
     );
   }
@@ -390,6 +494,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           ),
         ),
         const SizedBox(height: 8),
+        _buildContactCard(),
         if (_isCaptain && status != MatchStatus.completed) _buildScoreSection(),
         const SizedBox(height: 16),
         if (_isCaptain)
