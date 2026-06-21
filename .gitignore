@@ -49,3 +49,4 @@ android/key.properties
 android/app/upload-keystore.jks
 *.jks
 *.keystore
+store_screens/

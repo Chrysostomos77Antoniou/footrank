@@ -9,6 +9,9 @@ String friendlyError(Object error) {
       .replaceFirst('PostgrestException(message: ', '');
 
   final lower = msg.toLowerCase();
+  if (lower.contains('teams_name_lower_unique')) {
+    return 'A team with that name already exists. Please pick another name.';
+  }
   if (lower.contains('duplicate') || lower.contains('unique')) {
     return 'That already exists.';
   }
