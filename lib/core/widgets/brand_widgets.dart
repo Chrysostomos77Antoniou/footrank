@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 
 /// A gradient hero header used at the top of primary screens.
@@ -117,7 +118,7 @@ class GradientAvatar extends StatelessWidget {
     if (imageUrl != null && imageUrl!.isNotEmpty) {
       return CircleAvatar(
         radius: radius,
-        backgroundImage: NetworkImage(imageUrl!),
+        backgroundImage: CachedNetworkImageProvider(imageUrl!),
       );
     }
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';

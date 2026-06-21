@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/app_refresh.dart';
@@ -327,7 +328,7 @@ class _TeamHeaderCard extends StatelessWidget {
             ),
             child: team.logoUrl != null
                 ? CircleAvatar(
-                    radius: 32, backgroundImage: NetworkImage(team.logoUrl!))
+                    radius: 32, backgroundImage: CachedNetworkImageProvider(team.logoUrl!))
                 : GradientAvatar(name: team.name, radius: 32),
           ),
           const SizedBox(width: 16),

@@ -9,6 +9,8 @@ import 'package:footrank/core/presentation/pages/home_shell_page.dart';
 import 'package:footrank/free_agents/presentation/pages/free_agents_page.dart';
 import 'package:footrank/home/presentation/pages/home_page.dart';
 import 'package:footrank/notifications/presentation/pages/notifications_page.dart';
+import 'package:footrank/onboarding/onboarding_prefs.dart';
+import 'package:footrank/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:footrank/match/presentation/pages/create_match_request_page.dart';
 import 'package:footrank/match/presentation/pages/match_detail_page.dart';
 import 'package:footrank/match/presentation/pages/match_discovery_page.dart';
@@ -46,6 +48,7 @@ class AppRoutes {
   static const freeAgents = '/free-agents';
   static const invitations = '/invitations';
   static const notifications = '/notifications';
+  static const onboarding = '/onboarding';
 }
 
 final _authRepo = AuthRepository();
@@ -81,6 +84,11 @@ GoRouter buildRouter() => GoRouter(
         final isLoggedIn = _authRepo.currentUser != null;
         final loc = state.matchedLocation;
 
+        // First run: show onboarding before anything else (only when logged out).
+        if (!OnboardingPrefs.seen && !isLoggedIn) {
+          return loc == AppRoutes.onboarding ? null : AppRoutes.onboarding;
+        }
+
         final isAuthRoute =
             loc == AppRoutes.login || loc == AppRoutes.register;
         final isSetupRoute = loc == AppRoutes.profileSetup;
@@ -115,6 +123,10 @@ GoRouter buildRouter() => GoRouter(
         Supabase.instance.client.auth.onAuthStateChange,
       ),
       routes: [
+        GoRoute(
+          path: AppRoutes.onboarding,
+          builder: (context, state) => const OnboardingPage(),
+        ),
         GoRoute(
           path: AppRoutes.login,
           builder: (context, state) => const LoginPage(),

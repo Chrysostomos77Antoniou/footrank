@@ -1,4 +1,7 @@
+import 'dart:ui';
+
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:image_picker_android/image_picker_android.dart';
@@ -6,6 +9,7 @@ import 'package:image_picker_platform_interface/image_picker_platform_interface.
 import 'package:footrank/app.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/firebase_options.dart';
+import 'package:footrank/onboarding/onboarding_prefs.dart';
 import 'package:footrank/services/notification_service.dart';
 import 'package:footrank/services/supabase_service.dart';
 
@@ -25,6 +29,7 @@ Future<void> main() async {
   }
 
   await themeController.load();
+  await OnboardingPrefs.load();
   await SupabaseService.initialize();
 
   // Firebase + push notifications (Task 11.1). Guarded so a failure here
@@ -33,6 +38,13 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    // Crash reporting: route Flutter + platform errors to Crashlytics.
+    FlutterError.onError =
+        FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
     await NotificationService.initialize();
   } catch (e) {
     debugPrint('Firebase/notifications init failed: $e');

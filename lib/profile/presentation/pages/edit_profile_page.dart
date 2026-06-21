@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/services/gallery_picker.dart';
@@ -243,7 +244,7 @@ class _AvatarPicker extends StatelessWidget {
         backgroundImage: MemoryImage(Uint8List.fromList(pickedBytes!)),
       );
     } else if (currentUrl != null && currentUrl!.isNotEmpty) {
-      avatar = CircleAvatar(radius: 52, backgroundImage: NetworkImage(currentUrl!));
+      avatar = CircleAvatar(radius: 52, backgroundImage: CachedNetworkImageProvider(currentUrl!));
     } else {
       avatar = GradientAvatar(name: name, radius: 52);
     }

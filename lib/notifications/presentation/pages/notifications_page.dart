@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/notification_model.dart';
 import 'package:footrank/notifications/data/notification_repository.dart';
@@ -55,22 +56,22 @@ class _NotificationsPageState extends State<NotificationsPage> {
             future: _future,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const LoadingView();
               }
               if (snapshot.hasError) {
-                return const Center(
-                    child: Text('Something went wrong. Pull to retry.'));
+                return ErrorView(onRetry: _reload);
               }
               final items = snapshot.data ?? [];
               if (items.isEmpty) {
                 return ListView(
                   children: const [
-                    SizedBox(height: 120),
-                    Center(
-                        child: Icon(Icons.notifications_off_outlined,
-                            size: 48, color: Colors.grey)),
-                    SizedBox(height: 12),
-                    Center(child: Text('No notifications yet')),
+                    SizedBox(height: 80),
+                    EmptyView(
+                      icon: Icons.notifications_off_outlined,
+                      title: 'No notifications yet',
+                      hint: 'Match requests, confirmations and reminders '
+                          'will show up here.',
+                    ),
                   ],
                 );
               }

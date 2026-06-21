@@ -25,6 +25,8 @@ dependencies:
   video_player: ^2.9.2
   url_launcher: ^6.3.0
   flutter_native_splash: ^2.4.3
+  cached_network_image: ^3.4.1
+  firebase_crashlytics: ^4.1.5
 
 dev_dependencies:
   flutter_test:

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/emojis.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
@@ -190,7 +191,7 @@ class _TeamSheet extends StatelessWidget {
                   child: team.logoUrl != null
                       ? CircleAvatar(
                           radius: 40,
-                          backgroundImage: NetworkImage(team.logoUrl!))
+                          backgroundImage: CachedNetworkImageProvider(team.logoUrl!))
                       : GradientAvatar(name: team.name, radius: 40),
                 ),
                 const SizedBox(height: 12),

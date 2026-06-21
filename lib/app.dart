@@ -25,6 +25,19 @@ class _FootRankAppState extends State<FootRankApp> {
           darkTheme: AppTheme.dark,
           themeMode: themeController.mode,
           routerConfig: _router,
+          builder: (context, child) {
+            // Honour the user's font-size setting, but clamp it so very large
+            // scales don't break layouts.
+            final mq = MediaQuery.of(context);
+            final clamped = mq.textScaler.clamp(
+              minScaleFactor: 0.85,
+              maxScaleFactor: 1.3,
+            );
+            return MediaQuery(
+              data: mq.copyWith(textScaler: clamped),
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
         );
       },
     );

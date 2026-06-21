@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/services/gallery_picker.dart';
@@ -189,7 +190,7 @@ class _LogoPicker extends StatelessWidget {
       );
     } else if (currentUrl != null && currentUrl!.isNotEmpty) {
       logo =
-          CircleAvatar(radius: 52, backgroundImage: NetworkImage(currentUrl!));
+          CircleAvatar(radius: 52, backgroundImage: CachedNetworkImageProvider(currentUrl!));
     } else {
       logo = GradientAvatar(name: name, radius: 52);
     }
