@@ -75,12 +75,35 @@ class ProfileRepository {
   }
 
   /// Updates the current user's editable profile fields.
+  /// Returns the current user's saved contact phone (owner-only table), or null.
+  Future<String?> fetchMyPhone() async {
+    final userId = SupabaseService.client.auth.currentUser?.id;
+    if (userId == null) return null;
+    final rows = await SupabaseService.client
+        .from('user_contacts')
+        .select('phone')
+        .eq('user_id', userId)
+        .limit(1);
+    if (rows.isEmpty) return null;
+    return rows.first['phone'] as String?;
+  }
+
+  /// Upserts the current user's contact phone into the locked contacts table.
+  Future<void> saveMyPhone(String? phone) async {
+    final userId = SupabaseService.client.auth.currentUser?.id;
+    if (userId == null) throw StateError('No authenticated user');
+    await SupabaseService.client.from('user_contacts').upsert({
+      'user_id': userId,
+      'phone': (phone == null || phone.trim().isEmpty) ? null : phone.trim(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }, onConflict: 'user_id');
+  }
+
   Future<UserModel> updateProfile({
     required String name,
     required String username,
     String? city,
     String? position,
-    String? phone,
     String? avatarUrl,
   }) async {
     final userId = SupabaseService.client.auth.currentUser?.id;
@@ -93,7 +116,6 @@ class ProfileRepository {
           'username': username,
           'city': city,
           'position': position,
-          'phone': phone,
           if (avatarUrl != null) 'avatar_url': avatarUrl,
         })
         .eq('id', userId)

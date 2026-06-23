@@ -28,7 +28,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   late final _nameCtrl = TextEditingController(text: widget.user.name);
   late final _usernameCtrl = TextEditingController(text: widget.user.username);
-  late final _phoneCtrl = TextEditingController(text: widget.user.phone ?? '');
+  final _phoneCtrl = TextEditingController();
   late String? _city = canonicalCity(widget.user.city);
   late String? _position = widget.user.position;
 
@@ -41,6 +41,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void initState() {
     super.initState();
     _currentAvatar = widget.user.avatarUrl;
+    // Load the phone from the owner-only contacts table.
+    _repo.fetchMyPhone().then((p) {
+      if (mounted && p != null) _phoneCtrl.text = p;
+    });
   }
 
   @override
@@ -73,9 +77,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
         username: _usernameCtrl.text.trim(),
         city: _city,
         position: _position,
-        phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         avatarUrl: avatarUrl,
       );
+      await _repo.saveMyPhone(_phoneCtrl.text);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated')),
