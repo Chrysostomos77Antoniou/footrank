@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/widgets/premium.dart';
 
 /// Consistent loading spinner used across async screens.
 class LoadingView extends StatelessWidget {
@@ -11,6 +12,50 @@ class LoadingView extends StatelessWidget {
         padding: EdgeInsets.all(24),
         child: CircularProgressIndicator(),
       ));
+}
+
+/// Skeleton placeholder list shown while content loads — feels faster and more
+/// premium than a blank spinner. Renders [count] shimmering card rows.
+class SkeletonList extends StatelessWidget {
+  final int count;
+  final double itemHeight;
+  final EdgeInsetsGeometry padding;
+  const SkeletonList({
+    super.key,
+    this.count = 6,
+    this.itemHeight = 76,
+    this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 16),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: padding,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: count,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (_, __) => Row(
+        children: [
+          ShimmerBox(width: itemHeight * 0.6, height: itemHeight * 0.6, radius: 14),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ShimmerBox(width: double.infinity, height: 14, radius: 7),
+                const SizedBox(height: 8),
+                const ShimmerBox(width: 120, height: 12, radius: 6),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          const ShimmerBox(width: 48, height: 28, radius: 9),
+        ],
+      ),
+    );
+  }
 }
 
 /// Consistent error state with an optional retry.
@@ -68,8 +113,15 @@ class EmptyView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 52, color: muted),
-            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.brand(context).withValues(alpha: 0.10),
+              ),
+              child: Icon(icon, size: 40, color: AppColors.brand(context)),
+            ),
+            const SizedBox(height: 16),
             Text(title,
                 textAlign: TextAlign.center,
                 style: Theme.of(context)

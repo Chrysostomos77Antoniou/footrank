@@ -179,13 +179,13 @@ class _ProfilePageState extends State<ProfilePage> {
                       children: [
                         _StatCard(
                           label: 'Pitch Power',
-                          value: '${user.elo}',
+                          animateTo: user.elo,
                           icon: Icons.trending_up,
                         ),
                         const SizedBox(width: 12),
                         _StatCard(
                           label: 'Matches',
-                          value: '${user.matchesPlayed}',
+                          animateTo: user.matchesPlayed,
                           icon: Icons.sports_soccer,
                         ),
                       ],
@@ -198,7 +198,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       children: [
                         _StatCard(
                           label: 'Reliability',
-                          value: '${user.reliability}%',
+                          animateTo: user.reliability,
+                          suffix: '%',
                           icon: Icons.verified_user_outlined,
                         ),
                         const SizedBox(width: 12),
@@ -424,37 +425,45 @@ class _ProfileHero extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
+  final int? animateTo;
+  final String suffix;
   final IconData icon;
 
   const _StatCard({
     required this.label,
-    required this.value,
+    this.value = '',
+    this.animateTo,
+    this.suffix = '',
     required this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final numStyle = TextStyle(
+        fontFamily: 'Sora',
+        fontSize: 24,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.5,
+        color: onSurface,
+        fontFeatures: const [FontFeature.tabularFigures()]);
     return Expanded(
       child: GlassCard(
-        padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
         child: Column(
           children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: AppColors.iconAccent(context).withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: Icon(icon, color: AppColors.iconAccent(context)),
-            ),
-            const SizedBox(height: 10),
-            GradientText(
-              value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-            ),
+            Icon(icon, color: AppColors.iconAccent(context), size: 22),
+            const SizedBox(height: 12),
+            if (animateTo != null)
+              AnimatedCount(animateTo!, suffix: suffix, style: numStyle)
+            else
+              Text(value, style: numStyle),
             const SizedBox(height: 2),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
+            Text(label,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: AppColors.muted(context))),
           ],
         ),
       ),

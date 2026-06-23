@@ -86,13 +86,6 @@ class BrandLogo extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: AppColors.brandGrad(context),
         shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.brand(context).withValues(alpha: 0.4),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
       child: Icon(Icons.sports_soccer,
           color: AppColors.onBrand(context), size: size * 0.55),
@@ -122,20 +115,21 @@ class GradientAvatar extends StatelessWidget {
       );
     }
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Container(
       width: radius * 2,
       height: radius * 2,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.navy,
-        border: Border.all(color: AppColors.brand(context), width: 1.6),
+        color: onSurface.withValues(alpha: 0.06),
+        border: Border.all(color: AppColors.border(context)),
       ),
       alignment: Alignment.center,
       child: Text(
         initial,
         style: TextStyle(
-          color: AppColors.brand(context),
-          fontWeight: FontWeight.w800,
+          color: onSurface.withValues(alpha: 0.75),
+          fontWeight: FontWeight.w700,
           fontSize: radius * 0.8,
         ),
       ),

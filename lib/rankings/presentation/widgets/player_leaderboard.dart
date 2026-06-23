@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/app_refresh.dart';
+import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/user_model.dart';
@@ -92,7 +93,7 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
             future: _future,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const SkeletonList();
               }
               if (snapshot.hasError) {
                 return Center(child: Text('Error: ${snapshot.error}'));
@@ -152,13 +153,23 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(p.name,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w700)),
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface)),
+                                  const SizedBox(height: 2),
                                   Text(
                                     '@${p.username}'
                                     '${p.position != null ? '  ·  ${p.position}' : ''}',
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
+                                    style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withValues(alpha: 0.65)),
                                   ),
                                 ],
                               ),

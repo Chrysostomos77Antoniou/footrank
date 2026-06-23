@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -63,7 +64,7 @@ class _TeamPageState extends State<TeamPage> {
             future: _teamFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const SkeletonList();
               }
               if (snapshot.hasError) {
                 return Center(child: Text('Error: ${snapshot.error}'));
@@ -340,8 +341,16 @@ class _TeamHeaderCard extends StatelessWidget {
                     style: const TextStyle(
                         fontSize: 22, fontWeight: FontWeight.w900)),
                 if (team.city != null)
-                  Text('📍 ${team.city}',
-                      style: Theme.of(context).textTheme.bodyMedium),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.place_outlined,
+                          size: 15, color: AppColors.iconAccent(context)),
+                      const SizedBox(width: 4),
+                      Text(team.city!,
+                          style: Theme.of(context).textTheme.bodyMedium),
+                    ],
+                  ),
               ],
             ),
           ),

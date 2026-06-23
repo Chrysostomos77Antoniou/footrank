@@ -260,10 +260,7 @@ class _MatchesPageState extends State<MatchesPage> {
             future: _future,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                );
+                return const SkeletonList(count: 2);
               }
               if (snapshot.hasError) {
                 return Padding(
@@ -301,10 +298,7 @@ class _MatchesPageState extends State<MatchesPage> {
               future: _opponentsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
+                  return const SkeletonList(count: 2);
                 }
                 if (snapshot.hasError) {
                   return Padding(
@@ -338,10 +332,7 @@ class _MatchesPageState extends State<MatchesPage> {
             future: _matchesFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                );
+                return const SkeletonList(count: 2);
               }
               final all = snapshot.data ?? [];
               final myTeamId = _team?.id;
@@ -445,17 +436,11 @@ class _MatchCard extends StatelessWidget {
     };
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: accent?.withValues(alpha: 0.16),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: () => context.push(AppRoutes.matchDetail, extra: match.id),
-        child: Container(
-          decoration: accent == null
-              ? null
-              : BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border(
-                      left: BorderSide(color: accent, width: 5)),
-                ),
+        child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
             children: [

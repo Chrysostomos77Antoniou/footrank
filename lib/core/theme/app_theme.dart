@@ -24,18 +24,24 @@ class AppTheme {
       onSecondary: onAccent,
     ).copyWith(
       surface: isDark ? _darkBg : _lightBg,
+      // Pin high-contrast text colors so nothing washes out, esp. in light mode.
+      onSurface: isDark ? const Color(0xFFECEEF1) : const Color(0xFF15181F),
     );
 
     final cardColor = isDark ? _darkCard : _lightCard;
     final borderColor = isDark
         ? Colors.white.withValues(alpha: 0.08)
-        : const Color(0xFFE7E1F3);
+        : const Color(0xFFE3E6EB);
+
+    final onSurface = scheme.onSurface;
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: isDark ? _darkBg : _lightBg,
       visualDensity: VisualDensity.adaptivePlatformDensity,
+      fontFamily: 'Manrope',
+      textTheme: _textTheme(onSurface),
 
       appBarTheme: AppBarTheme(
         elevation: 0,
@@ -44,41 +50,47 @@ class AppTheme {
         backgroundColor: isDark ? _darkBg : _lightBg,
         foregroundColor: scheme.onSurface,
         titleTextStyle: TextStyle(
+          fontFamily: 'Sora',
           fontSize: 20,
           fontWeight: FontWeight.w800,
+          letterSpacing: -0.4,
           color: scheme.onSurface,
         ),
       ),
 
       cardTheme: CardThemeData(
-        elevation: isDark ? 0 : 2,
-        shadowColor: accent.withValues(alpha: 0.12),
+        elevation: 0,
         margin: EdgeInsets.zero,
         color: cardColor,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           side: BorderSide(color: borderColor),
         ),
       ),
 
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(54),
+          minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(
+              fontFamily: 'Sora',
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2),
         ),
       ),
 
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(54),
+          minimumSize: const Size.fromHeight(52),
           side: BorderSide(color: borderColor),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
 
@@ -86,16 +98,16 @@ class AppTheme {
         filled: true,
         fillColor: cardColor,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: borderColor),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: borderColor),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: accent, width: 2),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: accent, width: 1.5),
         ),
       ),
 
@@ -129,4 +141,40 @@ class AppTheme {
 
   static ThemeData get light => _base(Brightness.light);
   static ThemeData get dark => _base(Brightness.dark);
+
+  /// Sora for the big expressive headings, Manrope for everything readable.
+  static TextTheme _textTheme(Color onSurface) {
+    const display = 'Sora';
+    TextStyle h(double size, FontWeight w, double spacing) => TextStyle(
+          fontFamily: display,
+          fontSize: size,
+          fontWeight: w,
+          letterSpacing: spacing,
+          height: 1.1,
+          color: onSurface,
+        );
+    TextStyle body(double size, FontWeight w) => TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: size,
+          fontWeight: w,
+          height: 1.5,
+          color: onSurface,
+        );
+    return TextTheme(
+      displayLarge: h(34, FontWeight.w800, -0.8),
+      displayMedium: h(28, FontWeight.w800, -0.6),
+      displaySmall: h(24, FontWeight.w700, -0.4),
+      headlineMedium: h(22, FontWeight.w700, -0.3),
+      headlineSmall: h(20, FontWeight.w700, -0.2),
+      titleLarge: h(18, FontWeight.w700, -0.2),
+      titleMedium: body(16, FontWeight.w700),
+      titleSmall: body(14, FontWeight.w600),
+      bodyLarge: body(16, FontWeight.w500),
+      bodyMedium: body(14, FontWeight.w500),
+      bodySmall: body(12, FontWeight.w500),
+      labelLarge: body(14, FontWeight.w700),
+      labelMedium: body(12, FontWeight.w600),
+      labelSmall: body(11, FontWeight.w600),
+    );
+  }
 }

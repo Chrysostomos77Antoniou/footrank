@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 
@@ -20,33 +21,27 @@ class HomeShellPage extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final navColor = isDark ? AppColors.darkCard : AppColors.lightCard;
     final border = isDark
-        ? Colors.white.withValues(alpha: 0.07)
-        : Colors.black.withValues(alpha: 0.06);
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.black.withValues(alpha: 0.10);
 
     return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 260),
-        switchInCurve: Curves.easeOut,
-        switchOutCurve: Curves.easeIn,
-        transitionBuilder: (child, animation) => FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.012),
-              end: Offset.zero,
-            ).animate(animation),
-            child: child,
-          ),
-        ),
-        child: KeyedSubtree(
-          key: ValueKey(navigationShell.currentIndex),
-          child: navigationShell,
-        ),
-      ),
+      // Render the shell directly — StatefulShellRoute keeps each branch alive,
+      // so switching tabs is instant. (A crossfade here rebuilt the whole
+      // branch every switch and felt laggy.)
+      body: navigationShell,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: navColor,
           border: Border(top: BorderSide(color: border)),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
         ),
         child: SafeArea(
           top: false,
@@ -60,7 +55,13 @@ class HomeShellPage extends StatelessWidget {
                     icon: _items[i].$1,
                     label: _items[i].$2,
                     selected: navigationShell.currentIndex == i,
-                    onTap: () => navigationShell.goBranch(i),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      navigationShell.goBranch(
+                        i,
+                        initialLocation: i == navigationShell.currentIndex,
+                      );
+                    },
                   ),
               ],
             ),
@@ -87,33 +88,35 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-        padding:
-            EdgeInsets.symmetric(horizontal: selected ? 14 : 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.brand(context) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
+    final accent = AppColors.iconAccent(context);
+    final color = selected ? accent : onSurface.withValues(alpha: 0.6);
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon,
-                color: selected
-                    ? AppColors.onBrand(context)
-                    : onSurface.withValues(alpha: 0.5),
-                size: 24),
-            if (selected) ...[
-              const SizedBox(width: 8),
-              Text(label,
-                  style: TextStyle(
-                      color: AppColors.onBrand(context),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13)),
-            ],
+            // Thin top indicator marks the active tab — restrained, no fill.
+            Container(
+              width: 22,
+              height: 2.5,
+              decoration: BoxDecoration(
+                color: selected ? accent : Colors.transparent,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 9),
+            Icon(icon, color: color, size: 23),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 11,
+              ),
+            ),
           ],
         ),
       ),

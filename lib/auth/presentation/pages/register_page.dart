@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
-import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -123,11 +122,11 @@ class _RegisterPageState extends State<RegisterPage> {
                     delay: const Duration(milliseconds: 80),
                     child: const GradientText(
                       'Create Account',
-                      gradient: LinearGradient(
-                          colors: [Colors.white, AppColors.lime]),
                       style: TextStyle(
+                        color: Colors.white,
                         fontSize: 30,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4,
                       ),
                     ),
                   ),
@@ -188,8 +187,8 @@ class _RegisterPageState extends State<RegisterPage> {
                               label: 'Password',
                               icon: Icons.lock_outline,
                               obscure: true,
-                              validator: (v) => v == null || v.length < 6
-                                  ? 'Min 6 characters'
+                              validator: (v) => v == null || v.length < 8
+                                  ? 'Min 8 characters'
                                   : null,
                             ),
                             const SizedBox(height: 22),

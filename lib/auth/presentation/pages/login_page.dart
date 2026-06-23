@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
-import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -115,12 +114,11 @@ class _LoginPageState extends State<LoginPage> {
                     delay: const Duration(milliseconds: 80),
                     child: const GradientText(
                       'FootRank',
-                      gradient: LinearGradient(
-                          colors: [Colors.white, AppColors.lime]),
                       style: TextStyle(
-                        fontSize: 38,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
+                        color: Colors.white,
+                        fontSize: 36,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
                       ),
                     ),
                   ),
@@ -203,6 +201,28 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 18),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 280),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.lock_outline,
+                            size: 14,
+                            color: Colors.white.withValues(alpha: 0.6)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Encrypted & secure sign-in',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                 ],
               ),
             ),

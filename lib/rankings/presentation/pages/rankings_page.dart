@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/team_model.dart';
@@ -105,24 +106,26 @@ class _GlassTabs extends StatelessWidget {
               child: PressableScale(
                 onTap: () => onChanged(i),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
+                  duration: const Duration(milliseconds: 160),
                   curve: Curves.easeOut,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: index == i ? AppColors.brand(context) : null,
-                    borderRadius: BorderRadius.circular(14),
+                    color: index == i
+                        ? AppColors.iconAccent(context).withValues(alpha: 0.14)
+                        : null,
+                    borderRadius: BorderRadius.circular(11),
                   ),
                   child: Text(
                     tabs[i],
                     style: TextStyle(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: index == i
-                          ? Colors.white
+                          ? AppColors.iconAccent(context)
                           : Theme.of(context)
                               .colorScheme
                               .onSurface
-                              .withValues(alpha: 0.7),
+                              .withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -192,7 +195,7 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
             future: _future,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const SkeletonList();
               }
               final all = snapshot.data ?? [];
               final q = _cityCtrl.text.trim().toLowerCase();
@@ -240,13 +243,23 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(t.name,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w700)),
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface)),
+                                  const SizedBox(height: 2),
                                   Text.rich(
                                     TextSpan(
                                       style: Theme.of(context)
                                           .textTheme
-                                          .bodySmall,
+                                          .bodySmall
+                                          ?.copyWith(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface
+                                                  .withValues(alpha: 0.65)),
                                       children: [
                                         if (t.city != null)
                                           TextSpan(text: '${t.city!} · '),

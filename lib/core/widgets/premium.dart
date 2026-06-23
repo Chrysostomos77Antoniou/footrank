@@ -1,69 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 
-/// App background: solid scaffold color with a very subtle line texture and a
-/// soft accent glow at the top — adds depth without hurting readability.
+/// App background: flat, clean monochrome scaffold color. No accent glow or
+/// texture — keeps the UI calm and professional.
 class AmbientBackground extends StatelessWidget {
   final Widget child;
   const AmbientBackground({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final base = Theme.of(context).scaffoldBackgroundColor;
-    return Stack(
-      children: [
-        Positioned.fill(child: ColoredBox(color: base)),
-        // soft accent glow, top-left
-        Positioned(
-          top: -120,
-          left: -100,
-          child: Container(
-            width: 320,
-            height: 320,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(colors: [
-                AppColors.lime.withValues(alpha: isDark ? 0.08 : 0.10),
-                AppColors.lime.withValues(alpha: 0),
-              ]),
-            ),
-          ),
-        ),
-        // faint diagonal line texture
-        Positioned.fill(
-          child: CustomPaint(
-            painter: _LineTexturePainter(
-              color: (isDark ? Colors.white : Colors.black)
-                  .withValues(alpha: isDark ? 0.025 : 0.03),
-            ),
-          ),
-        ),
-        Positioned.fill(child: child),
-      ],
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: child,
     );
   }
-}
-
-class _LineTexturePainter extends CustomPainter {
-  final Color color;
-  const _LineTexturePainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.2;
-    const gap = 26.0;
-    // diagonal lines (45°) across the canvas
-    for (double x = -size.height; x < size.width; x += gap) {
-      canvas.drawLine(Offset(x, 0), Offset(x + size.height, size.height), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _LineTexturePainter oldDelegate) =>
-      oldDelegate.color != color;
 }
 
 /// Clean solid card with a subtle border + soft neutral shadow.
@@ -77,7 +28,7 @@ class GlassCard extends StatelessWidget {
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(18),
-    this.radius = 20,
+    this.radius = 16,
     this.onTap,
   });
 
@@ -85,23 +36,20 @@ class GlassCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fill = isDark ? AppColors.darkCard : AppColors.lightCard;
-    final border = isDark
-        ? Colors.white.withValues(alpha: 0.07)
-        : Colors.black.withValues(alpha: 0.06);
 
     Widget content = Container(
       padding: padding,
       decoration: BoxDecoration(
         color: fill,
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: border),
+        border: Border.all(color: AppColors.border(context)),
         boxShadow: isDark
             ? null
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
       ),
@@ -131,15 +79,164 @@ class _PressableScaleState extends State<PressableScale> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => setState(() => _scale = 0.96),
+      onTapDown: (_) => setState(() => _scale = 0.985),
       onTapUp: (_) => setState(() => _scale = 1),
       onTapCancel: () => setState(() => _scale = 1),
-      onTap: widget.onTap,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        widget.onTap();
+      },
       child: AnimatedScale(
         scale: _scale,
-        duration: const Duration(milliseconds: 120),
+        duration: const Duration(milliseconds: 90),
         curve: Curves.easeOut,
         child: widget.child,
+      ),
+    );
+  }
+}
+
+/// Counts up to [value] when first shown — makes stats feel alive. Restarts
+/// the roll whenever [value] changes (e.g. after a rating update).
+class AnimatedCount extends StatelessWidget {
+  final int value;
+  final TextStyle? style;
+  final Duration duration;
+  final String prefix;
+  final String suffix;
+  const AnimatedCount(
+    this.value, {
+    super.key,
+    this.style,
+    this.duration = const Duration(milliseconds: 900),
+    this.prefix = '',
+    this.suffix = '',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Minimal motion: render the value directly, no roll-up.
+    return Text('$prefix$value$suffix', style: style);
+  }
+}
+
+/// A shimmering placeholder block used for skeleton loading states.
+class ShimmerBox extends StatefulWidget {
+  final double width;
+  final double height;
+  final double radius;
+  const ShimmerBox({
+    super.key,
+    required this.width,
+    required this.height,
+    this.radius = 12,
+  });
+
+  @override
+  State<ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<ShimmerBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base = isDark
+        ? Colors.white.withValues(alpha: 0.05)
+        : Colors.black.withValues(alpha: 0.05);
+    final highlight = isDark
+        ? Colors.white.withValues(alpha: 0.11)
+        : Colors.black.withValues(alpha: 0.025);
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = _c.value * 2 - 1; // -1 .. 1
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.radius),
+            gradient: LinearGradient(
+              begin: Alignment(t - 0.6, 0),
+              end: Alignment(t + 0.6, 0),
+              colors: [base, highlight, base],
+              stops: const [0.35, 0.5, 0.65],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A small, calm "live"/secure pulse dot — used to express activity & safety.
+class PulseDot extends StatefulWidget {
+  final Color color;
+  final double size;
+  const PulseDot({super.key, required this.color, this.size = 8});
+
+  @override
+  State<PulseDot> createState() => _PulseDotState();
+}
+
+class _PulseDotState extends State<PulseDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: widget.size * 2.4,
+      height: widget.size * 2.4,
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) {
+          final t = Curves.easeOut.transform(_c.value);
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              Opacity(
+                opacity: (1 - t) * 0.5,
+                child: Container(
+                  width: widget.size + widget.size * 1.4 * t,
+                  height: widget.size + widget.size * 1.4 * t,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.color,
+                  ),
+                ),
+              ),
+              Container(
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.color,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -163,27 +260,19 @@ class FadeSlideIn extends StatefulWidget {
 
 class _FadeSlideInState extends State<FadeSlideIn>
     with SingleTickerProviderStateMixin {
+  // Minimal motion: a single quick fade, no slide, no stagger — content
+  // appears almost instantly for a calm, professional feel.
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 280),
+    duration: const Duration(milliseconds: 150),
   );
   late final Animation<double> _fade =
       CurvedAnimation(parent: _c, curve: Curves.easeOut);
-  late final Animation<Offset> _slide = Tween<Offset>(
-    begin: Offset(0, widget.offsetY / 100),
-    end: Offset.zero,
-  ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutCubic));
 
   @override
   void initState() {
     super.initState();
-    // Cap the stagger so long lists don't drag on slowly.
-    final capped = widget.delay > const Duration(milliseconds: 160)
-        ? const Duration(milliseconds: 160)
-        : widget.delay;
-    Future.delayed(capped, () {
-      if (mounted) _c.forward();
-    });
+    _c.forward();
   }
 
   @override
@@ -194,10 +283,7 @@ class _FadeSlideInState extends State<FadeSlideIn>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _fade,
-      child: SlideTransition(position: _slide, child: widget.child),
-    );
+    return FadeTransition(opacity: _fade, child: widget.child);
   }
 }
 
@@ -218,14 +304,14 @@ class GradientText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final g = gradient ?? AppColors.headingGrad(context);
-    return ShaderMask(
-      shaderCallback: (bounds) => g.createShader(
-        Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-      ),
-      blendMode: BlendMode.srcIn,
-      child: Text(text, style: style, textAlign: textAlign),
+    // Solid, high-contrast headings (no gradient) for a professional look.
+    // Headings default to the Sora display face unless a family was set.
+    final color = style.color ?? Theme.of(context).colorScheme.onSurface;
+    final merged = style.copyWith(
+      color: color,
+      fontFamily: style.fontFamily ?? 'Sora',
     );
+    return Text(text, style: merged, textAlign: textAlign);
   }
 }
 
@@ -261,14 +347,7 @@ class RankBadge extends StatelessWidget {
               Color.lerp(medal, Colors.black, 0.25)!,
             ],
           ),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: medal.withValues(alpha: 0.45),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1),
         ),
         alignment: Alignment.center,
         child: Text(
@@ -343,24 +422,27 @@ class GradientPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.brand(context),
-        borderRadius: BorderRadius.circular(10),
+        color: onSurface.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: AppColors.border(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, color: AppColors.onBrand(context), size: 15),
+            Icon(icon, color: AppColors.iconAccent(context), size: 14),
             const SizedBox(width: 5),
           ],
           Text(text,
               style: TextStyle(
-                  color: AppColors.onBrand(context),
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13)),
+                  color: onSurface,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  fontFeatures: const [FontFeature.tabularFigures()])),
         ],
       ),
     );

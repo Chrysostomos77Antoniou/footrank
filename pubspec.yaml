@@ -62,3 +62,10 @@ flutter:
   uses-material-design: true
   assets:
     - assets/video/auth_bg.mp4
+  fonts:
+    - family: Sora
+      fonts:
+        - asset: assets/fonts/Sora.ttf
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope.ttf

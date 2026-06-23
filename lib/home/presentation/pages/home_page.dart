@@ -163,8 +163,9 @@ class _HomePageState extends State<HomePage> {
               FadeSlideIn(
                 delay: const Duration(milliseconds: 260),
                 child: _ActionCard(
-                  emoji: '📄',
-                  iconWidget: const _NoContractIcon(),
+                  emoji: '',
+                  iconWidget: Icon(Icons.person_search_outlined,
+                      color: AppColors.iconAccent(context)),
                   color: AppColors.iconAccent(context),
                   title: 'Free Agents',
                   subtitle: 'Find players without a team',
@@ -195,56 +196,76 @@ class _HomePageState extends State<HomePage> {
 class _HeroBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final onBrand = AppColors.onBrand(context);
     return Container(
-      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: AppColors.brandGrad(context),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Climb the ranks',
-                    style: TextStyle(
-                        color: AppColors.onBrand(context),
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800)),
-                const SizedBox(height: 6),
-                Text(
-                  'Win matches to boost your Pitch Power and lead the leaderboard.',
-                  style: TextStyle(
-                      color: AppColors.onBrand(context).withValues(alpha: 0.8),
-                      fontSize: 13),
-                ),
-              ],
-            ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.brand(context).withValues(alpha: 0.30),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
-          const SizedBox(width: 8),
-          Icon(Icons.emoji_events,
-              color: AppColors.onBrand(context), size: 46),
         ],
       ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Stack(
+          children: [
+            // Soft sheen circles for a subtle shine.
+            Positioned(
+              right: -30,
+              top: -40,
+              child: _circle(110, onBrand.withValues(alpha: 0.12)),
+            ),
+            Positioned(
+              right: 44,
+              bottom: -54,
+              child: _circle(96, onBrand.withValues(alpha: 0.08)),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Climb the ranks',
+                            style: TextStyle(
+                                fontFamily: 'Sora',
+                                color: onBrand,
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3)),
+                        const SizedBox(height: 5),
+                        Text(
+                          'Win matches to boost your Pitch Power and lead the leaderboard.',
+                          style: TextStyle(
+                              color: onBrand.withValues(alpha: 0.85),
+                              fontSize: 13,
+                              height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(Icons.emoji_events, color: onBrand, size: 42),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
-}
 
-/// A contract page with a red ✗ overlaid — "no contract / free agent".
-class _NoContractIcon extends StatelessWidget {
-  const _NoContractIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Stack(
-      alignment: Alignment.center,
-      children: [
-        Text('📄', style: TextStyle(fontSize: 24)),
-        Icon(Icons.close, color: AppColors.danger, size: 26),
-      ],
-    );
-  }
+  Widget _circle(double size, Color color) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      );
 }
 
 class _ActionCard extends StatelessWidget {

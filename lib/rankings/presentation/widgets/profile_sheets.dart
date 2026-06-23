@@ -201,8 +201,16 @@ class _TeamSheet extends StatelessWidget {
                         .headlineSmall
                         ?.copyWith(fontWeight: FontWeight.w900)),
                 if (team.city != null)
-                  Text('📍 ${team.city}',
-                      style: Theme.of(context).textTheme.bodyMedium),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.place_outlined,
+                          size: 15, color: AppColors.iconAccent(context)),
+                      const SizedBox(width: 4),
+                      Text(team.city!,
+                          style: Theme.of(context).textTheme.bodyMedium),
+                    ],
+                  ),
                 const SizedBox(height: 10),
                 Wrap(
                   alignment: WrapAlignment.center,

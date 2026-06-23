@@ -63,11 +63,22 @@ class AppColors {
   static const Color danger = Color(0xFFE5484D);
   static const Color success = Color(0xFF3FB950);
 
-  // Surfaces
-  static const Color darkBg = Color(0xFF0F1326);
-  static const Color darkCard = Color(0xFF1A2038);
-  static const Color lightBg = Color(0xFFF3F4F7);
+  // Surfaces — near-monochrome graphite (dark) / clean slate (light).
+  static const Color darkBg = Color(0xFF0B0E13);
+  static const Color darkCard = Color(0xFF151921);
+  static const Color darkElevated = Color(0xFF1C212B);
+  static const Color lightBg = Color(0xFFF5F6F8);
   static const Color lightCard = Colors.white;
+
+  // Hairline borders.
+  static Color border(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? Colors.white.withValues(alpha: 0.08)
+          : const Color(0xFFE6E8EC);
+
+  // Muted secondary text/icon color.
+  static Color muted(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55);
 
   static const List<Color> rankColors = [gold, silver, bronze];
 }
