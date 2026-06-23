@@ -8,8 +8,6 @@ import 'package:footrank/models/match_player_model.dart';
 import 'package:footrank/models/match_status.dart';
 import 'package:footrank/models/team_member_model.dart';
 import 'package:footrank/models/team_model.dart';
-import 'package:footrank/models/user_model.dart';
-import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
@@ -26,7 +24,6 @@ class MatchDetailPage extends StatefulWidget {
 class _MatchDetailPageState extends State<MatchDetailPage> {
   final _matchRepo = MatchRepository();
   final _teamRepo = TeamRepository();
-  final _profileRepo = ProfileRepository();
 
   bool _loading = true;
   Object? _error;
@@ -37,8 +34,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
   String? _opponentTeamId;
   TeamModel? _homeTeam;
   TeamModel? _awayTeam;
-  UserModel? _homeCaptain;
-  UserModel? _awayCaptain;
+  List<Map<String, dynamic>> _contacts = [];
   Map<String, MatchPlayerModel> _attendance = {};
   Map<String, String> _myBehavior = {}; // targetUserId -> 'good'|'bad'
 
@@ -70,8 +66,13 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
       final attendance = await _matchRepo.fetchAttendance(match.id);
       final behavior = await _matchRepo.fetchMyBehavior(match.id);
-      final homeCap = await _profileRepo.fetchUserById(home.captainId);
-      final awayCap = await _profileRepo.fetchUserById(away.captainId);
+      // Participant-only captain contacts (RPC throws for non-participants).
+      List<Map<String, dynamic>> contacts = [];
+      try {
+        contacts = await _matchRepo.matchCaptainContacts(match.id);
+      } catch (_) {
+        contacts = [];
+      }
 
       if (!mounted) return;
       setState(() {
@@ -81,8 +82,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
         _opponentTeamId = opponentTeamId;
         _homeTeam = home;
         _awayTeam = away;
-        _homeCaptain = homeCap;
-        _awayCaptain = awayCap;
+        _contacts = contacts;
         _attendance = attendance;
         _myBehavior = behavior;
         _loading = false;
@@ -240,6 +240,42 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     }
   }
 
+  Future<void> _cancelMatch() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel this match?'),
+        content: const Text(
+            'This removes the match for both teams. This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancel match'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await _matchRepo.cancelMatch(_match!.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Match cancelled')),
+      );
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
   Future<void> _call(String phone) async {
     final uri = Uri(scheme: 'tel', path: phone);
     await launchUrl(uri);
@@ -262,30 +298,30 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       (h == null || a == null) ? null : '$h - $a';
 
   Widget _buildContactCard() {
+    if (_contacts.isEmpty) return const SizedBox.shrink();
     final rows = <Widget>[];
-    void addRow(String label, UserModel? cap) {
-      if (cap == null) return;
+    for (final c in _contacts) {
+      final tid = c['team_id'] as String?;
+      final name = (c['captain_name'] as String?) ?? 'Captain';
+      final phone = c['captain_phone'] as String?;
+      final teamName = tid == _match?.homeTeamId
+          ? (_homeTeam?.name ?? 'Home')
+          : (_awayTeam?.name ?? 'Away');
       rows.add(ListTile(
         contentPadding: EdgeInsets.zero,
         dense: true,
-        leading: GradientAvatar(
-            name: cap.name, imageUrl: cap.avatarUrl, radius: 18),
-        title: Text(cap.name,
-            style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('$label captain'
-            '${cap.phone != null && cap.phone!.isNotEmpty ? ' · ${cap.phone}' : ''}'),
-        trailing: (cap.phone != null && cap.phone!.isNotEmpty)
+        leading: GradientAvatar(name: name, radius: 18),
+        title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text('$teamName captain'
+            '${phone != null && phone.isNotEmpty ? ' · $phone' : ''}'),
+        trailing: (phone != null && phone.isNotEmpty)
             ? IconButton(
                 icon: Icon(Icons.call, color: AppColors.iconAccent(context)),
-                onPressed: () => _call(cap.phone!),
+                onPressed: () => _call(phone),
               )
             : null,
       ));
     }
-
-    addRow(_homeTeam?.name ?? 'Home', _homeCaptain);
-    addRow(_awayTeam?.name ?? 'Away', _awayCaptain);
-    if (rows.isEmpty) return const SizedBox.shrink();
 
     return Card(
       child: Padding(
@@ -413,6 +449,12 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
               icon: const Icon(Icons.edit_calendar_outlined),
               onPressed: _reschedule,
             ),
+          if (canReschedule)
+            IconButton(
+              tooltip: 'Cancel match',
+              icon: const Icon(Icons.cancel_outlined),
+              onPressed: _cancelMatch,
+            ),
         ],
       ),
       body: _buildBody(),
@@ -426,7 +468,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     final match = _match!;
     final status = MatchStatus.fromString(match.status);
     final hasScore = match.homeScore != null && match.awayScore != null;
-    final d = match.scheduledAt;
+    final d = match.scheduledAt.toLocal();
     final when =
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}'
         ' · ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';

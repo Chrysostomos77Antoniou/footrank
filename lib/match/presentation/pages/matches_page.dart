@@ -429,7 +429,7 @@ class _MatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final d = match.scheduledAt;
+    final d = match.scheduledAt.toLocal();
     final when =
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
         '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
@@ -598,7 +598,7 @@ class _RequestCard extends StatelessWidget {
   const _RequestCard({required this.request, this.onCancel});
 
   String get _when {
-    final d = request.scheduledAt;
+    final d = request.scheduledAt.toLocal();
     final date =
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
     final time =
@@ -660,7 +660,7 @@ class _PendingMatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final d = match.scheduledAt;
+    final d = match.scheduledAt.toLocal();
     final when =
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
         '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
@@ -734,7 +734,7 @@ class _OpponentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final d = opponent.scheduledAt;
+    final d = opponent.scheduledAt.toLocal();
     final when =
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
         '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';

@@ -28,7 +28,7 @@ class MatchRepository {
           'team_id': teamId,
           'captain_id': uid,
           'city': city,
-          'scheduled_at': scheduledAt.toIso8601String(),
+          'scheduled_at': scheduledAt.toUtc().toIso8601String(),
           'match_type': matchType,
           'format': format,
         })
@@ -175,8 +175,19 @@ class MatchRepository {
   Future<void> rescheduleMatch(String matchId, DateTime scheduledAt) =>
       SupabaseService.client.rpc('reschedule_match', params: {
         'p_match_id': matchId,
-        'p_scheduled_at': scheduledAt.toIso8601String(),
+        'p_scheduled_at': scheduledAt.toUtc().toIso8601String(),
       });
+
+  /// Cancel/decline a pending or confirmed (not completed) match.
+  Future<void> cancelMatch(String matchId) =>
+      SupabaseService.client.rpc('cancel_match', params: {'p_match_id': matchId});
+
+  /// Captains' contact details for a match — participants only.
+  Future<List<Map<String, dynamic>>> matchCaptainContacts(String matchId) async {
+    final data = await SupabaseService.client
+        .rpc('match_captain_contacts', params: {'p_match_id': matchId});
+    return (data as List).cast<Map<String, dynamic>>();
+  }
 
   /// The other captain confirms the fixture. Returns 'pending' or 'confirmed'.
   Future<String> confirmFixture(String matchId) async {

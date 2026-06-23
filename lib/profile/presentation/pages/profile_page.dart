@@ -311,7 +311,7 @@ class _MatchHistory extends StatelessWidget {
         color = AppColors.danger;
       }
     }
-    final d = m.scheduledAt;
+    final d = m.scheduledAt.toLocal();
     final when =
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
     return ListTile(

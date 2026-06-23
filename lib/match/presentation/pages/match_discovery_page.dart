@@ -64,7 +64,7 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
   }
 
   String _label(MatchRequestModel r) {
-    final d = r.scheduledAt;
+    final d = r.scheduledAt.toLocal();
     final date =
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
     final time =
@@ -155,14 +155,15 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
             .toList();
         if (opponents.isEmpty) {
           final ref = _reference;
-          final refLine = ref == null
+          final rd = ref?.scheduledAt.toLocal();
+          final refLine = rd == null
               ? ''
-              : '\n\nLooking for: ${ref.city} on '
-                  '${ref.scheduledAt.day.toString().padLeft(2, '0')}/'
-                  '${ref.scheduledAt.month.toString().padLeft(2, '0')}/'
-                  '${ref.scheduledAt.year} around '
-                  '${ref.scheduledAt.hour.toString().padLeft(2, '0')}:'
-                  '${ref.scheduledAt.minute.toString().padLeft(2, '0')}.';
+              : '\n\nLooking for: ${ref!.city} on '
+                  '${rd.day.toString().padLeft(2, '0')}/'
+                  '${rd.month.toString().padLeft(2, '0')}/'
+                  '${rd.year} around '
+                  '${rd.hour.toString().padLeft(2, '0')}:'
+                  '${rd.minute.toString().padLeft(2, '0')}.';
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -179,7 +180,7 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
           itemCount: opponents.length,
           itemBuilder: (context, i) {
             final o = opponents[i];
-            final d = o.scheduledAt;
+            final d = o.scheduledAt.toLocal();
             final time =
                 '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
             return Card(
