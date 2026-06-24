@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
+import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/user_model.dart';
 import 'package:footrank/rankings/data/ranking_repository.dart';
@@ -155,7 +156,7 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                                   Text(p.name,
                                       style: TextStyle(
                                           fontWeight: FontWeight.w700,
-                                          fontSize: 15,
+                                          fontSize: 15.5,
                                           color: Theme.of(context)
                                               .colorScheme
                                               .onSurface)),
@@ -165,7 +166,7 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                                     '${p.position != null ? '  ·  ${p.position}' : ''}',
                                     style: TextStyle(
                                         fontSize: 12.5,
-                                        fontWeight: FontWeight.w500,
+                                        fontWeight: FontWeight.w600,
                                         color: Theme.of(context)
                                             .colorScheme
                                             .onSurface
@@ -174,7 +175,7 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                                 ],
                               ),
                             ),
-                            GradientPill(text: 'PWR ${p.elo}', icon: Icons.bolt),
+                            LevelBadge(value: p.elo, size: 46, showLabel: true),
                           ],
                         ),
                       ),

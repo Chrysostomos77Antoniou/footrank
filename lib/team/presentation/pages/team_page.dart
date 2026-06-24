@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
@@ -22,7 +23,7 @@ class TeamPage extends StatefulWidget {
   State<TeamPage> createState() => _TeamPageState();
 }
 
-class _TeamPageState extends State<TeamPage> {
+class _TeamPageState extends State<TeamPage> with ThemeRepaintMixin {
   final _repo = TeamRepository();
   late Future<TeamModel?> _teamFuture;
 

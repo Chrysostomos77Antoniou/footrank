@@ -712,7 +712,7 @@ class _TeamRoster extends StatelessWidget {
                     leading: GradientAvatar(name: m.name, radius: 18),
                     title: Text(m.name),
                     subtitle: Text(
-                      [if (m.position != null) m.position, 'ELO ${m.elo}']
+                      [if (m.position != null) m.position, 'PWR ${m.elo}']
                           .join(' · '),
                     ),
                     trailing: trailing,

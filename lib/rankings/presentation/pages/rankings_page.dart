@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
+import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/rankings/data/ranking_repository.dart';
@@ -16,7 +18,7 @@ class RankingsPage extends StatefulWidget {
   State<RankingsPage> createState() => _RankingsPageState();
 }
 
-class _RankingsPageState extends State<RankingsPage> {
+class _RankingsPageState extends State<RankingsPage> with ThemeRepaintMixin {
   int _tab = 0;
 
   @override
@@ -67,9 +69,12 @@ class _RankingsPageState extends State<RankingsPage> {
               ),
               const SizedBox(height: 8),
               Expanded(
+                // Not const: these must rebuild when the page repaints (theme
+                // change / tab visit) so their colours update. The leaderboards
+                // keep their own cached futures, so this is a UI-only rebuild.
                 child: IndexedStack(
                   index: _tab,
-                  children: const [
+                  children: [
                     PlayerLeaderboard(),
                     _TeamLeaderboard(),
                   ],
@@ -245,7 +250,7 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
                                   Text(t.name,
                                       style: TextStyle(
                                           fontWeight: FontWeight.w700,
-                                          fontSize: 15,
+                                          fontSize: 15.5,
                                           color: Theme.of(context)
                                               .colorScheme
                                               .onSurface)),
@@ -256,6 +261,7 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
                                           .textTheme
                                           .bodySmall
                                           ?.copyWith(
+                                              fontWeight: FontWeight.w600,
                                               color: Theme.of(context)
                                                   .colorScheme
                                                   .onSurface
@@ -274,7 +280,7 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
                                 ],
                               ),
                             ),
-                            GradientPill(text: '${t.rating}', icon: Icons.star),
+                            LevelBadge(value: t.rating, size: 46, showLabel: true),
                           ],
                         ),
                       ),

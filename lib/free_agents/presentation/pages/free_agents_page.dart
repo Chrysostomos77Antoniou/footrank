@@ -4,6 +4,7 @@ import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
+import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/free_agents/data/free_agent_repository.dart';
 import 'package:footrank/models/team_model.dart';
@@ -188,7 +189,7 @@ class _AgentCard extends StatelessWidget {
                   ],
                 ),
               ),
-              GradientPill(text: 'ELO ${agent.elo}', icon: Icons.bolt),
+              LevelBadge(value: agent.elo, size: 44, showLabel: true),
             ],
           ),
           const SizedBox(height: 10),

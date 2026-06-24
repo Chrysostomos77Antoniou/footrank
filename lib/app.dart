@@ -24,6 +24,9 @@ class _FootRankAppState extends State<FootRankApp> {
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: themeController.mode,
+          // Switch palettes instantly instead of cross-fading every colour over
+          // ~200ms (which looked slow/laggy on long lists).
+          themeAnimationDuration: Duration.zero,
           routerConfig: _router,
           builder: (context, child) {
             // Honour the user's font-size setting, but clamp it so very large

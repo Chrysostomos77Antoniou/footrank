@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/notifications/data/notification_repository.dart';
@@ -17,7 +18,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   final _notifRepo = NotificationRepository();
   Future<int> _unread = Future.value(0);
   bool _syncing = false;

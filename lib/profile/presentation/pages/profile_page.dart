@@ -7,6 +7,7 @@ import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/utils/emojis.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
+import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_model.dart';
@@ -22,7 +23,7 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
   final _profileRepo = ProfileRepository();
   final _authRepo = AuthRepository();
   final _teamRepo = TeamRepository();
@@ -364,14 +365,34 @@ class _ProfileHero extends StatelessWidget {
   Widget _heroColumn(BuildContext context) {
     return Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.brand(context), width: 3),
-            ),
-            child: GradientAvatar(
-                name: user.name, imageUrl: user.avatarUrl, radius: 44),
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border:
+                      Border.all(color: AppColors.brand(context), width: 3),
+                ),
+                child: GradientAvatar(
+                    name: user.name, imageUrl: user.avatarUrl, radius: 44),
+              ),
+              // Hero level badge — Playtomic-style focal rating.
+              Positioned(
+                bottom: -6,
+                right: -6,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: LevelBadge(value: user.elo, size: 40, showLabel: true),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           Text(user.name,

@@ -25,7 +25,7 @@ class AppTheme {
     ).copyWith(
       surface: isDark ? _darkBg : _lightBg,
       // Pin high-contrast text colors so nothing washes out, esp. in light mode.
-      onSurface: isDark ? const Color(0xFFECEEF1) : const Color(0xFF15181F),
+      onSurface: isDark ? const Color(0xFFECEEF1) : const Color(0xFF000000),
     );
 
     final cardColor = isDark ? _darkCard : _lightCard;

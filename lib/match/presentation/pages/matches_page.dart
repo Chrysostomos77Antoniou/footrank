@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
+import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_request_model.dart';
@@ -20,7 +22,7 @@ class MatchesPage extends StatefulWidget {
   State<MatchesPage> createState() => _MatchesPageState();
 }
 
-class _MatchesPageState extends State<MatchesPage> {
+class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   final _matchRepo = MatchRepository();
   final _teamRepo = TeamRepository();
 
@@ -534,10 +536,10 @@ class _TeamMini extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 2),
-        _EloChip(rating: rating),
+        const SizedBox(height: 3),
+        LevelBadge(value: rating ?? 0, size: 32),
         if (record != null) ...[
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(record!,
               style: Theme.of(context)
                   .textTheme
@@ -550,30 +552,6 @@ class _TeamMini extends StatelessWidget {
         ? [Expanded(child: texts), const SizedBox(width: 8), avatar]
         : [avatar, const SizedBox(width: 8), Expanded(child: texts)];
     return Row(children: children);
-  }
-}
-
-class _EloChip extends StatelessWidget {
-  final int? rating;
-  const _EloChip({this.rating});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.iconAccent(context).withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        'PWR ${rating ?? '-'}',
-        style: TextStyle(
-          color: AppColors.iconAccent(context),
-          fontWeight: FontWeight.w800,
-          fontSize: 11,
-        ),
-      ),
-    );
   }
 }
 
@@ -737,7 +715,7 @@ class _OpponentCard extends StatelessWidget {
               child: Text(opponent.teamName ?? 'Unknown team',
                   style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
-            _EloChip(rating: opponent.teamRating),
+            LevelBadge(value: opponent.teamRating ?? 0, size: 36),
           ],
         ),
         subtitle: Text('${opponent.city} · $when · ${opponent.matchType}'),

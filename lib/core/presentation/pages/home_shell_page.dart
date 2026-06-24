@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 
 class HomeShellPage extends StatelessWidget {
@@ -61,6 +62,8 @@ class HomeShellPage extends StatelessWidget {
                         i,
                         initialLocation: i == navigationShell.currentIndex,
                       );
+                      // Repaint the now-visible tab's UI (no data re-fetch).
+                      triggerUiRepaint();
                     },
                   ),
               ],
