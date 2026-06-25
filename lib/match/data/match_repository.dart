@@ -326,6 +326,12 @@ class MatchRepository {
   }
 
   /// Captain rates an opponent player: 'good' or 'bad' (+ optional reason).
+  ///
+  /// Uses upsert (not insert) so a captain can change their mind or re-tap a
+  /// player without throwing a duplicate-key error or accumulating duplicate
+  /// rows. fetchMyBehavior assumes exactly ONE rating per
+  /// (match, rater, target); the onConflict target enforces that invariant,
+  /// mirroring markAttendance above.
   Future<void> submitBehavior({
     required String matchId,
     required String targetUserId,
@@ -334,12 +340,12 @@ class MatchRepository {
   }) async {
     final uid = _uid;
     if (uid == null) throw StateError('No authenticated user');
-    await SupabaseService.client.from(_behavior).insert({
+    await SupabaseService.client.from(_behavior).upsert({
       'match_id': matchId,
       'rater_id': uid,
       'target_user_id': targetUserId,
       'rating': rating,
       'reason': reason,
-    });
+    }, onConflict: 'match_id,rater_id,target_user_id');
   }
 }
