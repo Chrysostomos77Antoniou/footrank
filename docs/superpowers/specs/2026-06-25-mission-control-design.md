@@ -85,7 +85,7 @@ Vercel Cron (every 4h)
 Each cycle:
 1. Web search: trending football news, viral football content, competitor activity
 2. Supabase read: which teams/players/leagues are most active in FootRank right now
-3. Draft 1–2 social posts (X + Instagram) grounded in both sources
+3. Draft 1–2 social posts per platform: Facebook, Instagram, TikTok, YouTube — each tailored to that platform's format (short-form video script for TikTok/YouTube, image post for Instagram, link post for Facebook)
 4. Queue posts for approval
 
 Tools: `web-search`, `supabase`, `social` (write — approval required)
@@ -138,7 +138,7 @@ await queueForApproval({
 |---|---|---|
 | `supabase` | Read footrank DB | No |
 | `web-search` | Tavily/Brave API | No |
-| `social` | X API + Instagram Graph API | Yes |
+| `social` | Facebook Graph API + Instagram Graph API + TikTok API + YouTube Data API | Yes |
 | `notifications` | Firebase Admin SDK | Yes |
 | `github` | GitHub API (issues, PRs) | Yes |
 
@@ -241,7 +241,7 @@ create table content_drafts (
 | Styling | Tailwind CSS v4 + Framer Motion | Dark glassmorphism theme |
 | Database | Supabase (shared with footrank) | Reuse existing infra, read live app data |
 | Cron | Vercel Cron Jobs | Native, no extra infra |
-| Social | X API v2 + Instagram Graph API | Direct posting |
+| Social | Facebook Graph API + Instagram Graph API + TikTok API + YouTube Data API | Direct posting across all platforms |
 | Search | Tavily API | Best for AI agent web search |
 | Notifications | Firebase Admin SDK | Reuse footrank's existing Firebase setup |
 | Auth | Supabase Auth (owner-only) | Simple, single user |
@@ -251,7 +251,7 @@ create table content_drafts (
 ## Deployment
 
 - Separate Vercel project: `footrank-mission-control`
-- Environment variables: `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `TAVILY_API_KEY`, `TWITTER_API_KEY`, `INSTAGRAM_ACCESS_TOKEN`, `FIREBASE_SERVICE_ACCOUNT`, `GITHUB_TOKEN`
+- Environment variables: `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `TAVILY_API_KEY`, `FACEBOOK_ACCESS_TOKEN`, `INSTAGRAM_ACCESS_TOKEN`, `TIKTOK_ACCESS_TOKEN`, `YOUTUBE_API_KEY`, `FIREBASE_SERVICE_ACCOUNT`, `GITHUB_TOKEN`
 - Vercel Cron: `0 */4 * * *` → `POST /api/cycle`
 - Owner access only: protected by Supabase Auth, single allowed email (`tomisapoelcity@gmail.com`)
 
