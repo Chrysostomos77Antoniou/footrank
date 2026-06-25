@@ -121,7 +121,7 @@ class _EditTeamPageState extends State<EditTeamPage> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: _city,
+                    initialValue: _city,
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'City',

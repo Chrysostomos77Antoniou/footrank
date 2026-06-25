@@ -72,7 +72,7 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: DropdownButtonFormField<String>(
-            value: _position,
+            initialValue: _position,
             isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'Position',

@@ -157,7 +157,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: _city,
+                    initialValue: _city,
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'City',
@@ -171,7 +171,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: _position,
+                    initialValue: _position,
                     decoration: const InputDecoration(
                       labelText: 'Preferred Position',
                       prefixIcon: Icon(Icons.sports_soccer_outlined),

@@ -112,7 +112,7 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: DropdownButtonFormField<MatchRequestModel>(
-                  value: _reference,
+                  initialValue: _reference,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Your match request',
