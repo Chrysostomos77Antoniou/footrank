@@ -83,10 +83,18 @@ class MatchRepository {
     int withinMinutes = defaultWithinMinutes,
     int eloThreshold = defaultEloThreshold,
   }) async {
-    final from =
-        scheduledAt.subtract(Duration(minutes: withinMinutes)).toIso8601String();
-    final to =
-        scheduledAt.add(Duration(minutes: withinMinutes)).toIso8601String();
+    // Bounds must be expressed in UTC to match how scheduled_at is stored
+    // (createMatchRequest writes scheduledAt.toUtc()). Without .toUtc() the
+    // window is offset by the device's UTC offset, silently dropping valid
+    // opponents.
+    final from = scheduledAt
+        .subtract(Duration(minutes: withinMinutes))
+        .toUtc()
+        .toIso8601String();
+    final to = scheduledAt
+        .add(Duration(minutes: withinMinutes))
+        .toUtc()
+        .toIso8601String();
 
     final data = await SupabaseService.client
         .from(_requests)
@@ -324,64 +332,3 @@ class MatchRepository {
     final data = await SupabaseService.client
         .from(_matchPlayers)
         .select('users(elo)')
-        .eq('match_id', matchId)
-        .eq('team_id', teamId)
-        .eq('attended', true);
-
-    return (data as List).map((e) {
-      final user = e['users'] as Map<String, dynamic>?;
-      return (user?['elo'] as int?) ?? EloEngine.startingElo;
-    }).toList();
-  }
-
-  /// Team rating in a match = average ELO of its active players.
-  Future<int> teamRatingForMatch(String matchId, String teamId) async {
-    final elos = await fetchActivePlayerElos(matchId, teamId);
-    return EloEngine.teamRating(elos);
-  }
-
-  // ---- Behavior ratings (Task 9.1 / 9.2) ----
-
-  static const _behavior = 'behavior_reports';
-
-  /// The current captain's behavior ratings for a match, keyed by target user.
-  Future<Map<String, String>> fetchMyBehavior(String matchId) async {
-    final uid = _uid;
-    if (uid == null) return {};
-    final data = await SupabaseService.client
-        .from(_behavior)
-        .select('target_user_id, rating')
-        .eq('match_id', matchId)
-        .eq('rater_id', uid);
-
-    final map = <String, String>{};
-    for (final e in data as List) {
-      map[e['target_user_id'] as String] = e['rating'] as String;
-    }
-    return map;
-  }
-
-  /// Captain rates an opponent player: 'good' or 'bad' (+ optional reason).
-  ///
-  /// Uses upsert (not insert) so a captain can change their mind or re-tap a
-  /// player without throwing a duplicate-key error or accumulating duplicate
-  /// rows. fetchMyBehavior assumes exactly ONE rating per
-  /// (match, rater, target); the onConflict target enforces that invariant,
-  /// mirroring markAttendance above.
-  Future<void> submitBehavior({
-    required String matchId,
-    required String targetUserId,
-    required String rating,
-    String? reason,
-  }) async {
-    final uid = _uid;
-    if (uid == null) throw StateError('No authenticated user');
-    await SupabaseService.client.from(_behavior).upsert({
-      'match_id': matchId,
-      'rater_id': uid,
-      'target_user_id': targetUserId,
-      'rating': rating,
-      'reason': reason,
-    }, onConflict: 'match_id,rater_id,target_user_id');
-  }
-}
