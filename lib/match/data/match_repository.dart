@@ -8,6 +8,7 @@ class MatchRepository {
   static const _requests = 'match_requests';
   static const _matches = 'matches';
   static const _matchPlayers = 'match_players';
+  static const _behavior = 'match_behavior';
 
   /// Default discovery windows, shared by findOpponents and findAllOpponents so
   /// both code paths use identical matching rules.
@@ -83,18 +84,14 @@ class MatchRepository {
     int withinMinutes = defaultWithinMinutes,
     int eloThreshold = defaultEloThreshold,
   }) async {
-    // Bounds must be expressed in UTC to match how scheduled_at is stored
-    // (createMatchRequest writes scheduledAt.toUtc()). Without .toUtc() the
-    // window is offset by the device's UTC offset, silently dropping valid
-    // opponents.
-    final from = scheduledAt
-        .subtract(Duration(minutes: withinMinutes))
-        .toUtc()
-        .toIso8601String();
-    final to = scheduledAt
-        .add(Duration(minutes: withinMinutes))
-        .toUtc()
-        .toIso8601String();
+    // scheduled_at is stored in UTC (see createMatchRequest / rescheduleMatch),
+    // so the window bounds MUST be UTC too. Building them from a local DateTime
+    // shifted the gte/lte range by the user's UTC offset and silently dropped
+    // otherwise-valid opponents for anyone not on UTC.
+    final anchor = scheduledAt.toUtc();
+    final from =
+        anchor.subtract(Duration(minutes: withinMinutes)).toIso8601String();
+    final to = anchor.add(Duration(minutes: withinMinutes)).toIso8601String();
 
     final data = await SupabaseService.client
         .from(_requests)
@@ -332,3 +329,66 @@ class MatchRepository {
     final data = await SupabaseService.client
         .from(_matchPlayers)
         .select('users(elo)')
+        .eq('match_id', matchId)
+        .eq('team_id', teamId)
+        .eq('attended', true);
+
+    final elos = <int>[];
+    for (final e in data as List) {
+      final user = (e as Map<String, dynamic>)['users'];
+      if (user is Map && user['elo'] != null) {
+        elos.add((user['elo'] as num).toInt());
+      }
+    }
+    return elos;
+  }
+
+  /// Convenience: the team rating (average active-player ELO) for [teamId] in
+  /// [matchId], using the shared [EloEngine] rounding rules.
+  Future<int> fetchTeamMatchRating(String matchId, String teamId) async {
+    final elos = await fetchActivePlayerElos(matchId, teamId);
+    return EloEngine.teamRating(elos);
+  }
+
+  // ---- Player behavior / sportsmanship ----
+
+  /// Sportsmanship ratings the current user has submitted in [matchId],
+  /// keyed by the rated player's user id (value is 'good' or 'bad').
+  Future<Map<String, String>> fetchMyBehavior(String matchId) async {
+    final uid = _uid;
+    if (uid == null) return <String, String>{};
+    final data = await SupabaseService.client
+        .from(_behavior)
+        .select('target_user_id, rating')
+        .eq('match_id', matchId)
+        .eq('rater_id', uid);
+
+    final map = <String, String>{};
+    for (final e in data as List) {
+      final row = e as Map<String, dynamic>;
+      final target = row['target_user_id'] as String?;
+      final rating = row['rating'] as String?;
+      if (target != null && rating != null) map[target] = rating;
+    }
+    return map;
+  }
+
+  /// Submit (or update) a sportsmanship rating for [targetUserId] in [matchId].
+  /// [rating] is 'good' or 'bad'; [reason] is supplied by the UI for 'bad'.
+  Future<void> submitBehavior({
+    required String matchId,
+    required String targetUserId,
+    required String rating,
+    String? reason,
+  }) async {
+    final uid = _uid;
+    if (uid == null) throw StateError('No authenticated user');
+    await SupabaseService.client.from(_behavior).upsert({
+      'match_id': matchId,
+      'rater_id': uid,
+      'target_user_id': targetUserId,
+      'rating': rating,
+      'reason': reason,
+    }, onConflict: 'match_id,rater_id,target_user_id');
+  }
+}
