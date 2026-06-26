@@ -7,6 +7,18 @@ import 'package:footrank/services/supabase_service.dart';
 class ProfileRepository {
   static const _table = 'users';
 
+  /// Explicit allow-list of public-safe profile columns.
+  ///
+  /// We never use a bare `.select()` (SELECT *) on the `users` table: that would
+  /// return every column the RLS policy allows for the row, so any future column
+  /// added to `users` (email, auth metadata, internal flags, etc.) would be
+  /// silently exposed to every viewer. Keep this list to exactly the fields
+  /// `UserModel.fromJson` consumes.
+  static const _publicColumns =
+      'id,name,username,city,position,elo,reliability,'
+      'behavior_positive,behavior_negative,matches_played,avatar_url,'
+      'dispute_count,flagged,created_at';
+
   /// Cached "does the current user have a profile" flag, to avoid hitting the
   /// database on every navigation. Reset on sign-out / sign-in.
   static bool? _cachedHasProfile;
@@ -20,7 +32,7 @@ class ProfileRepository {
 
     final data = await SupabaseService.client
         .from(_table)
-        .select()
+        .select(_publicColumns)
         .eq('id', userId)
         .maybeSingle();
 
@@ -32,7 +44,7 @@ class ProfileRepository {
   Future<UserModel?> fetchUserById(String id) async {
     final data = await SupabaseService.client
         .from(_table)
-        .select()
+        .select(_publicColumns)
         .eq('id', id)
         .maybeSingle();
     if (data == null) return null;
@@ -67,7 +79,7 @@ class ProfileRepository {
           'city': city,
           'position': position,
         })
-        .select()
+        .select(_publicColumns)
         .single();
 
     _cachedHasProfile = true;
@@ -119,7 +131,7 @@ class ProfileRepository {
           if (avatarUrl != null) 'avatar_url': avatarUrl,
         })
         .eq('id', userId)
-        .select()
+        .select(_publicColumns)
         .single();
 
     return UserModel.fromJson(updated);
