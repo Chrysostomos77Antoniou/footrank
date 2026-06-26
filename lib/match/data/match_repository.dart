@@ -9,6 +9,11 @@ class MatchRepository {
   static const _matches = 'matches';
   static const _matchPlayers = 'match_players';
 
+  /// Default discovery windows, shared by findOpponents and findAllOpponents so
+  /// both code paths use identical matching rules.
+  static const int defaultWithinMinutes = 30;
+  static const int defaultEloThreshold = 150;
+
   String? get _uid => SupabaseService.client.auth.currentUser?.id;
 
   /// Creates a match request for the captain's team.
@@ -75,8 +80,8 @@ class MatchRepository {
     required int myTeamRating,
     required String city,
     required DateTime scheduledAt,
-    int withinMinutes = 30,
-    int eloThreshold = 150,
+    int withinMinutes = defaultWithinMinutes,
+    int eloThreshold = defaultEloThreshold,
   }) async {
     final from =
         scheduledAt.subtract(Duration(minutes: withinMinutes)).toIso8601String();
@@ -103,6 +108,31 @@ class MatchRepository {
       if (rating == null) return false;
       return (rating - myTeamRating).abs() <= eloThreshold;
     }).toList();
+  }
+
+  /// True when [opponent] matches [ref] under the same city/time/ELO windows
+  /// used by [findOpponents]. Shared so server-side and client-side discovery
+  /// agree on what counts as a match.
+  bool _matchesReference(
+    MatchRequestModel ref,
+    MatchRequestModel opponent, {
+    int withinMinutes = defaultWithinMinutes,
+    int eloThreshold = defaultEloThreshold,
+  }) {
+    // Same city (case-insensitive, trimmed) — mirrors ilike(city.trim()).
+    if (opponent.city.trim().toLowerCase() != ref.city.trim().toLowerCase()) {
+      return false;
+    }
+
+    // Scheduled time within +/- withinMinutes of the reference.
+    final diff = opponent.scheduledAt.difference(ref.scheduledAt).inMinutes.abs();
+    if (diff > withinMinutes) return false;
+
+    // ELO proximity against the reference team's rating.
+    final myRating = ref.teamRating ?? 1500;
+    final oppRating = opponent.teamRating;
+    if (oppRating == null) return false;
+    return (oppRating - myRating).abs() <= eloThreshold;
   }
 
   /// Captain cancels/deletes one of their own open match requests.
@@ -135,19 +165,25 @@ class MatchRepository {
   /// Aggregates matchable opponents across ALL of the team's open requests,
   /// de-duplicated by request id. Used to surface opponents directly on the
   /// Matches screen (no manual "Find Opponents" step needed).
+  ///
+  /// Uses exactly TWO queries regardless of how many open requests the team has
+  /// (one for the team's own 'searching' requests, one for all open opponent
+  /// requests) and applies the same city/time/ELO windows as [findOpponents]
+  /// client-side. This replaces the previous 1 + N serialized query pattern.
   Future<List<MatchRequestModel>> findAllOpponents(String teamId) async {
     final myRequests = await fetchSearchingRequests(teamId);
+    if (myRequests.isEmpty) return <MatchRequestModel>[];
+
+    final opponentRequests = await fetchOpenOpponentRequests(teamId);
+
     final seen = <String>{};
     final all = <MatchRequestModel>[];
-    for (final ref in myRequests) {
-      final opponents = await findOpponents(
-        myTeamId: teamId,
-        myTeamRating: ref.teamRating ?? 1500,
-        city: ref.city,
-        scheduledAt: ref.scheduledAt,
-      );
-      for (final o in opponents) {
-        if (seen.add(o.id)) all.add(o);
+    for (final opponent in opponentRequests) {
+      // An opponent qualifies if it matches ANY of the team's open requests.
+      final matches =
+          myRequests.any((ref) => _matchesReference(ref, opponent));
+      if (matches && seen.add(opponent.id)) {
+        all.add(opponent);
       }
     }
     return all;
