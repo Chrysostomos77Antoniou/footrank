@@ -32,8 +32,11 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
     super.initState();
     // Sensible defaults so a captain can create a match in a couple of taps.
     final now = DateTime.now();
-    _date = now;
-    _time = TimeOfDay(hour: (now.hour + 1) % 24, minute: 0);
+    final defaultHour = now.hour + 1;
+    _time = TimeOfDay(hour: defaultHour % 24, minute: 0);
+    // If "now + 1 hour" rolls past midnight, the default kick-off belongs to
+    // tomorrow — otherwise the prefilled scheduledAt would be in the past.
+    _date = defaultHour >= 24 ? now.add(const Duration(days: 1)) : now;
     _prefillCity();
   }
 
@@ -87,6 +90,16 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
       _time!.hour,
       _time!.minute,
     );
+
+    // Guard against scheduling a kick-off in the past (e.g. keeping today's
+    // date but choosing an earlier time). Such requests would otherwise be
+    // created and surface in opponents' discovery windows.
+    if (scheduledAt.isBefore(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kick-off must be in the future')),
+      );
+      return;
+    }
 
     setState(() => _loading = true);
     try {
