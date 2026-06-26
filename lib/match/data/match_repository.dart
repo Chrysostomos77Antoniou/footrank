@@ -8,6 +8,7 @@ class MatchRepository {
   static const _requests = 'match_requests';
   static const _matches = 'matches';
   static const _matchPlayers = 'match_players';
+  static const _behavior = 'match_behavior';
 
   /// Default discovery windows, shared by findOpponents and findAllOpponents so
   /// both code paths use identical matching rules.
@@ -83,10 +84,14 @@ class MatchRepository {
     int withinMinutes = defaultWithinMinutes,
     int eloThreshold = defaultEloThreshold,
   }) async {
+    // scheduled_at is stored in UTC (see createMatchRequest / rescheduleMatch),
+    // so the window bounds MUST be UTC too. Building them from a local DateTime
+    // shifted the gte/lte range by the user's UTC offset and silently dropped
+    // otherwise-valid opponents for anyone not on UTC.
+    final anchor = scheduledAt.toUtc();
     final from =
-        scheduledAt.subtract(Duration(minutes: withinMinutes)).toIso8601String();
-    final to =
-        scheduledAt.add(Duration(minutes: withinMinutes)).toIso8601String();
+        anchor.subtract(Duration(minutes: withinMinutes)).toIso8601String();
+    final to = anchor.add(Duration(minutes: withinMinutes)).toIso8601String();
 
     final data = await SupabaseService.client
         .from(_requests)
@@ -328,26 +333,30 @@ class MatchRepository {
         .eq('team_id', teamId)
         .eq('attended', true);
 
-    return (data as List).map((e) {
-      final user = e['users'] as Map<String, dynamic>?;
-      return (user?['elo'] as int?) ?? EloEngine.startingElo;
-    }).toList();
+    final elos = <int>[];
+    for (final e in data as List) {
+      final user = (e as Map<String, dynamic>)['users'];
+      if (user is Map && user['elo'] != null) {
+        elos.add((user['elo'] as num).toInt());
+      }
+    }
+    return elos;
   }
 
-  /// Team rating in a match = average ELO of its active players.
-  Future<int> teamRatingForMatch(String matchId, String teamId) async {
+  /// Convenience: the team rating (average active-player ELO) for [teamId] in
+  /// [matchId], using the shared [EloEngine] rounding rules.
+  Future<int> fetchTeamMatchRating(String matchId, String teamId) async {
     final elos = await fetchActivePlayerElos(matchId, teamId);
     return EloEngine.teamRating(elos);
   }
 
-  // ---- Behavior ratings (Task 9.1 / 9.2) ----
+  // ---- Player behavior / sportsmanship ----
 
-  static const _behavior = 'behavior_reports';
-
-  /// The current captain's behavior ratings for a match, keyed by target user.
+  /// Sportsmanship ratings the current user has submitted in [matchId],
+  /// keyed by the rated player's user id (value is 'good' or 'bad').
   Future<Map<String, String>> fetchMyBehavior(String matchId) async {
     final uid = _uid;
-    if (uid == null) return {};
+    if (uid == null) return <String, String>{};
     final data = await SupabaseService.client
         .from(_behavior)
         .select('target_user_id, rating')
@@ -356,18 +365,16 @@ class MatchRepository {
 
     final map = <String, String>{};
     for (final e in data as List) {
-      map[e['target_user_id'] as String] = e['rating'] as String;
+      final row = e as Map<String, dynamic>;
+      final target = row['target_user_id'] as String?;
+      final rating = row['rating'] as String?;
+      if (target != null && rating != null) map[target] = rating;
     }
     return map;
   }
 
-  /// Captain rates an opponent player: 'good' or 'bad' (+ optional reason).
-  ///
-  /// Uses upsert (not insert) so a captain can change their mind or re-tap a
-  /// player without throwing a duplicate-key error or accumulating duplicate
-  /// rows. fetchMyBehavior assumes exactly ONE rating per
-  /// (match, rater, target); the onConflict target enforces that invariant,
-  /// mirroring markAttendance above.
+  /// Submit (or update) a sportsmanship rating for [targetUserId] in [matchId].
+  /// [rating] is 'good' or 'bad'; [reason] is supplied by the UI for 'bad'.
   Future<void> submitBehavior({
     required String matchId,
     required String targetUserId,
