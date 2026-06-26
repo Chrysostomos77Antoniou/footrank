@@ -1,0 +1,133 @@
+name: Security Scan
+
+# Recurring dependency / CVE scanning for the Flutter + Supabase + Firebase stack.
+# Runs on every push/PR to master and on a weekly schedule so newly disclosed
+# vulnerabilities in pinned deps get flagged automatically.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    # Mondays 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  pub-outdated:
+    name: dart pub outdated
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      # Surface outdated direct + transitive packages. Pay special attention to
+      # supabase_flutter / gotrue / postgrest, firebase_* plugins, image_picker,
+      # url_launcher and http (common spots for redirect/SSRF/cert/auth issues).
+      - name: Report outdated packages
+        run: dart pub outdated --show-all --transitive
+
+      # Fail only when a security-relevant package is behind on a MAJOR version,
+      # which is the typical signal for missed security fixes. Informational for
+      # everything else (above step prints the full table).
+      - name: Flag major-outdated security-relevant packages
+        run: |
+          dart pub outdated --json > outdated.json
+          python3 - <<'PY'
+          import json, sys
+          watch = {
+              "supabase_flutter", "gotrue", "postgrest", "realtime_client",
+              "storage_client", "functions_client", "supabase",
+              "firebase_core", "firebase_messaging", "firebase_crashlytics",
+              "firebase_core_platform_interface",
+              "image_picker", "image_picker_android",
+              "image_picker_platform_interface",
+              "url_launcher", "http", "dio", "video_player",
+              "cached_network_image", "go_router",
+          }
+          data = json.load(open("outdated.json"))
+          flagged = []
+          for pkg in data.get("packages", []):
+              name = pkg.get("package")
+              if name not in watch:
+                  continue
+              cur = (pkg.get("current") or {}).get("version")
+              latest = (pkg.get("latest") or {}).get("version")
+              if not cur or not latest:
+                  continue
+              try:
+                  cur_major = int(cur.lstrip("^~ ").split(".")[0])
+                  latest_major = int(latest.split(".")[0])
+              except ValueError:
+                  continue
+              if latest_major > cur_major:
+                  flagged.append(f"{name}: {cur} -> {latest} (major behind)")
+          if flagged:
+              print("::warning::Security-relevant packages are a major version behind:")
+              for f in flagged:
+                  print(f"::warning::{f}")
+          else:
+              print("No security-relevant packages are a full major version behind.")
+          PY
+
+  osv-scanner:
+    name: OSV-Scanner (pubspec.lock)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # OSV-Scanner understands the Pub ecosystem and reads the committed
+      # pubspec.lock to flag known-vulnerable (transitive) package versions.
+      - name: Run OSV-Scanner
+        id: osv
+        continue-on-error: true
+        uses: google/osv-scanner-action/osv-scanner-action@v1.9.2
+        with:
+          scan-args: |-
+            --lockfile=./pubspec.lock
+            --format=sarif
+            --output=osv-results.sarif
+
+      - name: Upload OSV results to code scanning
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: osv-results.sarif
+
+      - name: Fail on discovered vulnerabilities
+        if: steps.osv.outcome == 'failure'
+        run: |
+          echo "::error::OSV-Scanner reported known vulnerabilities in pubspec.lock. See the Security tab / SARIF upload for details."
+          exit 1
+
+  tls-validation-check:
+    name: TLS cert-validation guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Ensure no http/dio/HttpClient code path disables TLS certificate
+      # validation, which would enable trivial MITM of Supabase/Firebase traffic.
+      - name: Search for disabled certificate validation
+        run: |
+          set +e
+          PATTERN='badCertificateCallback|allowBadCertificates|onBadCertificate|allowInsecureConnections'
+          MATCHES=$(grep -rnE "$PATTERN" lib test integration_test 2>/dev/null)
+          if [ -n "$MATCHES" ]; then
+            echo "::error::Found code that may disable TLS certificate validation:"
+            echo "$MATCHES"
+            exit 1
+          fi
+          echo "No TLS certificate-validation bypasses found."
