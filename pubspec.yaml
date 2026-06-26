@@ -23,7 +23,7 @@ dependencies:
   image_picker: ^1.1.2
   image_picker_android: ^0.8.12
   image_picker_platform_interface: ^2.10.0
-  video_player: ^2.9.2
+  video_player: ^2.11.1
   url_launcher: ^6.3.0
   flutter_native_splash: ^2.4.3
   cached_network_image: ^3.4.1
