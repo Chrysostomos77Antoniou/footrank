@@ -9,6 +9,11 @@ class MatchRepository {
   static const _matches = 'matches';
   static const _matchPlayers = 'match_players';
 
+  /// Default opponent-discovery windows. Single-sourced so that
+  /// [findOpponents] and [findAllOpponents] always agree.
+  static const int _defaultWithinMinutes = 30;
+  static const int _defaultEloThreshold = 150;
+
   String? get _uid => SupabaseService.client.auth.currentUser?.id;
 
   /// Creates a match request for the captain's team.
@@ -75,8 +80,8 @@ class MatchRepository {
     required int myTeamRating,
     required String city,
     required DateTime scheduledAt,
-    int withinMinutes = 30,
-    int eloThreshold = 150,
+    int withinMinutes = _defaultWithinMinutes,
+    int eloThreshold = _defaultEloThreshold,
   }) async {
     final from =
         scheduledAt.subtract(Duration(minutes: withinMinutes)).toIso8601String();
@@ -132,22 +137,58 @@ class MatchRepository {
         .toList();
   }
 
+  /// Returns true if [candidate] matches [ref] under the standard discovery
+  /// windows: same city (case-insensitive), scheduled time within
+  /// [withinMinutes], and team rating within [eloThreshold]. Mirrors the
+  /// server-side filters in [findOpponents] so the client-side aggregation in
+  /// [findAllOpponents] yields an identical opponent set.
+  bool _matchesReference(
+    MatchRequestModel candidate,
+    MatchRequestModel ref, {
+    int withinMinutes = _defaultWithinMinutes,
+    int eloThreshold = _defaultEloThreshold,
+  }) {
+    // City — case-insensitive, trimmed (ilike with no wildcards = equality).
+    if (candidate.city.trim().toLowerCase() != ref.city.trim().toLowerCase()) {
+      return false;
+    }
+
+    // Time window — within +/- withinMinutes of the reference's scheduled time.
+    final delta = candidate.scheduledAt.difference(ref.scheduledAt).abs();
+    if (delta > Duration(minutes: withinMinutes)) return false;
+
+    // ELO proximity — relative to the reference team's rating.
+    final myRating = ref.teamRating ?? 1500;
+    final rating = candidate.teamRating;
+    if (rating == null) return false;
+    if ((rating - myRating).abs() > eloThreshold) return false;
+
+    return true;
+  }
+
   /// Aggregates matchable opponents across ALL of the team's open requests,
   /// de-duplicated by request id. Used to surface opponents directly on the
   /// Matches screen (no manual "Find Opponents" step needed).
+  ///
+  /// Fetches all open opponent requests in a SINGLE query (plus the team's own
+  /// searching requests), then applies the city/time/ELO windows client-side
+  /// for each reference request. This replaces the previous 1+N serialized
+  /// queries (one [findOpponents] round-trip per open request) with a constant
+  /// two queries, while producing an identical opponent set.
   Future<List<MatchRequestModel>> findAllOpponents(String teamId) async {
     final myRequests = await fetchSearchingRequests(teamId);
+    if (myRequests.isEmpty) return [];
+
+    final candidates = await fetchOpenOpponentRequests(teamId);
+
     final seen = <String>{};
     final all = <MatchRequestModel>[];
-    for (final ref in myRequests) {
-      final opponents = await findOpponents(
-        myTeamId: teamId,
-        myTeamRating: ref.teamRating ?? 1500,
-        city: ref.city,
-        scheduledAt: ref.scheduledAt,
-      );
-      for (final o in opponents) {
-        if (seen.add(o.id)) all.add(o);
+    for (final candidate in candidates) {
+      if (seen.contains(candidate.id)) continue;
+      final matches = myRequests.any((ref) => _matchesReference(candidate, ref));
+      if (matches) {
+        seen.add(candidate.id);
+        all.add(candidate);
       }
     }
     return all;
