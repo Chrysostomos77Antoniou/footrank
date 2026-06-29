@@ -21,10 +21,15 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
   final _repo = MatchRepository();
   final _teamRepo = TeamRepository();
 
+  /// Supported team formats. Stored verbatim in match_requests.format (text,
+  /// no CHECK constraint), so adding a value here is all that's needed.
+  static const List<String> _formats = ['5v5', '6v6', '7v7', '11v11'];
+
   String? _city;
   DateTime? _date;
   TimeOfDay? _time;
   String _matchType = 'casual';
+  String _format = '5v5';
   bool _loading = false;
 
   @override
@@ -108,6 +113,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
         city: _city!,
         scheduledAt: scheduledAt,
         matchType: _matchType,
+        format: _format,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -194,11 +200,18 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
                       setState(() => _matchType = s.first),
                 ),
                 const SizedBox(height: 20),
-                const ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.groups),
-                  title: Text('Format'),
-                  trailing: Text('5v5'),
+                Text('Format',
+                    style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 8),
+                SegmentedButton<String>(
+                  segments: _formats
+                      .map((f) =>
+                          ButtonSegment(value: f, label: Text(f)))
+                      .toList(),
+                  selected: {_format},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (s) =>
+                      setState(() => _format = s.first),
                 ),
                 const SizedBox(height: 24),
                 FilledButton(
