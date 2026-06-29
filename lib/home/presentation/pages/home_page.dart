@@ -29,6 +29,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   bool _syncing = false;
   TeamModel? _team;
   bool _isCaptain = false;
+  bool _teamLoaded = false;
 
   @override
   void initState() {
@@ -58,6 +59,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
       setState(() {
         _team = team;
         _isCaptain = team != null && team.captainId == uid;
+        _teamLoaded = true;
       });
     } catch (_) {
       // Non-fatal: just hide the captain-only card if we can't resolve the team.
@@ -65,6 +67,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
       setState(() {
         _team = null;
         _isCaptain = false;
+        _teamLoaded = true;
       });
     }
   }
@@ -179,6 +182,14 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                 child: _HeroBanner(),
               ),
               const SizedBox(height: 20),
+              // Nudge players who aren't on a team yet into the core loop.
+              if (_teamLoaded && _team == null) ...[
+                FadeSlideIn(
+                  delay: const Duration(milliseconds: 130),
+                  child: _NoTeamCard(onChanged: _loadTeam),
+                ),
+                const SizedBox(height: 20),
+              ],
               // ---- Primary actions: the core engagement loop ----
               if (_isCaptain && _team != null) ...[
                 FadeSlideIn(
@@ -395,6 +406,69 @@ class _HeroBannerState extends State<_HeroBanner> {
         height: size,
         decoration: BoxDecoration(shape: BoxShape.circle, color: color),
       );
+}
+
+/// Shown on Home when the signed-in user isn't on a team yet — the single
+/// biggest blocker to playing matches. Gives a direct path to create or join.
+class _NoTeamCard extends StatelessWidget {
+  final VoidCallback onChanged;
+  const _NoTeamCard({required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppColors.iconAccent(context);
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.groups_outlined, color: accent),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text("You're not on a team yet",
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Create your own squad or join one with an invite code to start '
+            'playing ranked matches and climbing the leaderboard.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: () async {
+                    await context.push(AppRoutes.createTeam);
+                    onChanged();
+                  },
+                  child: const Text('Create Team'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () async {
+                    await context.push(AppRoutes.joinTeam);
+                    onChanged();
+                  },
+                  child: const Text('Join Team'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ActionCard extends StatelessWidget {
