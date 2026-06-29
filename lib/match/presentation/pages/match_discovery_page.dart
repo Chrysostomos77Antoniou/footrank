@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_request_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MatchDiscoveryPage extends StatefulWidget {
   final String teamId;
@@ -17,13 +20,64 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
   MatchRequestModel? _reference;
   Future<List<MatchRequestModel>>? _opponentsFuture;
 
+  // Dismissed rejections expire after 24h so stale ones don't accumulate.
+  static const Duration _dismissTtl = Duration(hours: 24);
+
   @override
   void initState() {
     super.initState();
     _myRequestsFuture = _repo.fetchSearchingRequests(widget.teamId);
+    _loadDismissed();
   }
 
-  final Set<String> _dismissed = {}; // locally rejected opponent request ids
+  // Locally rejected opponent request ids -> timestamp (ms) when dismissed.
+  final Map<String, int> _dismissed = {};
+
+  String get _dismissKey => 'match_discovery_dismissed_${widget.teamId}';
+
+  Future<void> _loadDismissed() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_dismissKey);
+      if (raw == null) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final cutoff = _dismissTtl.inMilliseconds;
+      final loaded = <String, int>{};
+      decoded.forEach((key, value) {
+        if (value is int && (now - value) < cutoff) {
+          loaded[key.toString()] = value;
+        }
+      });
+      if (!mounted) return;
+      setState(() {
+        _dismissed
+          ..clear()
+          ..addAll(loaded);
+      });
+      // Persist back the pruned set so stale entries don't linger.
+      if (loaded.length != decoded.length) {
+        await _saveDismissed();
+      }
+    } catch (_) {
+      // Best-effort persistence; ignore corrupt/unavailable storage.
+    }
+  }
+
+  Future<void> _saveDismissed() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_dismissKey, jsonEncode(_dismissed));
+    } catch (_) {
+      // Best-effort persistence; ignore storage errors.
+    }
+  }
+
+  void _markDismissed(String id) {
+    _dismissed[id] = DateTime.now().millisecondsSinceEpoch;
+    _saveDismissed();
+  }
 
   void _selectReference(MatchRequestModel ref) {
     setState(() {
@@ -44,7 +98,7 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
         awayTeamId: widget.teamId,
       );
       if (!mounted) return;
-      setState(() => _dismissed.add(opponent.id));
+      setState(() => _markDismissed(opponent.id));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text('Match requested against ${opponent.teamName}. '
@@ -60,7 +114,7 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
   }
 
   void _reject(MatchRequestModel opponent) {
-    setState(() => _dismissed.add(opponent.id));
+    setState(() => _markDismissed(opponent.id));
   }
 
   String _label(MatchRequestModel r) {
@@ -151,7 +205,7 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
         final opponents = (snapshot.data ?? [])
-            .where((o) => !_dismissed.contains(o.id))
+            .where((o) => !_dismissed.containsKey(o.id))
             .toList();
         if (opponents.isEmpty) {
           final ref = _reference;
