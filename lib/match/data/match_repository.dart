@@ -8,7 +8,7 @@ class MatchRepository {
   static const _requests = 'match_requests';
   static const _matches = 'matches';
   static const _matchPlayers = 'match_players';
-  static const _behavior = 'match_behavior';
+  static const _behavior = 'behavior_reports';
 
   /// Default discovery windows, shared by findOpponents and findAllOpponents so
   /// both code paths use identical matching rules.
