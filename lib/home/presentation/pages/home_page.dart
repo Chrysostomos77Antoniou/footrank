@@ -7,9 +7,12 @@ import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
+import 'package:footrank/models/team_model.dart';
 import 'package:footrank/notifications/data/notification_repository.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
+import 'package:footrank/services/supabase_service.dart';
+import 'package:footrank/team/data/team_repository.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,19 +23,49 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   final _notifRepo = NotificationRepository();
+  final _teamRepo = TeamRepository();
   Future<int> _unread = Future.value(0);
   bool _syncing = false;
+  TeamModel? _team;
+  bool _isCaptain = false;
 
   @override
   void initState() {
     super.initState();
     _refreshUnread();
+    _loadTeam();
+    appRefresh.addListener(_loadTeam);
+  }
+
+  @override
+  void dispose() {
+    appRefresh.removeListener(_loadTeam);
+    super.dispose();
   }
 
   void _refreshUnread() {
     setState(() {
       _unread = _notifRepo.unreadCount();
     });
+  }
+
+  Future<void> _loadTeam() async {
+    try {
+      final team = await _teamRepo.fetchMyTeam();
+      final uid = SupabaseService.client.auth.currentUser?.id;
+      if (!mounted) return;
+      setState(() {
+        _team = team;
+        _isCaptain = team != null && team.captainId == uid;
+      });
+    } catch (_) {
+      // Non-fatal: just hide the captain-only card if we can't resolve the team.
+      if (!mounted) return;
+      setState(() {
+        _team = null;
+        _isCaptain = false;
+      });
+    }
   }
 
   Future<void> _sync() async {
@@ -145,8 +178,56 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                 child: _HeroBanner(),
               ),
               const SizedBox(height: 20),
+              // ---- Primary actions: the core engagement loop ----
+              if (_isCaptain && _team != null) ...[
+                FadeSlideIn(
+                  delay: const Duration(milliseconds: 160),
+                  child: _ActionCard(
+                    emoji: '',
+                    iconWidget: Icon(Icons.add_circle_outline,
+                        color: AppColors.iconAccent(context)),
+                    color: AppColors.iconAccent(context),
+                    title: 'Create Match',
+                    subtitle: 'Set up a match for your team',
+                    onTap: () =>
+                        context.push(AppRoutes.createMatch, extra: _team!.id),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               FadeSlideIn(
-                delay: const Duration(milliseconds: 180),
+                delay: const Duration(milliseconds: 220),
+                child: _ActionCard(
+                  emoji: '',
+                  iconWidget: Icon(Icons.leaderboard,
+                      color: AppColors.iconAccent(context)),
+                  color: AppColors.iconAccent(context),
+                  title: 'Leaderboard',
+                  subtitle: 'See where you rank',
+                  onTap: () => context.push(AppRoutes.teamRankings),
+                ),
+              ),
+              const SizedBox(height: 24),
+              // ---- Secondary actions ----
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 280),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 12),
+                  child: Text(
+                    'Manage',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.6),
+                          letterSpacing: 0.2,
+                        ),
+                  ),
+                ),
+              ),
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 320),
                 child: _ActionCard(
                   emoji: '',
                   iconWidget: Icon(Icons.notifications_active_outlined,
@@ -162,7 +243,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
               ),
               const SizedBox(height: 12),
               FadeSlideIn(
-                delay: const Duration(milliseconds: 260),
+                delay: const Duration(milliseconds: 380),
                 child: _ActionCard(
                   emoji: '',
                   iconWidget: Icon(Icons.person_search_outlined,
@@ -175,7 +256,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
               ),
               const SizedBox(height: 12),
               FadeSlideIn(
-                delay: const Duration(milliseconds: 340),
+                delay: const Duration(milliseconds: 440),
                 child: _ActionCard(
                   emoji: '',
                   iconWidget: Icon(Icons.mail_outline,
