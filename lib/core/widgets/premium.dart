@@ -2,19 +2,100 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 
-/// App background: flat, clean monochrome scaffold color. No accent glow or
-/// texture — keeps the UI calm and professional.
-class AmbientBackground extends StatelessWidget {
+/// App background: a layered, gently-drifting gradient. In dark mode it stacks
+/// several shades of near-black navy with a faint accent glow; in light mode,
+/// several shades of white/grey. Subtle and slow — alive, not busy.
+class AmbientBackground extends StatefulWidget {
   final Widget child;
   const AmbientBackground({super.key, required this.child});
 
   @override
+  State<AmbientBackground> createState() => _AmbientBackgroundState();
+}
+
+class _AmbientBackgroundState extends State<AmbientBackground>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 20),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: child,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base = Theme.of(context).scaffoldBackgroundColor;
+    // Lighter + darker tints of the base, plus a faint brand glow, give the
+    // flat surface depth without ever reading as a colour wash.
+    final lighter = isDark
+        ? const Color(0xFF1B2238).withValues(alpha: 0.55)
+        : Colors.white.withValues(alpha: 0.9);
+    final darker = isDark
+        ? const Color(0xFF070A16).withValues(alpha: 0.7)
+        : const Color(0xFFE6E9F0).withValues(alpha: 0.8);
+    final glow = AppColors.brand(context).withValues(alpha: isDark ? 0.07 : 0.05);
+
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_c.value);
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: isDark
+                  ? [const Color(0xFF0C1124), base, const Color(0xFF090C1A)]
+                  : [Colors.white, base, const Color(0xFFECEEF3)],
+            ),
+          ),
+          child: CustomPaint(
+            painter: _AmbientBlobs(
+                t: t, lighter: lighter, darker: darker, glow: glow),
+            child: child,
+          ),
+        );
+      },
+      child: widget.child,
     );
   }
+}
+
+class _AmbientBlobs extends CustomPainter {
+  final double t;
+  final Color lighter, darker, glow;
+  _AmbientBlobs(
+      {required this.t,
+      required this.lighter,
+      required this.darker,
+      required this.glow});
+
+  void _blob(Canvas c, Offset center, double r, Color color) {
+    final rect = Rect.fromCircle(center: center, radius: r);
+    final paint = Paint()
+      ..shader = RadialGradient(colors: [color, color.withValues(alpha: 0)])
+          .createShader(rect);
+    c.drawCircle(center, r, paint);
+  }
+
+  @override
+  void paint(Canvas c, Size s) {
+    final w = s.width, h = s.height;
+    _blob(c, Offset(w * (0.16 + 0.10 * t), h * (0.10 + 0.05 * t)), w * 0.62,
+        lighter);
+    _blob(c, Offset(w * (0.92 - 0.12 * t), h * (0.34 + 0.06 * t)), w * 0.55,
+        glow);
+    _blob(c, Offset(w * (0.72 + 0.10 * t), h * (0.88 - 0.06 * t)), w * 0.68,
+        darker);
+  }
+
+  @override
+  bool shouldRepaint(_AmbientBlobs old) => old.t != t;
 }
 
 /// Clean solid card with a subtle border + soft neutral shadow.
@@ -35,23 +116,30 @@ class GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fill = isDark ? AppColors.darkCard : AppColors.lightCard;
 
     Widget content = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: fill,
+        // A faint top-to-bottom shade gives the card depth instead of a flat fill.
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  AppColors.darkElevated.withValues(alpha: 0.85),
+                  AppColors.darkCard,
+                ]
+              : [Colors.white, const Color(0xFFF7F8FB)],
+        ),
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: AppColors.border(context)),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.05),
+            blurRadius: isDark ? 18 : 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: child,
     );
@@ -115,8 +203,15 @@ class AnimatedCount extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Minimal motion: render the value directly, no roll-up.
-    return Text('$prefix$value$suffix', style: style);
+    // Roll up to the value the first time it's shown (and animate on change) —
+    // makes ratings / Pitch Power feel alive.
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: value.toDouble()),
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      builder: (context, v, _) =>
+          Text('$prefix${v.round()}$suffix', style: style),
+    );
   }
 }
 
