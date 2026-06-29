@@ -98,6 +98,21 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
   Future<void> _mark(TeamMemberModel player, bool attended) async {
     final match = _match!;
+    if (attended) {
+      final alreadyAttended = _attendance.values
+          .where((p) =>
+              p.teamId == player.teamId &&
+              p.attended == true &&
+              p.userId != player.userId)
+          .length;
+      if (alreadyAttended >= 5) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('You can mark at most 5 players as attended.')));
+        }
+        return;
+      }
+    }
     try {
       await _matchRepo.markAttendance(
         matchId: match.id,
@@ -543,7 +558,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Text(
-              'As captain, mark the opponent players who attended.',
+              'As captain, mark your players who attended (up to 5).',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -552,7 +567,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           teamId: match.homeTeamId,
           teamRepo: _teamRepo,
           attendance: _attendance,
-          canMark: _isCaptain && _opponentTeamId == match.homeTeamId,
+          canMark: _isCaptain && _myTeamId == match.homeTeamId,
           onMark: _mark,
           canRate: _isCaptain &&
               _opponentTeamId == match.homeTeamId &&
@@ -567,7 +582,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           teamId: match.awayTeamId,
           teamRepo: _teamRepo,
           attendance: _attendance,
-          canMark: _isCaptain && _opponentTeamId == match.awayTeamId,
+          canMark: _isCaptain && _myTeamId == match.awayTeamId,
           onMark: _mark,
           canRate: _isCaptain &&
               _opponentTeamId == match.awayTeamId &&

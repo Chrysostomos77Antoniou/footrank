@@ -279,7 +279,8 @@ class MatchRepository {
     return map;
   }
 
-  /// Opposing captain marks a player attended / not attended (upsert).
+  /// Captain marks one of their own players attended / not attended (upsert).
+  /// At most 5 attended players per team per match (enforced in the DB too).
   Future<void> markAttendance({
     required String matchId,
     required String userId,
