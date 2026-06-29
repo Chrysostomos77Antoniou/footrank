@@ -166,7 +166,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  initialValue: _city,
+                  value: _city,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'City',

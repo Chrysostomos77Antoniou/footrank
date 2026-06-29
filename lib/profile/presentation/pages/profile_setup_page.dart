@@ -109,7 +109,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  initialValue: _city,
+                  value: _city,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'City',
@@ -123,7 +123,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  initialValue: _position,
+                  value: _position,
                   decoration: const InputDecoration(
                     labelText: 'Preferred Position',
                     border: OutlineInputBorder(),

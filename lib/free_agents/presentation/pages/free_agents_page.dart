@@ -264,7 +264,7 @@ class _FilterBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DropdownButtonFormField<String>(
-            initialValue: filter.position,
+            value: filter.position,
             isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'Position',
