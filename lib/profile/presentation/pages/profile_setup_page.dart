@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
+import 'package:footrank/onboarding/onboarding_prefs.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 
@@ -39,7 +40,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
         city: _city,
         position: _position,
       );
-      if (mounted) context.go(AppRoutes.home);
+      if (mounted) _routeAfterSetup();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -49,6 +50,31 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// A brand-new user has no team yet, so honour the intent they chose during
+  /// onboarding: take them straight into creating a team (or the free-agents
+  /// board) on top of Home, rather than dropping them on an empty Home screen.
+  /// The intent is consumed once. When none was set we keep the old behaviour.
+  void _routeAfterSetup() {
+    final intent = OnboardingPrefs.postSetupIntent;
+    // Clear so it never triggers again on later setups/sessions.
+    OnboardingPrefs.setPostSetupIntent(null);
+
+    context.go(AppRoutes.home);
+
+    String? target;
+    if (intent == OnboardingIntent.createTeam) {
+      target = AppRoutes.createTeam;
+    } else if (intent == OnboardingIntent.freeAgent) {
+      target = AppRoutes.freeAgents;
+    }
+    if (target == null) return;
+
+    // Push after Home has settled so the user can back out to Home.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.push(target!);
+    });
   }
 
   String _friendlyError(Object e) {
