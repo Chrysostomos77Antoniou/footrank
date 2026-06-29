@@ -30,15 +30,20 @@ class _AmbientBackgroundState extends State<AmbientBackground>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final base = Theme.of(context).scaffoldBackgroundColor;
-    // Lighter + darker tints of the base, plus a faint brand glow, give the
-    // flat surface depth without ever reading as a colour wash.
-    final lighter = isDark
-        ? const Color(0xFF1B2238).withValues(alpha: 0.55)
-        : Colors.white.withValues(alpha: 0.9);
-    final darker = isDark
-        ? const Color(0xFF070A16).withValues(alpha: 0.7)
-        : const Color(0xFFE6E9F0).withValues(alpha: 0.8);
-    final glow = AppColors.brand(context).withValues(alpha: isDark ? 0.07 : 0.05);
+    final accent = AppColors.brand(context);
+
+    // A clearly lighter directional glow, a brand-tinted glow, an edge vignette
+    // for depth, and a faint dot grid for texture — fancy but still restrained.
+    final glowLight = isDark
+        ? const Color(0xFF2A3461).withValues(alpha: 0.9)
+        : Colors.white;
+    final glowAccent = accent.withValues(alpha: isDark ? 0.16 : 0.10);
+    final vignette = isDark
+        ? const Color(0xFF05060E).withValues(alpha: 0.9)
+        : const Color(0xFFD7DBE6).withValues(alpha: 0.85);
+    final dot = isDark
+        ? Colors.white.withValues(alpha: 0.028)
+        : Colors.black.withValues(alpha: 0.028);
 
     return AnimatedBuilder(
       animation: _c,
@@ -47,16 +52,25 @@ class _AmbientBackgroundState extends State<AmbientBackground>
         return DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
               colors: isDark
-                  ? [const Color(0xFF0C1124), base, const Color(0xFF090C1A)]
-                  : [Colors.white, base, const Color(0xFFECEEF3)],
+                  ? const [
+                      Color(0xFF161D38),
+                      Color(0xFF0E1326),
+                      Color(0xFF080B18),
+                    ]
+                  : [Colors.white, base, const Color(0xFFE7EAF1)],
             ),
           ),
           child: CustomPaint(
             painter: _AmbientBlobs(
-                t: t, lighter: lighter, darker: darker, glow: glow),
+              t: t,
+              glowLight: glowLight,
+              glowAccent: glowAccent,
+              vignette: vignette,
+              dot: dot,
+            ),
             child: child,
           ),
         );
@@ -68,12 +82,14 @@ class _AmbientBackgroundState extends State<AmbientBackground>
 
 class _AmbientBlobs extends CustomPainter {
   final double t;
-  final Color lighter, darker, glow;
-  _AmbientBlobs(
-      {required this.t,
-      required this.lighter,
-      required this.darker,
-      required this.glow});
+  final Color glowLight, glowAccent, vignette, dot;
+  _AmbientBlobs({
+    required this.t,
+    required this.glowLight,
+    required this.glowAccent,
+    required this.vignette,
+    required this.dot,
+  });
 
   void _blob(Canvas c, Offset center, double r, Color color) {
     final rect = Rect.fromCircle(center: center, radius: r);
@@ -86,12 +102,34 @@ class _AmbientBlobs extends CustomPainter {
   @override
   void paint(Canvas c, Size s) {
     final w = s.width, h = s.height;
-    _blob(c, Offset(w * (0.16 + 0.10 * t), h * (0.10 + 0.05 * t)), w * 0.62,
-        lighter);
-    _blob(c, Offset(w * (0.92 - 0.12 * t), h * (0.34 + 0.06 * t)), w * 0.55,
-        glow);
-    _blob(c, Offset(w * (0.72 + 0.10 * t), h * (0.88 - 0.06 * t)), w * 0.68,
-        darker);
+
+    // Faint dot grid — subtle premium texture.
+    final dotPaint = Paint()..color = dot;
+    const gap = 28.0;
+    for (double y = gap; y < h; y += gap) {
+      for (double x = gap; x < w; x += gap) {
+        c.drawCircle(Offset(x, y), 1.1, dotPaint);
+      }
+    }
+
+    // Drifting glows.
+    _blob(c, Offset(w * (0.20 + 0.10 * t), h * (0.04 + 0.04 * t)), w * 0.74,
+        glowLight);
+    _blob(c, Offset(w * (0.96 - 0.10 * t), h * (0.14 + 0.05 * t)), w * 0.60,
+        glowAccent);
+    _blob(c, Offset(w * (0.06 + 0.10 * t), h * (0.96 - 0.05 * t)), w * 0.55,
+        glowAccent);
+
+    // Edge vignette for depth.
+    final vrect = Offset.zero & s;
+    final vpaint = Paint()
+      ..shader = RadialGradient(
+        center: Alignment.center,
+        radius: 0.95,
+        colors: [vignette.withValues(alpha: 0), vignette],
+        stops: const [0.55, 1.0],
+      ).createShader(vrect);
+    c.drawRect(vrect, vpaint);
   }
 
   @override
