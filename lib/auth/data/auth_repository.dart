@@ -40,6 +40,13 @@ class AuthRepository {
         redirectTo: _redirectUrl,
       );
 
+  /// Sends a password reset email to [email] so the user can recover access.
+  Future<void> resetPassword(String email) =>
+      _client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: _redirectUrl,
+      );
+
   /// Permanently deletes the current user's account and all their data.
   Future<void> deleteAccount() async {
     await _client.rpc('delete_my_account');

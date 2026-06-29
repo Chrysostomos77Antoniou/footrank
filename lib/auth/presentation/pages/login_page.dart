@@ -51,6 +51,33 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _sendPasswordReset() async {
+    final email = _emailCtrl.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter your email above first, then tap "Forgot password?"'),
+        ),
+      );
+      return;
+    }
+    try {
+      await _repo.resetPassword(email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Password reset email sent \u2014 check your inbox.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    }
+  }
+
   Future<void> _signInWithGoogle() async {
     setState(() => _googleLoading = true);
     try {
@@ -183,7 +210,16 @@ class _LoginPageState extends State<LoginPage> {
                                   ? 'Min 6 characters'
                                   : null,
                             ),
-                            const SizedBox(height: 22),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _sendPasswordReset,
+                                style: TextButton.styleFrom(
+                                    foregroundColor: Colors.white70),
+                                child: const Text('Forgot password?'),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
                             AuthPrimaryButton(
                               loading: _loading,
                               label: 'Login',
