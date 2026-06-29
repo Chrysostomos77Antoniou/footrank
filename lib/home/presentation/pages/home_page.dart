@@ -14,6 +14,7 @@ import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/team/presentation/widgets/team_picker.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -27,8 +28,8 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   final _teamRepo = TeamRepository();
   Future<int> _unread = Future.value(0);
   bool _syncing = false;
-  TeamModel? _team;
-  bool _isCaptain = false;
+  List<TeamModel> _teams = [];
+  List<TeamModel> _captainTeams = [];
   bool _teamLoaded = false;
 
   @override
@@ -53,23 +54,30 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
 
   Future<void> _loadTeam() async {
     try {
-      final team = await _teamRepo.fetchMyTeam();
+      final teams = await _teamRepo.fetchMyTeams();
       final uid = SupabaseService.client.auth.currentUser?.id;
       if (!mounted) return;
       setState(() {
-        _team = team;
-        _isCaptain = team != null && team.captainId == uid;
+        _teams = teams;
+        _captainTeams = teams.where((t) => t.captainId == uid).toList();
         _teamLoaded = true;
       });
     } catch (_) {
-      // Non-fatal: just hide the captain-only card if we can't resolve the team.
+      // Non-fatal: just hide the team-dependent cards if we can't resolve teams.
       if (!mounted) return;
       setState(() {
-        _team = null;
-        _isCaptain = false;
+        _teams = [];
+        _captainTeams = [];
         _teamLoaded = true;
       });
     }
+  }
+
+  Future<void> _createMatch() async {
+    final team = await chooseTeam(context, _captainTeams,
+        title: 'Create a match for…');
+    if (!mounted || team == null) return;
+    context.push(AppRoutes.createMatch, extra: team.id);
   }
 
   Future<void> _sync() async {
@@ -183,7 +191,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
               ),
               const SizedBox(height: 20),
               // Nudge players who aren't on a team yet into the core loop.
-              if (_teamLoaded && _team == null) ...[
+              if (_teamLoaded && _teams.isEmpty) ...[
                 FadeSlideIn(
                   delay: const Duration(milliseconds: 130),
                   child: _NoTeamCard(onChanged: _loadTeam),
@@ -191,7 +199,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                 const SizedBox(height: 20),
               ],
               // ---- Primary actions: the core engagement loop ----
-              if (_isCaptain && _team != null) ...[
+              if (_captainTeams.isNotEmpty) ...[
                 FadeSlideIn(
                   delay: const Duration(milliseconds: 160),
                   child: _ActionCard(
@@ -200,9 +208,10 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                         color: AppColors.iconAccent(context)),
                     color: AppColors.iconAccent(context),
                     title: 'Create Match',
-                    subtitle: 'Set up a match for your team',
-                    onTap: () =>
-                        context.push(AppRoutes.createMatch, extra: _team!.id),
+                    subtitle: _captainTeams.length > 1
+                        ? 'Set up a match — pick which team'
+                        : 'Set up a match for your team',
+                    onTap: _createMatch,
                   ),
                 ),
                 const SizedBox(height: 12),

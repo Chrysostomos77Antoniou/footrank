@@ -25,7 +25,7 @@ class TeamPage extends StatefulWidget {
 
 class _TeamPageState extends State<TeamPage> with ThemeRepaintMixin {
   final _repo = TeamRepository();
-  late Future<TeamModel?> _teamFuture;
+  late Future<List<TeamModel>> _teamsFuture;
 
   @override
   void initState() {
@@ -43,7 +43,7 @@ class _TeamPageState extends State<TeamPage> with ThemeRepaintMixin {
   void _reload() {
     if (!mounted) return;
     setState(() {
-      _teamFuture = _repo.fetchMyTeam();
+      _teamsFuture = _repo.fetchMyTeams();
     });
   }
 
@@ -61,8 +61,8 @@ class _TeamPageState extends State<TeamPage> with ThemeRepaintMixin {
     return Scaffold(
       body: AmbientBackground(
         child: SafeArea(
-          child: FutureBuilder<TeamModel?>(
-            future: _teamFuture,
+          child: FutureBuilder<List<TeamModel>>(
+            future: _teamsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const SkeletonList();
@@ -70,16 +70,198 @@ class _TeamPageState extends State<TeamPage> with ThemeRepaintMixin {
               if (snapshot.hasError) {
                 return Center(child: Text('Error: ${snapshot.error}'));
               }
-              final team = snapshot.data;
-              if (team == null) {
+              final teams = snapshot.data ?? [];
+              if (teams.isEmpty) {
                 return _NoTeamView(
                   onCreate: _openCreateTeam,
                   onJoin: _openJoinTeam,
                 );
               }
-              return _TeamView(team: team, repo: _repo, onChanged: _reload);
+              return _buildTeamsList(teams);
             },
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTeamsList(List<TeamModel> teams) {
+    final uid = SupabaseService.client.auth.currentUser?.id;
+    final canAdd = teams.length < TeamRepository.maxTeamsPerUser;
+    return RefreshIndicator(
+      onRefresh: () async => _reload(),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const GradientText('My Teams',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+              const Spacer(),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  '${teams.length}/${TeamRepository.maxTeamsPerUser}',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.6)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...teams.asMap().entries.map(
+                (e) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: FadeSlideIn(
+                    delay: Duration(milliseconds: 60 * e.key),
+                    child: _TeamListCard(
+                      team: e.value,
+                      isCaptain: e.value.captainId == uid,
+                      onTap: () async {
+                        await context.push(AppRoutes.teamDetail, extra: e.value);
+                        _reload();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+          if (canAdd) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _openCreateTeam,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Create'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _openJoinTeam,
+                    icon: const Icon(Icons.login),
+                    label: const Text('Join'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A summary card for one of the user's teams in the Team tab list.
+class _TeamListCard extends StatelessWidget {
+  final TeamModel team;
+  final bool isCaptain;
+  final VoidCallback onTap;
+  const _TeamListCard(
+      {required this.team, required this.isCaptain, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppColors.iconAccent(context);
+    return GlassCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            clipBehavior: Clip.antiAlias,
+            alignment: Alignment.center,
+            child: team.logoUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: team.logoUrl!,
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) =>
+                        Icon(Icons.shield_outlined, color: accent),
+                  )
+                : Icon(Icons.shield_outlined, color: accent),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(team.name,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    if (team.city != null && team.city!.isNotEmpty) team.city!,
+                    isCaptain ? 'Captain' : 'Player',
+                  ].join('  ·  '),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          if (isCaptain)
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: CaptainArmband(label: 'C'),
+            ),
+          Icon(Icons.arrow_forward_ios,
+              size: 16,
+              color:
+                  Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Full detail for one team (reuses [_TeamView]); pushed from the Team tab list.
+class TeamDetailPage extends StatefulWidget {
+  final TeamModel team;
+  const TeamDetailPage({super.key, required this.team});
+
+  @override
+  State<TeamDetailPage> createState() => _TeamDetailPageState();
+}
+
+class _TeamDetailPageState extends State<TeamDetailPage> {
+  final _repo = TeamRepository();
+  late TeamModel _team = widget.team;
+
+  Future<void> _refresh() async {
+    final teams = await _repo.fetchMyTeams();
+    if (!mounted) return;
+    final remaining = teams.where((t) => t.id == _team.id).toList();
+    if (remaining.isEmpty) {
+      // The user left or disbanded this team — return to the list.
+      Navigator.of(context).pop();
+    } else {
+      setState(() => _team = remaining.first);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(_team.name)),
+      body: AmbientBackground(
+        child: SafeArea(
+          child: _TeamView(team: _team, repo: _repo, onChanged: _refresh),
         ),
       ),
     );

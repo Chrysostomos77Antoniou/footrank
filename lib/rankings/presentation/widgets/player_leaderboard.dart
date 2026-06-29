@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/app_refresh.dart';
+import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
+import 'package:footrank/models/team_model.dart';
 import 'package:footrank/models/user_model.dart';
 import 'package:footrank/rankings/data/ranking_repository.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
+import 'package:footrank/services/supabase_service.dart';
+import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/team/presentation/widgets/team_picker.dart';
 
 const _positions = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'];
 
@@ -19,16 +25,46 @@ class PlayerLeaderboard extends StatefulWidget {
 
 class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
   final _repo = RankingRepository();
+  final _teamRepo = TeamRepository();
   final _searchCtrl = TextEditingController();
   String? _position;
   late Future<List<UserModel>> _future;
+
+  // Teams the viewer captains — drives the per-row "invite" button.
+  List<TeamModel> _captainTeams = [];
+  String? _uid;
 
   @override
   void initState() {
     super.initState();
     _future = _repo.fetchPlayers();
+    _uid = SupabaseService.client.auth.currentUser?.id;
+    _loadCaptainTeams();
     _searchCtrl.addListener(() => setState(() {}));
     appRefresh.addListener(_refresh);
+  }
+
+  Future<void> _loadCaptainTeams() async {
+    final teams = await _teamRepo.fetchMyCaptainTeams();
+    if (!mounted) return;
+    setState(() => _captainTeams = teams);
+  }
+
+  Future<void> _invite(UserModel p) async {
+    final team = await chooseTeam(context, _captainTeams,
+        title: 'Invite ${p.name} to…');
+    if (!mounted || team == null) return;
+    try {
+      await _teamRepo.invitePlayer(teamId: team.id, userId: p.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Invitation sent to ${p.name} for ${team.name}')));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    }
   }
 
   @override
@@ -41,6 +77,7 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
   void _refresh() {
     if (!mounted) return;
     setState(() => _future = _repo.fetchPlayers(position: _position));
+    _loadCaptainTeams();
   }
 
   void _setPosition(String? position) {
@@ -176,6 +213,16 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                               ),
                             ),
                             LevelBadge(value: p.elo, size: 46, showLabel: true),
+                            if (_captainTeams.isNotEmpty && p.id != _uid) ...[
+                              const SizedBox(width: 2),
+                              IconButton(
+                                tooltip: 'Invite to a team',
+                                visualDensity: VisualDensity.compact,
+                                icon: Icon(Icons.person_add_alt_1_outlined,
+                                    color: AppColors.iconAccent(context)),
+                                onPressed: () => _invite(p),
+                              ),
+                            ],
                           ],
                         ),
                       ),

@@ -10,7 +10,14 @@ import 'package:footrank/models/team_member_model.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/services/supabase_service.dart';
 
+/// Thrown when an action would exceed the 3-teams-per-user limit, so the UI
+/// can prompt the user to leave a team before continuing.
+class TeamLimitException implements Exception {
+  const TeamLimitException();
+}
+
 class TeamRepository {
+  static const maxTeamsPerUser = 3;
   static const _teams = 'teams';
   static const _members = 'team_members';
   static const _requests = 'team_join_requests';
@@ -42,19 +49,35 @@ class TeamRepository {
     return TeamModel.fromJson(data);
   }
 
-  /// The team the current user belongs to (via team_members), or null.
+  /// The first team the current user belongs to, or null. Prefer [fetchMyTeams]
+  /// now that a user can be on several teams; this remains for callers that just
+  /// need "any team" and is safe when the user is on multiple.
   Future<TeamModel?> fetchMyTeam() async {
-    final uid = _uid;
-    if (uid == null) return null;
+    final teams = await fetchMyTeams();
+    return teams.isEmpty ? null : teams.first;
+  }
 
-    final membership = await SupabaseService.client
+  /// All teams the current user belongs to (up to [maxTeamsPerUser]).
+  Future<List<TeamModel>> fetchMyTeams() async {
+    final uid = _uid;
+    if (uid == null) return [];
+    final data = await SupabaseService.client
         .from(_members)
         .select('teams(*)')
-        .eq('user_id', uid)
-        .maybeSingle();
+        .eq('user_id', uid);
+    return (data as List)
+        .map((e) => (e as Map<String, dynamic>)['teams'])
+        .whereType<Map<String, dynamic>>()
+        .map(TeamModel.fromJson)
+        .toList();
+  }
 
-    if (membership == null || membership['teams'] == null) return null;
-    return TeamModel.fromJson(membership['teams'] as Map<String, dynamic>);
+  /// Teams the current user captains (a subset of [fetchMyTeams]).
+  Future<List<TeamModel>> fetchMyCaptainTeams() async {
+    final uid = _uid;
+    if (uid == null) return [];
+    final teams = await fetchMyTeams();
+    return teams.where((t) => t.captainId == uid).toList();
   }
 
   /// The name of the team a user belongs to, or null if they're a free agent.
@@ -102,11 +125,11 @@ class TeamRepository {
     final uid = _uid;
     if (uid == null) throw StateError('No authenticated user');
 
-    // Guard: a user can only belong to one team. Check before inserting the
-    // team row so we never create an orphan team if membership would fail.
-    final existing = await fetchMyTeam();
-    if (existing != null) {
-      throw Exception('You are already on a team');
+    // Guard: at most [maxTeamsPerUser] teams per user (DB trigger is the
+    // backstop). Check before inserting the team row so we never create an
+    // orphan team if membership would fail.
+    if ((await fetchMyTeams()).length >= maxTeamsPerUser) {
+      throw const TeamLimitException();
     }
 
     final inserted = await SupabaseService.client
@@ -303,10 +326,10 @@ class TeamRepository {
     final uid = _uid;
     if (uid == null) throw StateError('No authenticated user');
 
-    // Guard: one team per user.
-    final existing = await fetchMyTeam();
-    if (existing != null) {
-      throw Exception('You are already on a team. Leave it first to join another.');
+    // Guard: at most [maxTeamsPerUser] teams. The UI catches this to offer a
+    // leave-picker; the DB trigger is the backstop.
+    if ((await fetchMyTeams()).length >= maxTeamsPerUser) {
+      throw const TeamLimitException();
     }
 
     await SupabaseService.client.from(_members).insert({

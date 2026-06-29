@@ -35,6 +35,7 @@ class AppRoutes {
   static const profileSetup = '/profile-setup';
   static const home = '/';
   static const team = '/team';
+  static const teamDetail = '/team/detail';
   static const createTeam = '/team/create';
   static const editTeam = '/team/edit';
   static const joinTeam = '/team/join';
@@ -139,6 +140,11 @@ GoRouter buildRouter() => GoRouter(
           path: AppRoutes.profileSetup,
           pageBuilder: (context, state) =>
               _animatedPage(const ProfileSetupPage(), state),
+        ),
+        GoRoute(
+          path: AppRoutes.teamDetail,
+          pageBuilder: (context, state) =>
+              _animatedPage(TeamDetailPage(team: state.extra! as TeamModel), state),
         ),
         GoRoute(
           path: AppRoutes.createTeam,

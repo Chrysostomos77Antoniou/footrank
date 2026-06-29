@@ -10,7 +10,6 @@ import 'package:footrank/free_agents/data/free_agent_repository.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/models/user_model.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
-import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
 
 const _positions = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'];
@@ -52,9 +51,15 @@ class _FreeAgentsPageState extends State<FreeAgentsPage> {
   }
 
   Future<void> _loadCaptainContext() async {
-    final team = await _teamRepo.fetchMyTeam();
-    final uid = SupabaseService.client.auth.currentUser?.id;
-    if (team == null || team.captainId != uid) return;
+    final captainTeams = await _teamRepo.fetchMyCaptainTeams();
+    if (!mounted) return;
+    if (captainTeams.isEmpty) {
+      setState(() => _myTeam = null);
+      return;
+    }
+    // Free Agents invites go to your (first) captained team; use Rankings to
+    // target a specific team when you captain several.
+    final team = captainTeams.first;
     final invited = await _teamRepo.fetchPendingInviteeIds(team.id);
     if (!mounted) return;
     setState(() {

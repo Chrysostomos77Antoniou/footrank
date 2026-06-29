@@ -3,6 +3,7 @@ import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/models/invitation_model.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/team/presentation/widgets/leave_team_picker.dart';
 
 class InvitationsPage extends StatefulWidget {
   const InvitationsPage({super.key});
@@ -36,6 +37,11 @@ class _InvitationsPageState extends State<InvitationsPage> {
         );
       }
       _reload();
+    } on TeamLimitException {
+      // Already in 3 teams — let them leave one, then retry the accept.
+      if (!mounted) return;
+      final freed = await showLeaveTeamPicker(context);
+      if (freed && mounted) await _accept(inv);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)

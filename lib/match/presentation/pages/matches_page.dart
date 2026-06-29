@@ -26,7 +26,8 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   final _matchRepo = MatchRepository();
   final _teamRepo = TeamRepository();
 
-  TeamModel? _team;
+  TeamModel? _team; // the currently-selected team (when in several)
+  List<TeamModel> _teams = [];
   bool _isCaptain = false;
   bool _loadingTeam = true;
   Future<List<MatchRequestModel>>? _future;
@@ -47,19 +48,37 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   }
 
   Future<void> _load() async {
-    final team = await _teamRepo.fetchMyTeam();
+    final teams = await _teamRepo.fetchMyTeams();
     final uid = SupabaseService.client.auth.currentUser?.id;
     if (!mounted) return;
+    // Keep the current selection if it still exists, else default to the first.
+    TeamModel? selected;
+    if (_team != null) {
+      final existing = teams.where((t) => t.id == _team!.id).toList();
+      if (existing.isNotEmpty) selected = existing.first;
+    }
+    selected ??= teams.isEmpty ? null : teams.first;
+    final sel = selected;
+    setState(() {
+      _teams = teams;
+      _team = sel;
+      _isCaptain = sel != null && sel.captainId == uid;
+      _loadingTeam = false;
+      _future = sel == null ? null : _matchRepo.fetchMyTeamRequests(sel.id);
+      _matchesFuture = sel == null ? null : _matchRepo.fetchTeamMatches(sel.id);
+      _opponentsFuture = sel == null ? null : _matchRepo.findAllOpponents(sel.id);
+    });
+  }
+
+  void _selectTeam(TeamModel team) {
+    if (team.id == _team?.id) return;
+    final uid = SupabaseService.client.auth.currentUser?.id;
     setState(() {
       _team = team;
-      _isCaptain = team != null && team.captainId == uid;
-      _loadingTeam = false;
-      _future =
-          team == null ? null : _matchRepo.fetchMyTeamRequests(team.id);
-      _matchesFuture =
-          team == null ? null : _matchRepo.fetchTeamMatches(team.id);
-      _opponentsFuture =
-          team == null ? null : _matchRepo.findAllOpponents(team.id);
+      _isCaptain = team.captainId == uid;
+      _future = _matchRepo.fetchMyTeamRequests(team.id);
+      _matchesFuture = _matchRepo.fetchTeamMatches(team.id);
+      _opponentsFuture = _matchRepo.findAllOpponents(team.id);
     });
   }
 
@@ -257,6 +276,12 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       child: ListView(
         padding: const EdgeInsets.only(bottom: 88),
         children: [
+          if (_teams.length > 1 && _team != null)
+            _TeamSelector(
+              teams: _teams,
+              selectedId: _team!.id,
+              onSelect: _selectTeam,
+            ),
           _SectionHeader(title: 'Open Requests'),
           FutureBuilder<List<MatchRequestModel>>(
             future: _future,
@@ -382,6 +407,52 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Lets a multi-team user pick which team the Matches tab is acting as. The
+/// selected team drives every section + Create Match, so the active team is
+/// always explicit and nothing is created for the wrong team by accident.
+class _TeamSelector extends StatelessWidget {
+  final List<TeamModel> teams;
+  final String selectedId;
+  final ValueChanged<TeamModel> onSelect;
+  const _TeamSelector(
+      {required this.teams, required this.selectedId, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text('Acting as',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.6))),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+          child: Row(
+            children: teams
+                .map((t) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(t.name),
+                        selected: t.id == selectedId,
+                        onSelected: (_) => onSelect(t),
+                      ),
+                    ))
+                .toList(),
+          ),
+        ),
+      ],
     );
   }
 }
