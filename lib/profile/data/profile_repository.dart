@@ -40,6 +40,23 @@ class ProfileRepository {
     return UserModel.fromJson(data);
   }
 
+  /// The signed-in user's profile plus their global Pitch Power (elo) rank and
+  /// the total number of ranked players. Returns null if there's no profile yet.
+  Future<({UserModel profile, int rank, int total})?> fetchMyRankCard() async {
+    final profile = await fetchMyProfile();
+    if (profile == null) return null;
+
+    // One light query of every player's elo, to compute rank + total locally.
+    // Rank = how many players sit strictly above this elo, +1.
+    final rows =
+        await SupabaseService.client.from(_table).select('id, elo') as List;
+    final higher = rows
+        .where((r) => ((r as Map)['elo'] as int? ?? 1500) > profile.elo)
+        .length;
+
+    return (profile: profile, rank: higher + 1, total: rows.length);
+  }
+
   /// Fetches any user's profile by id (for viewing other players).
   Future<UserModel?> fetchUserById(String id) async {
     final data = await SupabaseService.client

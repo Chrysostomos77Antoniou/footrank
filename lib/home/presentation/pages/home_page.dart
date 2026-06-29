@@ -8,6 +8,7 @@ import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/team_model.dart';
+import 'package:footrank/models/user_model.dart';
 import 'package:footrank/notifications/data/notification_repository.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
@@ -275,7 +276,39 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   }
 }
 
-class _HeroBanner extends StatelessWidget {
+class _HeroBanner extends StatefulWidget {
+  @override
+  State<_HeroBanner> createState() => _HeroBannerState();
+}
+
+class _HeroBannerState extends State<_HeroBanner> {
+  final _profileRepo = ProfileRepository();
+  late Future<({UserModel profile, int rank, int total})?> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _profileRepo.fetchMyRankCard();
+    // Re-fetch when the user pulls "Sync" so the rank stays current.
+    appRefresh.addListener(_reload);
+  }
+
+  @override
+  void dispose() {
+    appRefresh.removeListener(_reload);
+    super.dispose();
+  }
+
+  void _reload() {
+    if (!mounted) return;
+    setState(() => _future = _profileRepo.fetchMyRankCard());
+  }
+
+  /// 1623 -> "1,623"
+  static String _fmt(int n) => n
+      .toString()
+      .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',');
+
   @override
   Widget build(BuildContext context) {
     final onBrand = AppColors.onBrand(context);
@@ -308,33 +341,47 @@ class _HeroBanner extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Climb the ranks',
-                            style: TextStyle(
-                                fontFamily: 'Sora',
-                                color: onBrand,
-                                fontSize: 19,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3)),
-                        const SizedBox(height: 5),
-                        Text(
-                          'Win matches to boost your Pitch Power and lead the leaderboard.',
-                          style: TextStyle(
-                              color: onBrand.withValues(alpha: 0.85),
-                              fontSize: 13,
-                              height: 1.4),
+              child: FutureBuilder<({UserModel profile, int rank, int total})?>(
+                future: _future,
+                builder: (context, snapshot) {
+                  final data = snapshot.data;
+                  // Personalised once loaded; falls back to the generic copy
+                  // while loading or if the user has no profile yet.
+                  final String title =
+                      data != null ? "You're #${data.rank}" : 'Climb the ranks';
+                  final String subtitle = data != null
+                      ? '${_fmt(data.profile.elo)} Pitch Power · #${data.rank} of ${data.total} players. Win matches to climb.'
+                      : 'Win matches to boost your Pitch Power and lead the leaderboard.';
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(title,
+                                style: TextStyle(
+                                    fontFamily: 'Sora',
+                                    color: onBrand,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.3)),
+                            const SizedBox(height: 5),
+                            Text(
+                              subtitle,
+                              style: TextStyle(
+                                  color: onBrand.withValues(alpha: 0.85),
+                                  fontSize: 13,
+                                  height: 1.4),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(Icons.emoji_events, color: onBrand, size: 42),
-                ],
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.emoji_events, color: onBrand, size: 42),
+                    ],
+                  );
+                },
               ),
             ),
           ],
