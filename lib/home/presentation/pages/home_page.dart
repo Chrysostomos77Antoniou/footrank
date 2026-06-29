@@ -31,19 +31,33 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   List<TeamModel> _teams = [];
   List<TeamModel> _captainTeams = [];
   bool _teamLoaded = false;
+  int _inviteCount = 0;
 
   @override
   void initState() {
     super.initState();
     _refreshUnread();
     _loadTeam();
+    _loadInvites();
     appRefresh.addListener(_loadTeam);
+    appRefresh.addListener(_loadInvites);
   }
 
   @override
   void dispose() {
     appRefresh.removeListener(_loadTeam);
+    appRefresh.removeListener(_loadInvites);
     super.dispose();
+  }
+
+  Future<void> _loadInvites() async {
+    try {
+      final invites = await _teamRepo.fetchMyInvitations();
+      if (!mounted) return;
+      setState(() => _inviteCount = invites.length);
+    } catch (_) {
+      // Non-fatal — just don't show a badge.
+    }
   }
 
   void _refreshUnread() {
@@ -285,7 +299,11 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                   color: AppColors.iconAccent(context),
                   title: 'Team Invitations',
                   subtitle: 'Invitations from team captains',
-                  onTap: () => context.push(AppRoutes.invitations),
+                  badgeCount: _inviteCount,
+                  onTap: () async {
+                    await context.push(AppRoutes.invitations);
+                    _loadInvites();
+                  },
                 ),
               ),
             ],
@@ -487,6 +505,7 @@ class _ActionCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final int badgeCount;
 
   const _ActionCard({
     required this.emoji,
@@ -495,6 +514,7 @@ class _ActionCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   @override
@@ -504,16 +524,47 @@ class _ActionCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: iconWidget ??
-                Text(emoji, style: const TextStyle(fontSize: 22)),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                alignment: Alignment.center,
+                child: iconWidget ??
+                    Text(emoji, style: const TextStyle(fontSize: 22)),
+              ),
+              if (badgeCount > 0)
+                Positioned(
+                  right: -5,
+                  top: -5,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    constraints:
+                        const BoxConstraints(minWidth: 22, minHeight: 22),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE53935),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          width: 2),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$badgeCount',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          height: 1),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 16),
           Expanded(
