@@ -110,17 +110,24 @@ class _InvitationsPageState extends State<InvitationsPage> {
                               style:
                                   Theme.of(context).textTheme.bodySmall),
                         const SizedBox(height: 12),
+                        // Bound each button with Expanded: the app's button
+                        // theme uses Size.fromHeight (infinite min width), which
+                        // in an unbounded Row pushes the filled "Accept" button
+                        // off-screen. Expanded gives them equal bounded widths.
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            TextButton(
-                              onPressed: () => _decline(inv),
-                              child: const Text('Decline'),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => _decline(inv),
+                                child: const Text('Decline'),
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            FilledButton(
-                              onPressed: () => _accept(inv),
-                              child: const Text('Accept'),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: () => _accept(inv),
+                                child: const Text('Accept'),
+                              ),
                             ),
                           ],
                         ),

@@ -257,17 +257,22 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
                         style: Theme.of(context).textTheme.labelLarge,
                       ),
                     ),
+                    // Expanded bounds the buttons; the themed FilledButton uses
+                    // an infinite min width that would otherwise overflow the Row.
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        TextButton(
-                          onPressed: () => _reject(o),
-                          child: const Text('Reject'),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => _reject(o),
+                            child: const Text('Reject'),
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        FilledButton(
-                          onPressed: () => _accept(o),
-                          child: const Text('Accept'),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () => _accept(o),
+                            child: const Text('Accept'),
+                          ),
                         ),
                       ],
                     ),
