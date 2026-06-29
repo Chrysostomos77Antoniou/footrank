@@ -34,6 +34,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
       body: 'Play matches, log fair results, and watch your Pitch Power rise '
           'on the leaderboard.',
     ),
+    (
+      icon: Icons.person_search,
+      title: 'No team yet?',
+      body: 'Register as a Free Agent and get recruited — or start your own '
+          'squad and become the captain.',
+    ),
   ];
 
   @override
@@ -42,8 +48,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
     super.dispose();
   }
 
-  Future<void> _finish() async {
+  /// Finishes onboarding, recording the first-session [intent] (if any) so the
+  /// app can route the user somewhere purposeful after they sign in.
+  Future<void> _finish({String? intent}) async {
     await OnboardingPrefs.markSeen();
+    await OnboardingPrefs.setPostSetupIntent(intent);
     if (mounted) context.go(AppRoutes.login);
   }
 
@@ -51,8 +60,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
     if (_page < _slides.length - 1) {
       _controller.nextPage(
           duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-    } else {
-      _finish();
     }
   }
 
@@ -66,7 +73,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: _finish,
+                onPressed: () => _finish(),
                 child: const Text('Skip'),
               ),
             ),
@@ -126,13 +133,36 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ),
             Padding(
               padding: const EdgeInsets.all(24),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _next,
-                  child: Text(last ? 'Get Started' : 'Next'),
-                ),
-              ),
+              child: last
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: () =>
+                                _finish(intent: OnboardingIntent.createTeam),
+                            child: const Text('Create Your Team →'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton(
+                            onPressed: () =>
+                                _finish(intent: OnboardingIntent.freeAgent),
+                            child: const Text('Register as a Free Agent'),
+                          ),
+                        ),
+                      ],
+                    )
+                  : SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _next,
+                        child: const Text('Next'),
+                      ),
+                    ),
             ),
           ],
         ),
