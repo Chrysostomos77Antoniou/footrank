@@ -7,6 +7,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:image_picker_android/image_picker_android.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:footrank/app.dart';
+import 'package:footrank/auth/data/auth_flow.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/firebase_options.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
@@ -31,6 +32,8 @@ Future<void> main() async {
   await themeController.load();
   await OnboardingPrefs.load();
   await SupabaseService.initialize();
+  // Watch for the password-recovery deep link so we can route to the reset page.
+  initPasswordRecoveryListener();
 
   // Firebase + push notifications (Task 11.1). Guarded so a failure here
   // never blocks the app from launching.

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:footrank/auth/data/auth_flow.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/auth/presentation/pages/login_page.dart';
 import 'package:footrank/auth/presentation/pages/register_page.dart';
+import 'package:footrank/auth/presentation/pages/reset_password_page.dart';
 import 'package:footrank/core/presentation/pages/home_shell_page.dart';
 import 'package:footrank/free_agents/presentation/pages/free_agents_page.dart';
 import 'package:footrank/home/presentation/pages/home_page.dart';
@@ -33,6 +35,7 @@ class AppRoutes {
   static const login = '/login';
   static const register = '/register';
   static const profileSetup = '/profile-setup';
+  static const resetPassword = '/reset-password';
   static const home = '/';
   static const team = '/team';
   static const teamDetail = '/team/detail';
@@ -85,6 +88,14 @@ GoRouter buildRouter() => GoRouter(
         final isLoggedIn = _authRepo.currentUser != null;
         final loc = state.matchedLocation;
 
+        // Password-recovery deep link takes priority over everything: keep the
+        // user on the set-new-password screen until they set it (or cancel).
+        if (passwordRecovery.value) {
+          return loc == AppRoutes.resetPassword
+              ? null
+              : AppRoutes.resetPassword;
+        }
+
         // First run: show onboarding before anything else (only when logged out).
         if (!OnboardingPrefs.seen && !isLoggedIn) {
           return loc == AppRoutes.onboarding ? null : AppRoutes.onboarding;
@@ -120,9 +131,10 @@ GoRouter buildRouter() => GoRouter(
         if (isAuthRoute || isSetupRoute) return AppRoutes.home;
         return null;
       },
-      refreshListenable: RouterRefreshStream(
-        Supabase.instance.client.auth.onAuthStateChange,
-      ),
+      refreshListenable: Listenable.merge([
+        RouterRefreshStream(Supabase.instance.client.auth.onAuthStateChange),
+        passwordRecovery,
+      ]),
       routes: [
         GoRoute(
           path: AppRoutes.onboarding,
@@ -135,6 +147,10 @@ GoRouter buildRouter() => GoRouter(
         GoRoute(
           path: AppRoutes.register,
           builder: (context, state) => const RegisterPage(),
+        ),
+        GoRoute(
+          path: AppRoutes.resetPassword,
+          builder: (context, state) => const ResetPasswordPage(),
         ),
         GoRoute(
           path: AppRoutes.profileSetup,

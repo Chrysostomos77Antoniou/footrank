@@ -41,11 +41,18 @@ class AuthRepository {
       );
 
   /// Sends a password reset email to [email] so the user can recover access.
+  /// The email link deep-links back into the app (the recovery event then routes
+  /// to the "set a new password" screen).
   Future<void> resetPassword(String email) =>
       _client.auth.resetPasswordForEmail(
         email,
         redirectTo: _redirectUrl,
       );
+
+  /// Sets a new password for the user during an active recovery session
+  /// (after they followed the reset link from their email).
+  Future<void> updatePassword(String newPassword) =>
+      _client.auth.updateUser(UserAttributes(password: newPassword));
 
   /// Permanently deletes the current user's account and all their data.
   Future<void> deleteAccount() async {
