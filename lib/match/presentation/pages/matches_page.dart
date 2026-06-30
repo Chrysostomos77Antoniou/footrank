@@ -14,6 +14,7 @@ import 'package:footrank/models/team_model.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/team/presentation/widgets/team_picker.dart';
 
 class MatchesPage extends StatefulWidget {
   const MatchesPage({super.key});
@@ -28,6 +29,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
 
   TeamModel? _team; // the currently-selected team (when in several)
   List<TeamModel> _teams = [];
+  List<TeamModel> _captainTeams = [];
   bool _isCaptain = false;
   bool _loadingTeam = true;
   Future<List<MatchRequestModel>>? _future;
@@ -61,6 +63,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     final sel = selected;
     setState(() {
       _teams = teams;
+      _captainTeams = teams.where((t) => t.captainId == uid).toList();
       _team = sel;
       _isCaptain = sel != null && sel.captainId == uid;
       _loadingTeam = false;
@@ -157,8 +160,12 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   }
 
   Future<void> _openCreate() async {
-    final team = _team;
-    if (team == null) return;
+    // Ask which team to create the match for (only when captaining several).
+    final team = await chooseTeam(context, _captainTeams,
+        title: 'Create a match for…');
+    if (!mounted || team == null) return;
+    // Keep the Matches view in sync with the team just chosen.
+    _selectTeam(team);
     final created = await context.push<bool>(
       AppRoutes.createMatch,
       extra: team.id,
@@ -249,7 +256,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
             ),
         ],
       ),
-      floatingActionButton: _isCaptain
+      floatingActionButton: _captainTeams.isNotEmpty
           ? FloatingActionButton.extended(
               onPressed: _openCreate,
               icon: const Icon(Icons.add),
