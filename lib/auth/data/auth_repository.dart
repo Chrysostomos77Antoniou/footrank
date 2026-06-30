@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:footrank/services/fcm_token_service.dart';
 import 'package:footrank/services/supabase_service.dart';
 
 class AuthRepository {
@@ -60,7 +61,12 @@ class AuthRepository {
     await _client.auth.signOut();
   }
 
-  Future<void> signOut() => _client.auth.signOut();
+  Future<void> signOut() async {
+    // Drop this device's push token first (while still authenticated) so a
+    // shared device never delivers the next user's alerts to the previous one.
+    await FcmTokenService.remove();
+    await _client.auth.signOut();
+  }
 
   bool get isNewUser {
     final user = currentUser;

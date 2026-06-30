@@ -11,6 +11,7 @@ import 'package:footrank/auth/data/auth_flow.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/firebase_options.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
+import 'package:footrank/services/fcm_token_service.dart';
 import 'package:footrank/services/notification_service.dart';
 import 'package:footrank/services/supabase_service.dart';
 
@@ -52,6 +53,9 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Firebase/notifications init failed: $e');
   }
+
+  // Keep the user's FCM device token in sync so the server can push to them.
+  FcmTokenService.init();
 
   runApp(const FootRankApp());
 

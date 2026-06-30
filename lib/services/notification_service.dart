@@ -41,4 +41,13 @@ class NotificationService {
 
   /// Listen for token refreshes (e.g. to persist server-side).
   static Stream<String> get onTokenRefresh => _messaging.onTokenRefresh;
+
+  /// The current device FCM token, or null if unavailable.
+  static Future<String?> currentToken() async {
+    try {
+      return await _messaging.getToken();
+    } catch (_) {
+      return null;
+    }
+  }
 }
