@@ -1,0 +1,5 @@
+# GitHub Pages serves /docs only to host privacy.html for the app stores.
+# Exclude the internal design/spec docs under superpowers/ — they aren't a
+# public site and their {{ }} / ${ } code blocks break Jekyll's Liquid parser.
+exclude:
+  - superpowers/
