@@ -150,9 +150,10 @@ class MatchRepository {
         .eq('status', 'searching');
   }
 
-  /// ALL open ('searching') requests from OTHER teams — a simple, always-visible
-  /// list of opponents to confirm a match against. No time/rating windowing, so
-  /// nothing is ever silently hidden.
+  /// Open ('searching') requests from OTHER teams whose match time hasn't
+  /// already passed — a simple, always-visible list of opponents to confirm a
+  /// match against. Stale past requests are dropped server-side; no upper bound,
+  /// so legitimately far-future matches still appear.
   Future<List<MatchRequestModel>> fetchOpenOpponentRequests(
       String myTeamId) async {
     final data = await SupabaseService.client
@@ -160,6 +161,15 @@ class MatchRepository {
         .select('*, teams(name, rating, logo_url)')
         .eq('status', 'searching')
         .neq('team_id', myTeamId)
+        // A match can't be played retroactively, so skip requests already in the
+        // past (the stale records that pile up without a cleanup job).
+        .gte(
+          'scheduled_at',
+          DateTime.now()
+              .toUtc()
+              .subtract(const Duration(hours: 2))
+              .toIso8601String(),
+        )
         .order('scheduled_at');
 
     return (data as List)
