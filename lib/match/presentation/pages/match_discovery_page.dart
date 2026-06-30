@@ -210,22 +210,62 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
         if (opponents.isEmpty) {
           final ref = _reference;
           final rd = ref?.scheduledAt.toLocal();
+          final rating = ref?.teamRating;
+          final band = MatchRepository.defaultEloThreshold;
+          final mins = MatchRepository.defaultWithinMinutes;
+          final onSurface = Theme.of(context).colorScheme.onSurface;
           final refLine = rd == null
               ? ''
-              : '\n\nLooking for: ${ref!.city} on '
+              : 'Looking for: ${ref!.city} on '
                   '${rd.day.toString().padLeft(2, '0')}/'
                   '${rd.month.toString().padLeft(2, '0')}/'
                   '${rd.year} around '
                   '${rd.hour.toString().padLeft(2, '0')}:'
                   '${rd.minute.toString().padLeft(2, '0')}.';
+          // Show the captain WHY nothing matched, so they can self-diagnose
+          // (visibility of system status) instead of hitting a dead screen.
+          final ratingLine = rating == null
+              ? 'Your team has no rating yet — matching uses the starting 1500 '
+                  '(±$band points).'
+              : 'Your rating: $rating   ·   matching window ±$band points.';
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Text(
-                'No matching opponents found.\n'
-                'Opponents must be in the same city, on the same date '
-                '(±60 min), and a similar rating.$refLine',
-                textAlign: TextAlign.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.search_off,
+                      size: 46, color: onSurface.withValues(alpha: 0.35)),
+                  const SizedBox(height: 12),
+                  Text('No matching opponents found',
+                      style: Theme.of(context).textTheme.titleMedium,
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Opponents must be in the same city, on the same date '
+                    '(±$mins min), and within ±$band rating points.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: onSurface.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(ratingLine,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium),
+                  ),
+                  if (refLine.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(refLine,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ],
               ),
             ),
           );
