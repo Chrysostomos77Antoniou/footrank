@@ -12,8 +12,10 @@ class MatchRepository {
 
   /// Default discovery windows, shared by findOpponents and findAllOpponents so
   /// both code paths use identical matching rules.
-  static const int defaultWithinMinutes = 30;
-  static const int defaultEloThreshold = 150;
+  // Loosened for a thin team pool: a wider time window and ELO band surface
+  // more potential opponents (tighten again as the network grows).
+  static const int defaultWithinMinutes = 60;
+  static const int defaultEloThreshold = 250;
 
   String? get _uid => SupabaseService.client.auth.currentUser?.id;
 
