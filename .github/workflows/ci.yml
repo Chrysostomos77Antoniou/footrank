@@ -28,6 +28,10 @@ jobs:
       - name: Run tests
         run: flutter test
 
-      # Debug build (no signing secrets needed). Release signing happens locally.
-      - name: Build debug APK
-        run: flutter build apk --debug
+      # Release build validates what debug can't: R8/minification + Dart AOT
+      # compilation (debug uses the JIT VM and skips R8, so a green debug build
+      # can still fail at release — as a real APIs-mismatch break did once).
+      # No signing secrets needed: build.gradle.kts falls back to debug signing
+      # when key.properties is absent.
+      - name: Build release APK (validates R8 + AOT)
+        run: flutter build apk --release
