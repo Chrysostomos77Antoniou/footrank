@@ -649,6 +649,10 @@ class _RequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Kick-off already passed: this request can never be matched now, so warn
+    // the captain to cancel/recreate (the hourly cleanup also removes it soon).
+    final passed = request.scheduledAt.isBefore(DateTime.now());
+    final warn = Colors.orange.shade800;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: ListTile(
@@ -656,7 +660,29 @@ class _RequestCard extends StatelessWidget {
           child: Text(request.format.split('v').first),
         ),
         title: Text('${request.city} · ${request.format}'),
-        subtitle: Text(_when),
+        subtitle: passed
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_when),
+                  const SizedBox(height: 3),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.warning_amber_rounded, size: 14, color: warn),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text('Kick-off passed — cancel or recreate',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: warn)),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            : Text(_when),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
