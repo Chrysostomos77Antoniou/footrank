@@ -1,5 +1,11 @@
-# GitHub Pages serves /docs only to host privacy.html for the app stores.
-# Exclude the internal design/spec docs under superpowers/ — they aren't a
-# public site and their {{ }} / ${ } code blocks break Jekyll's Liquid parser.
+# This GitHub Pages site exists only to host privacy.html (the app-store
+# privacy policy). Everything else under /docs is internal working material —
+# keep it out of the public site. (superpowers/ also breaks Jekyll's parser.)
 exclude:
   - superpowers/
+  - COMPETITOR_MARKETING_PLAYBOOK.md
+  - CONTENT_SCRIPTS.md
+  - CYPRUS_CUP_RULES.md
+  - MARKETING_GUIDE.md
+  - SCREENSHOTS_PLAN.md
+  - STORE_LISTING.md
