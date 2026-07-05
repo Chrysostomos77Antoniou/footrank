@@ -426,7 +426,9 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
         ));
         children.add(const SizedBox(height: 10));
       } else if (myReport != null && oppReport == null) {
-        children.add(Text('Waiting for the opponent to submit their score.',
+        children.add(Text(
+            'Waiting for the opponent to submit their score. If they '
+            "haven't within 24 hours, your reported score becomes official.",
             style: Theme.of(context).textTheme.bodySmall));
         children.add(const SizedBox(height: 10));
       }
