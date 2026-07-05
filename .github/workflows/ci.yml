@@ -35,3 +35,27 @@ jobs:
       # when key.properties is absent.
       - name: Build release APK (validates R8 + AOT)
         run: flutter build apk --release
+
+  build-ios:
+    name: Build iOS (no-codesign)
+    runs-on: macos-latest
+    # macOS runner minutes cost 10x Linux — only run on actual pushes to
+    # master, not on every PR, to keep this catch worthwhile but affordable.
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.32.6
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # No signing secrets needed: --no-codesign skips codesigning while still
+      # fully exercising Dart AOT + native iOS plugin/Pod compilation, which
+      # the Linux APK job above gives zero coverage for.
+      - name: Build iOS (no-codesign, validates plugin/native compilation)
+        run: flutter build ios --release --no-codesign
