@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/premium.dart';
+import 'package:footrank/models/team_model.dart';
 import 'package:footrank/team/data/team_repository.dart';
 
 class CreateTeamPage extends StatefulWidget {
@@ -30,14 +32,14 @@ class _CreateTeamPageState extends State<CreateTeamPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      await _repo.createTeam(
+      final team = await _repo.createTeam(
         name: _nameCtrl.text.trim(),
         city: _city,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Team created!')),
-        );
+        await _showInviteCodeDialog(team);
+      }
+      if (mounted) {
         context.pop(true);
       }
     } catch (e) {
@@ -48,6 +50,53 @@ class _CreateTeamPageState extends State<CreateTeamPage> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _showInviteCodeDialog(TeamModel team) async {
+    final code = team.inviteCode;
+    if (code == null) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Team created!'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+                "Share this invite code now so your squad can join before "
+                "your first match."),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(code,
+                      style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 3)),
+                ),
+                IconButton.filledTonal(
+                  icon: const Icon(Icons.copy),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: code));
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('Invite code copied')),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
