@@ -33,6 +33,15 @@ class TeamRepository {
   Future<void> disbandTeam(String teamId) =>
       SupabaseService.client.rpc('disband_team', params: {'p_team_id': teamId});
 
+  /// The team captain's name + phone, for a teammate to reach out. Only
+  /// callable by members of the team (enforced server-side).
+  Future<Map<String, dynamic>?> fetchCaptainContact(String teamId) async {
+    final data = await SupabaseService.client
+        .rpc('team_captain_contact', params: {'p_team_id': teamId});
+    final rows = (data as List).cast<Map<String, dynamic>>();
+    return rows.isEmpty ? null : rows.first;
+  }
+
   Future<List<TeamModel>> fetchAll() async {
     final data = await SupabaseService.client
         .from(_teams)

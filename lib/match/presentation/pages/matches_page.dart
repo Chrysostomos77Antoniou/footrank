@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
@@ -235,6 +236,30 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     }
   }
 
+  Future<void> _contactCaptain() async {
+    final team = _team;
+    if (team == null) return;
+    try {
+      final contact = await _teamRepo.fetchCaptainContact(team.id);
+      final phone = contact?['captain_phone'] as String?;
+      if (phone == null || phone.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text("Your captain hasn't added a phone number yet.")),
+        );
+        return;
+      }
+      await launchUrl(Uri(scheme: 'tel', path: phone));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
   Future<void> _openDiscovery() async {
     final team = _team;
     if (team == null) return;
@@ -309,11 +334,21 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                   [];
               if (requests.isEmpty) {
                 return Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
-                  child: Text(_isCaptain
-                      ? 'No open requests. Tap "Create Match" to start.'
-                      : 'No open requests.'),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: EmptyView(
+                    icon: Icons.sports_soccer_outlined,
+                    title: 'No matches scheduled yet',
+                    hint: _isCaptain
+                        ? 'Tap "Create Match" to start.'
+                        : 'Ask your team captain to create one.',
+                    action: _isCaptain
+                        ? null
+                        : OutlinedButton.icon(
+                            icon: const Icon(Icons.call_outlined),
+                            label: const Text('Contact captain'),
+                            onPressed: _contactCaptain,
+                          ),
+                  ),
                 );
               }
               return Column(
