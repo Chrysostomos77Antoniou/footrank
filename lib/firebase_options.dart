@@ -60,11 +60,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDiYdsM7xxeRG0xC-DgF8MsVUP1maI3XpM',
-    appId: '1:123604383744:ios:1bbc2ca060d4932bd840e5',
+    appId: '1:123604383744:ios:5f621e3514e40c45d840e5',
     messagingSenderId: '123604383744',
     projectId: 'footrank-14e9a',
     storageBucket: 'footrank-14e9a.firebasestorage.app',
-    iosBundleId: 'com.example.footrank',
+    iosBundleId: 'com.footballcy.footrank',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
