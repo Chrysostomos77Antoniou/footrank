@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_request_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MatchDiscoveryPage extends StatefulWidget {
   final String teamId;
@@ -115,6 +116,28 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
 
   void _reject(MatchRequestModel opponent) {
     setState(() => _markDismissed(opponent.id));
+  }
+
+  Future<void> _inviteRival() async {
+    final ref = _reference;
+    var msg = "Hey! We're looking for a match";
+    if (ref != null) {
+      final d = ref.scheduledAt.toLocal();
+      final date = '${d.day.toString().padLeft(2, '0')}/'
+          '${d.month.toString().padLeft(2, '0')} at '
+          '${d.hour.toString().padLeft(2, '0')}:'
+          '${d.minute.toString().padLeft(2, '0')}';
+      msg += ' in ${ref.city} on $date';
+    }
+    msg += ". Got a team? Let's set one up on FootRank!";
+    final uri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(msg)}');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open WhatsApp')),
+        );
+      }
+    }
   }
 
   String _label(MatchRequestModel r) {
@@ -265,6 +288,12 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall),
                   ],
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.share_outlined),
+                    label: const Text('Invite a rival team'),
+                    onPressed: _inviteRival,
+                  ),
                 ],
               ),
             ),
