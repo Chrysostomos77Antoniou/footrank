@@ -22,7 +22,7 @@ jobs:
     name: dart pub outdated
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: subosito/flutter-action@v2
         with:
@@ -86,7 +86,7 @@ jobs:
     name: OSV-Scanner (pubspec.lock)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # OSV-Scanner understands the Pub ecosystem and reads the committed
       # pubspec.lock to flag known-vulnerable (transitive) package versions.
@@ -117,7 +117,7 @@ jobs:
     name: TLS cert-validation guard
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Ensure no http/dio/HttpClient code path disables TLS certificate
       # validation, which would enable trivial MITM of Supabase/Firebase traffic.
