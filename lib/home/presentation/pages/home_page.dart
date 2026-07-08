@@ -88,8 +88,11 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   }
 
   Future<void> _createMatch() async {
-    final team = await chooseTeam(context, _captainTeams,
-        title: 'Create a match for…');
+    final team = await chooseTeam(
+      context,
+      _captainTeams,
+      title: 'Create a match for…',
+    );
     if (!mounted || team == null) return;
     context.push(AppRoutes.createMatch, extra: team.id);
   }
@@ -102,9 +105,9 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
     triggerAppRefresh();
     String message;
     try {
-      final count = await _notifRepo
-          .unreadCount()
-          .timeout(const Duration(seconds: 10));
+      final count = await _notifRepo.unreadCount().timeout(
+        const Duration(seconds: 10),
+      );
       if (!mounted) return;
       setState(() {
         _unread = Future.value(count);
@@ -117,8 +120,9 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
     }
     if (!mounted) return;
     setState(() => _syncing = false);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -138,17 +142,21 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Welcome back',
-                              style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.6),
-                                fontSize: 13)),
+                          Text(
+                            'Welcome back',
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.6),
+                              fontSize: 13,
+                            ),
+                          ),
                           const GradientText(
                             'FootRank',
                             style: TextStyle(
-                                fontSize: 26, fontWeight: FontWeight.w900),
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ],
                       ),
@@ -167,8 +175,10 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                                   color: AppColors.iconAccent(context),
                                 ),
                               )
-                            : Icon(Icons.sync,
-                                color: Theme.of(context).colorScheme.onSurface),
+                            : Icon(
+                                Icons.sync,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -187,9 +197,10 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                             child: Badge(
                               isLabelVisible: count > 0,
                               label: Text('$count'),
-                              child: Icon(Icons.notifications_outlined,
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface),
+                              child: Icon(
+                                Icons.notifications_outlined,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                             ),
                           ),
                         );
@@ -218,8 +229,10 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                   delay: const Duration(milliseconds: 160),
                   child: _ActionCard(
                     emoji: '',
-                    iconWidget: Icon(Icons.add_circle_outline,
-                        color: AppColors.iconAccent(context)),
+                    iconWidget: Icon(
+                      Icons.add_circle_outline,
+                      color: AppColors.iconAccent(context),
+                    ),
                     color: AppColors.iconAccent(context),
                     title: 'Create Match',
                     subtitle: _captainTeams.length > 1
@@ -234,8 +247,10 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                 delay: const Duration(milliseconds: 220),
                 child: _ActionCard(
                   emoji: '',
-                  iconWidget: Icon(Icons.leaderboard,
-                      color: AppColors.iconAccent(context)),
+                  iconWidget: Icon(
+                    Icons.leaderboard,
+                    color: AppColors.iconAccent(context),
+                  ),
                   color: AppColors.iconAccent(context),
                   title: 'Leaderboard',
                   subtitle: 'See where you rank',
@@ -251,13 +266,12 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                   child: Text(
                     'Manage',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.6),
-                          letterSpacing: 0.2,
-                        ),
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
+                      letterSpacing: 0.2,
+                    ),
                   ),
                 ),
               ),
@@ -265,8 +279,10 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                 delay: const Duration(milliseconds: 320),
                 child: _ActionCard(
                   emoji: '',
-                  iconWidget: Icon(Icons.notifications_active_outlined,
-                      color: AppColors.iconAccent(context)),
+                  iconWidget: Icon(
+                    Icons.notifications_active_outlined,
+                    color: AppColors.iconAccent(context),
+                  ),
                   color: AppColors.iconAccent(context),
                   title: 'Notifications',
                   subtitle: 'Match & team updates',
@@ -278,11 +294,28 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
               ),
               const SizedBox(height: 12),
               FadeSlideIn(
+                delay: const Duration(milliseconds: 350),
+                child: _ActionCard(
+                  emoji: '',
+                  iconWidget: Icon(
+                    Icons.sports_soccer,
+                    color: AppColors.iconAccent(context),
+                  ),
+                  color: AppColors.iconAccent(context),
+                  title: 'Courts',
+                  subtitle: 'Browse every court you can play at',
+                  onTap: () => context.push(AppRoutes.courts),
+                ),
+              ),
+              const SizedBox(height: 12),
+              FadeSlideIn(
                 delay: const Duration(milliseconds: 380),
                 child: _ActionCard(
                   emoji: '',
-                  iconWidget: Icon(Icons.person_search_outlined,
-                      color: AppColors.iconAccent(context)),
+                  iconWidget: Icon(
+                    Icons.person_search_outlined,
+                    color: AppColors.iconAccent(context),
+                  ),
                   color: AppColors.iconAccent(context),
                   title: 'Free Agents',
                   subtitle: 'Find players without a team',
@@ -294,8 +327,10 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                 delay: const Duration(milliseconds: 440),
                 child: _ActionCard(
                   emoji: '',
-                  iconWidget: Icon(Icons.mail_outline,
-                      color: AppColors.iconAccent(context)),
+                  iconWidget: Icon(
+                    Icons.mail_outline,
+                    color: AppColors.iconAccent(context),
+                  ),
                   color: AppColors.iconAccent(context),
                   title: 'Team Invitations',
                   subtitle: 'Invitations from team captains',
@@ -343,9 +378,10 @@ class _HeroBannerState extends State<_HeroBanner> {
   }
 
   /// 1623 -> "1,623"
-  static String _fmt(int n) => n
-      .toString()
-      .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',');
+  static String _fmt(int n) => n.toString().replaceAllMapped(
+    RegExp(r'\B(?=(\d{3})+(?!\d))'),
+    (m) => ',',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -385,8 +421,9 @@ class _HeroBannerState extends State<_HeroBanner> {
                   final data = snapshot.data;
                   // Personalised once loaded; falls back to the generic copy
                   // while loading or if the user has no profile yet.
-                  final String title =
-                      data != null ? "You're #${data.rank}" : 'Climb the ranks';
+                  final String title = data != null
+                      ? "You're #${data.rank}"
+                      : 'Climb the ranks';
                   final String subtitle = data != null
                       ? '${_fmt(data.profile.elo)} Pitch Power · #${data.rank} of ${data.total} players. Win matches to climb.'
                       : 'Win matches to boost your Pitch Power and lead the leaderboard.';
@@ -397,20 +434,24 @@ class _HeroBannerState extends State<_HeroBanner> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(title,
-                                style: TextStyle(
-                                    fontFamily: 'Sora',
-                                    color: onBrand,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.3)),
+                            Text(
+                              title,
+                              style: TextStyle(
+                                fontFamily: 'Sora',
+                                color: onBrand,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
                             const SizedBox(height: 5),
                             Text(
                               subtitle,
                               style: TextStyle(
-                                  color: onBrand.withValues(alpha: 0.85),
-                                  fontSize: 13,
-                                  height: 1.4),
+                                color: onBrand.withValues(alpha: 0.85),
+                                fontSize: 13,
+                                height: 1.4,
+                              ),
                             ),
                           ],
                         ),
@@ -429,10 +470,10 @@ class _HeroBannerState extends State<_HeroBanner> {
   }
 
   Widget _circle(double size, Color color) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-      );
+    width: size,
+    height: size,
+    decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+  );
 }
 
 /// Shown on Home when the signed-in user isn't on a team yet — the single
@@ -454,11 +495,12 @@ class _NoTeamCard extends StatelessWidget {
               Icon(Icons.groups_outlined, color: accent),
               const SizedBox(width: 10),
               Expanded(
-                child: Text("You're not on a team yet",
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800)),
+                child: Text(
+                  "You're not on a team yet",
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
             ],
           ),
@@ -535,7 +577,8 @@ class _ActionCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 alignment: Alignment.center,
-                child: iconWidget ??
+                child:
+                    iconWidget ??
                     Text(emoji, style: const TextStyle(fontSize: 22)),
               ),
               if (badgeCount > 0)
@@ -544,23 +587,27 @@ class _ActionCard extends StatelessWidget {
                   top: -5,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5),
-                    constraints:
-                        const BoxConstraints(minWidth: 22, minHeight: 22),
+                    constraints: const BoxConstraints(
+                      minWidth: 22,
+                      minHeight: 22,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE53935),
                       shape: BoxShape.circle,
                       border: Border.all(
-                          color: Theme.of(context).scaffoldBackgroundColor,
-                          width: 2),
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        width: 2,
+                      ),
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       '$badgeCount',
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          height: 1),
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
                     ),
                   ),
                 ),
@@ -571,21 +618,24 @@ class _ActionCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800)),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(subtitle,
-                    style: Theme.of(context).textTheme.bodySmall),
+                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
           ),
-          Icon(Icons.arrow_forward_ios,
-              size: 16,
-              color:
-                  Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
+          Icon(
+            Icons.arrow_forward_ios,
+            size: 16,
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.4),
+          ),
         ],
       ),
     );

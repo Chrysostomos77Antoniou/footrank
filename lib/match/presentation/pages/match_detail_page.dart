@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
+import 'package:footrank/core/utils/maps_launcher.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_model.dart';
@@ -100,15 +101,20 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     final match = _match!;
     if (attended) {
       final alreadyAttended = _attendance.values
-          .where((p) =>
-              p.teamId == player.teamId &&
-              p.attended == true &&
-              p.userId != player.userId)
+          .where(
+            (p) =>
+                p.teamId == player.teamId &&
+                p.attended == true &&
+                p.userId != player.userId,
+          )
           .length;
       if (alreadyAttended >= 5) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('You can mark at most 5 players as attended.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You can mark at most 5 players as attended.'),
+            ),
+          );
         }
         return;
       }
@@ -130,17 +136,26 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     }
   }
 
-  Future<void> _rate(TeamMemberModel player, String rating, {String? reason}) async {
+  Future<void> _rate(
+    TeamMemberModel player,
+    String rating, {
+    String? reason,
+  }) async {
     final match = _match!;
     if (!_matchStarted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('You can rate players 90 minutes after kick-off (from ${_kickoffLabel()}).')),
+        SnackBar(
+          content: Text(
+            'You can rate players 90 minutes after kick-off (from ${_kickoffLabel()}).',
+          ),
+        ),
       );
       return;
     }
@@ -154,8 +169,9 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       setState(() => _myBehavior[player.userId] = rating);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     }
   }
@@ -175,7 +191,11 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     final match = _match!;
     if (!_matchStarted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('You can submit the score 90 minutes after kick-off (from ${_kickoffLabel()}).')),
+        SnackBar(
+          content: Text(
+            'You can submit the score 90 minutes after kick-off (from ${_kickoffLabel()}).',
+          ),
+        ),
       );
       return;
     }
@@ -197,8 +217,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       );
       if (mounted) {
         final msg = switch (status) {
-          'completed' =>
-            'Both captains agree on the winner — match completed!',
+          'completed' => 'Both captains agree on the winner — match completed!',
           'disputed' =>
             'Your report disagrees with the opponent on the winner. '
                 'Please check and re-submit.',
@@ -207,8 +226,9 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
                 'trusted captain. Match completed.',
           _ => 'Score submitted. Waiting for the opponent\'s report.',
         };
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(msg)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
       }
       await _load();
     } catch (e) {
@@ -237,14 +257,19 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       initialEntryMode: TimePickerEntryMode.input,
     );
     if (time == null) return;
-    final newDt =
-        DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final newDt = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
     try {
       await _matchRepo.rescheduleMatch(match.id, newDt);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Match rescheduled')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Match rescheduled')));
       await _load();
     } catch (e) {
       if (mounted) {
@@ -261,11 +286,13 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       builder: (ctx) => AlertDialog(
         title: const Text('Cancel this match?'),
         content: const Text(
-            'This removes the match for both teams. This cannot be undone.'),
+          'This removes the match for both teams. This cannot be undone.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Keep')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () => Navigator.pop(ctx, true),
@@ -278,9 +305,9 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     try {
       await _matchRepo.cancelMatch(_match!.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Match cancelled')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Match cancelled')));
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
@@ -322,20 +349,27 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       final teamName = tid == _match?.homeTeamId
           ? (_homeTeam?.name ?? 'Home')
           : (_awayTeam?.name ?? 'Away');
-      rows.add(ListTile(
-        contentPadding: EdgeInsets.zero,
-        dense: true,
-        leading: GradientAvatar(name: name, radius: 18),
-        title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('$teamName captain'
-            '${phone != null && phone.isNotEmpty ? ' · $phone' : ''}'),
-        trailing: (phone != null && phone.isNotEmpty)
-            ? IconButton(
-                icon: Icon(Icons.call, color: AppColors.iconAccent(context)),
-                onPressed: () => _call(phone),
-              )
-            : null,
-      ));
+      rows.add(
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          leading: GradientAvatar(name: name, radius: 18),
+          title: Text(
+            name,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          subtitle: Text(
+            '$teamName captain'
+            '${phone != null && phone.isNotEmpty ? ' · $phone' : ''}',
+          ),
+          trailing: (phone != null && phone.isNotEmpty)
+              ? IconButton(
+                  icon: Icon(Icons.call, color: AppColors.iconAccent(context)),
+                  onPressed: () => _call(phone),
+                )
+              : null,
+        ),
+      );
     }
 
     return Card(
@@ -344,8 +378,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Captains',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text('Captains', style: Theme.of(context).textTheme.titleMedium),
             ...rows,
           ],
         ),
@@ -356,12 +389,12 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
   Widget _buildScoreSection() {
     final match = _match!;
     final iAmHome = _myTeamId == match.homeTeamId;
-    final myReport =
-        iAmHome ? _reportText(match.homeReportH, match.homeReportA)
-                : _reportText(match.awayReportH, match.awayReportA);
-    final oppReport =
-        iAmHome ? _reportText(match.awayReportH, match.awayReportA)
-                : _reportText(match.homeReportH, match.homeReportA);
+    final myReport = iAmHome
+        ? _reportText(match.homeReportH, match.homeReportA)
+        : _reportText(match.awayReportH, match.awayReportA);
+    final oppReport = iAmHome
+        ? _reportText(match.awayReportH, match.awayReportA)
+        : _reportText(match.homeReportH, match.homeReportA);
 
     final List<Widget> children = [
       Text('Final Score', style: Theme.of(context).textTheme.titleMedium),
@@ -369,75 +402,97 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     ];
 
     if (match.status == 'completed') {
-      children.add(Text(
-        '${match.homeTeamName ?? 'Home'} ${match.homeScore} - '
-        '${match.awayScore} ${match.awayTeamName ?? 'Away'}',
-        style: Theme.of(context).textTheme.titleLarge,
-      ));
+      children.add(
+        Text(
+          '${match.homeTeamName ?? 'Home'} ${match.homeScore} - '
+          '${match.awayScore} ${match.awayTeamName ?? 'Away'}',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+      );
       children.add(const SizedBox(height: 4));
-      children.add(Text('Result confirmed by both captains.',
-          style: Theme.of(context).textTheme.bodySmall));
+      children.add(
+        Text(
+          'Result confirmed by both captains.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      );
     } else if (!_matchStarted) {
-      children.add(Row(
-        children: [
-          const Icon(Icons.lock_clock, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'The score can be submitted 90 minutes after kick-off '
-              '(from ${_kickoffLabel()}).',
-              style: Theme.of(context).textTheme.bodySmall,
+      children.add(
+        Row(
+          children: [
+            const Icon(Icons.lock_clock, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'The score can be submitted 90 minutes after kick-off '
+                '(from ${_kickoffLabel()}).',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
-          ),
-        ],
-      ));
+          ],
+        ),
+      );
     } else {
       // Submission window open, not yet completed.
       children.add(Text('Your team\'s report: ${myReport ?? 'not submitted'}'));
       children.add(const SizedBox(height: 4));
-      children.add(Text('Opponent\'s report: ${oppReport ?? 'not submitted'}',
-          style: Theme.of(context).textTheme.bodySmall));
+      children.add(
+        Text(
+          'Opponent\'s report: ${oppReport ?? 'not submitted'}',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      );
       children.add(const SizedBox(height: 8));
 
       if (match.scoreDisputed) {
-        children.add(Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: AppColors.danger.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded,
-                  color: AppColors.danger, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'The two captains reported different winners. Please check '
-                  'with each other and re-submit. If you disagree again, the '
-                  'result is decided by the more trusted captain (fewer past '
-                  'disputes). Repeated disputes can get a captain flagged and '
-                  'cost the team 500 rating.',
-                  style: Theme.of(context).textTheme.bodySmall,
+        children.add(
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.danger.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppColors.danger,
+                  size: 20,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'The two captains reported different winners. Please check '
+                    'with each other and re-submit. If you disagree again, the '
+                    'result is decided by the more trusted captain (fewer past '
+                    'disputes). Repeated disputes can get a captain flagged and '
+                    'cost the team 500 rating.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ));
+        );
         children.add(const SizedBox(height: 10));
       } else if (myReport != null && oppReport == null) {
-        children.add(Text(
+        children.add(
+          Text(
             'Waiting for the opponent to submit their score. If they '
             "haven't within 24 hours, your reported score becomes official.",
-            style: Theme.of(context).textTheme.bodySmall));
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        );
         children.add(const SizedBox(height: 10));
       }
 
-      children.add(FilledButton.icon(
-        onPressed: _submitScore,
-        icon: const Icon(Icons.scoreboard),
-        label: Text(myReport == null ? 'Submit Score' : 'Re-submit Score'),
-      ));
+      children.add(
+        FilledButton.icon(
+          onPressed: _submitScore,
+          icon: const Icon(Icons.scoreboard),
+          label: Text(myReport == null ? 'Submit Score' : 'Re-submit Score'),
+        ),
+      );
     }
 
     return Card(
@@ -453,9 +508,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final canReschedule = _isCaptain &&
-        _match != null &&
-        _match!.status != 'completed';
+    final canReschedule =
+        _isCaptain && _match != null && _match!.status != 'completed';
     return Scaffold(
       appBar: AppBar(
         title: const Text('Match'),
@@ -508,10 +562,9 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
                 ),
                 Text(
                   hasScore ? '${match.homeScore} - ${match.awayScore}' : 'VS',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 Expanded(
                   child: _TeamHeader(
@@ -573,7 +626,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           attendance: _attendance,
           canMark: _isCaptain && _myTeamId == match.homeTeamId,
           onMark: _mark,
-          canRate: _isCaptain &&
+          canRate:
+              _isCaptain &&
               _opponentTeamId == match.homeTeamId &&
               _matchStarted,
           behavior: _myBehavior,
@@ -588,7 +642,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           attendance: _attendance,
           canMark: _isCaptain && _myTeamId == match.awayTeamId,
           onMark: _mark,
-          canRate: _isCaptain &&
+          canRate:
+              _isCaptain &&
               _opponentTeamId == match.awayTeamId &&
               _matchStarted,
           behavior: _myBehavior,
@@ -621,14 +676,19 @@ class _TeamHeader extends StatelessWidget {
             child: GradientAvatar(name: name, radius: 28),
           ),
           const SizedBox(height: 8),
-          Text(name,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleSmall),
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
           if (onTap != null)
-            Text('Tap to view',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.brand(context),
-                    fontWeight: FontWeight.w600)),
+            Text(
+              'Tap to view',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppColors.brand(context),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
         ],
       ),
     );
@@ -650,8 +710,10 @@ class _StatusChip extends StatelessWidget {
         color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(status.label,
-          style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+      child: Text(
+        status.label,
+        style: TextStyle(color: color, fontWeight: FontWeight.bold),
+      ),
     );
   }
 }
@@ -686,8 +748,10 @@ class _TeamRoster extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('$title — Players',
-            style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          '$title — Players',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
         FutureBuilder<List<TeamMemberModel>>(
           future: teamRepo.fetchMembers(teamId),
@@ -731,8 +795,10 @@ class _TeamRoster extends StatelessWidget {
                     leading: GradientAvatar(name: m.name, radius: 18),
                     title: Text(m.name),
                     subtitle: Text(
-                      [if (m.position != null) m.position, 'PWR ${m.elo}']
-                          .join(' · '),
+                      [
+                        if (m.position != null) m.position,
+                        'PWR ${m.elo}',
+                      ].join(' · '),
                     ),
                     trailing: trailing,
                   ),
@@ -910,10 +976,12 @@ class _ScoreDialog extends StatefulWidget {
 }
 
 class _ScoreDialogState extends State<_ScoreDialog> {
-  late final _homeCtrl =
-      TextEditingController(text: widget.initialHome?.toString() ?? '');
-  late final _awayCtrl =
-      TextEditingController(text: widget.initialAway?.toString() ?? '');
+  late final _homeCtrl = TextEditingController(
+    text: widget.initialHome?.toString() ?? '',
+  );
+  late final _awayCtrl = TextEditingController(
+    text: widget.initialAway?.toString() ?? '',
+  );
 
   @override
   void dispose() {
@@ -926,9 +994,9 @@ class _ScoreDialogState extends State<_ScoreDialog> {
     final h = int.tryParse(_homeCtrl.text.trim());
     final a = int.tryParse(_awayCtrl.text.trim());
     if (h == null || a == null || h < 0 || a < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter valid scores')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter valid scores')));
       return;
     }
     Navigator.pop(context, (home: h, away: a));
@@ -950,7 +1018,9 @@ class _ScoreDialogState extends State<_ScoreDialog> {
                   controller: _homeCtrl,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
-                  decoration: const InputDecoration(border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                  ),
                 ),
               ],
             ),
@@ -969,7 +1039,9 @@ class _ScoreDialogState extends State<_ScoreDialog> {
                   controller: _awayCtrl,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
-                  decoration: const InputDecoration(border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                  ),
                 ),
               ],
             ),
@@ -996,13 +1068,6 @@ class _SuggestedCourtCard extends StatelessWidget {
   final MatchModel match;
   const _SuggestedCourtCard({required this.match});
 
-  Future<void> _openMaps(String name, String? address, String city) async {
-    final query = [name, if (address != null) address, city].join(', ');
-    final uri = Uri.https(
-        'www.google.com', '/maps/search/', {'api': '1', 'query': query});
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
   @override
   Widget build(BuildContext context) {
     final name = match.suggestedCourtName ?? 'Court';
@@ -1012,8 +1077,10 @@ class _SuggestedCourtCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Suggested Court',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Suggested Court',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             if (match.suggestedCourtImageUrl != null)
               ClipRRect(
@@ -1029,14 +1096,22 @@ class _SuggestedCourtCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
             if (match.suggestedCourtAddress != null)
-              Text(match.suggestedCourtAddress!,
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                match.suggestedCourtAddress!,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () =>
-                  _openMaps(name, match.suggestedCourtAddress, match.city),
-              icon: const Icon(Icons.map_outlined),
-              label: const Text('View on map'),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => openInMaps(
+                  name: name,
+                  address: match.suggestedCourtAddress,
+                  city: match.city,
+                ),
+                icon: const Icon(Icons.directions),
+                label: const Text('Get Directions'),
+              ),
             ),
           ],
         ),

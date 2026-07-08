@@ -3,12 +3,13 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
+import 'package:footrank/core/utils/maps_launcher.dart';
+import 'package:footrank/core/widgets/map_pill_button.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/court_model.dart';
 import 'package:footrank/team/data/team_repository.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class CreateMatchRequestPage extends StatefulWidget {
   /// The captain's team id (required to create a request).
@@ -97,14 +98,8 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
     });
   }
 
-  Future<void> _openMaps(CourtModel c) async {
-    final query = [c.name, if (c.address != null) c.address, c.city].join(', ');
-    final uri = Uri.https('www.google.com', '/maps/search/', {
-      'api': '1',
-      'query': query,
-    });
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
+  Future<void> _openMaps(CourtModel c) =>
+      openInMaps(name: c.name, address: c.address, city: c.city);
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
@@ -302,11 +297,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
                           Positioned(
                             top: 8,
                             left: 8,
-                            child: _RoundIconButton(
-                              icon: Icons.map_outlined,
-                              tooltip: 'View on map',
-                              onPressed: () => _openMaps(c),
-                            ),
+                            child: MapPillButton(onPressed: () => _openMaps(c)),
                           ),
                           if (picked)
                             Positioned(
@@ -545,34 +536,6 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// A small circular icon button that sits legibly on top of a photo.
-class _RoundIconButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  const _RoundIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black.withValues(alpha: 0.45),
-      shape: const CircleBorder(),
-      child: IconButton(
-        tooltip: tooltip,
-        icon: Icon(icon, color: Colors.white, size: 20),
-        onPressed: onPressed,
-        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-        padding: EdgeInsets.zero,
       ),
     );
   }

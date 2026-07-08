@@ -20,11 +20,27 @@ class CourtRepository {
         .toList();
   }
 
+  /// Every active court across all cities, for the "Browse Courts" page.
+  Future<List<CourtModel>> fetchAllCourts() async {
+    final data = await SupabaseService.client
+        .from(_courts)
+        .select('id, name, city, address, image_url')
+        .eq('active', true)
+        .order('city')
+        .order('name');
+
+    return (data as List)
+        .map((e) => CourtModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Saves a captain's 3 ranked court choices (index 0 = 1st choice) for a
   /// newly-created match request. Matching (findOpponents) and accepting
   /// (acceptMatchRequest) both read these back to resolve a suggested court.
   Future<void> insertRequestCourtPicks(
-      String requestId, List<String> courtIds) async {
+    String requestId,
+    List<String> courtIds,
+  ) async {
     await SupabaseService.client.from(_requestPicks).insert([
       for (var i = 0; i < courtIds.length; i++)
         {'request_id': requestId, 'court_id': courtIds[i], 'rank': i + 1},
@@ -41,7 +57,8 @@ class CourtRepository {
   /// Used to score court compatibility across many candidate opponents at
   /// once instead of one query per candidate.
   Future<Map<String, List<String>>> fetchPicksForRequests(
-      List<String> requestIds) async {
+    List<String> requestIds,
+  ) async {
     if (requestIds.isEmpty) return {};
     final data = await SupabaseService.client
         .from(_requestPicks)

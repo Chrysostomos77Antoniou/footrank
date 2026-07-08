@@ -13,6 +13,7 @@ import 'package:footrank/home/presentation/pages/home_page.dart';
 import 'package:footrank/notifications/presentation/pages/notifications_page.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
 import 'package:footrank/onboarding/presentation/pages/onboarding_page.dart';
+import 'package:footrank/match/presentation/pages/courts_page.dart';
 import 'package:footrank/match/presentation/pages/create_match_request_page.dart';
 import 'package:footrank/match/presentation/pages/match_detail_page.dart';
 import 'package:footrank/match/presentation/pages/match_discovery_page.dart';
@@ -47,6 +48,7 @@ class AppRoutes {
   static const createMatch = '/matches/create';
   static const discoverMatches = '/matches/discover';
   static const matchDetail = '/matches/detail';
+  static const courts = '/courts';
   static const profile = '/profile';
   static const editProfile = '/profile/edit';
   static const freeAgents = '/free-agents';
@@ -66,8 +68,10 @@ CustomTransitionPage<T> _animatedPage<T>(Widget child, GoRouterState state) {
     transitionDuration: const Duration(milliseconds: 280),
     reverseTransitionDuration: const Duration(milliseconds: 220),
     transitionsBuilder: (context, animation, secondary, child) {
-      final curved =
-          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
       return FadeTransition(
         opacity: curved,
         child: SlideTransition(
@@ -83,170 +87,188 @@ CustomTransitionPage<T> _animatedPage<T>(Widget child, GoRouterState state) {
 }
 
 GoRouter buildRouter() => GoRouter(
-      initialLocation: AppRoutes.home,
-      redirect: (context, state) async {
-        final isLoggedIn = _authRepo.currentUser != null;
-        final loc = state.matchedLocation;
+  initialLocation: AppRoutes.home,
+  redirect: (context, state) async {
+    final isLoggedIn = _authRepo.currentUser != null;
+    final loc = state.matchedLocation;
 
-        // Password-recovery deep link takes priority over everything: keep the
-        // user on the set-new-password screen until they set it (or cancel).
-        if (passwordRecovery.value) {
-          return loc == AppRoutes.resetPassword
-              ? null
-              : AppRoutes.resetPassword;
-        }
+    // Password-recovery deep link takes priority over everything: keep the
+    // user on the set-new-password screen until they set it (or cancel).
+    if (passwordRecovery.value) {
+      return loc == AppRoutes.resetPassword ? null : AppRoutes.resetPassword;
+    }
 
-        // First run: show onboarding before anything else (only when logged out).
-        if (!OnboardingPrefs.seen && !isLoggedIn) {
-          return loc == AppRoutes.onboarding ? null : AppRoutes.onboarding;
-        }
+    // First run: show onboarding before anything else (only when logged out).
+    if (!OnboardingPrefs.seen && !isLoggedIn) {
+      return loc == AppRoutes.onboarding ? null : AppRoutes.onboarding;
+    }
 
-        final isAuthRoute =
-            loc == AppRoutes.login || loc == AppRoutes.register;
-        final isSetupRoute = loc == AppRoutes.profileSetup;
+    final isAuthRoute = loc == AppRoutes.login || loc == AppRoutes.register;
+    final isSetupRoute = loc == AppRoutes.profileSetup;
 
-        // Not logged in: only auth routes are allowed.
-        if (!isLoggedIn) {
-          ProfileRepository.invalidateCache();
-          return isAuthRoute ? null : AppRoutes.login;
-        }
+    // Not logged in: only auth routes are allowed.
+    if (!isLoggedIn) {
+      ProfileRepository.invalidateCache();
+      return isAuthRoute ? null : AppRoutes.login;
+    }
 
-        // Logged in: ensure a profile row exists before entering the app.
-        // If the check fails (e.g. no internet), let the app proceed so the
-        // screens can show graceful errors instead of a blank route.
-        bool hasProfile;
-        try {
-          hasProfile = await _profileRepo
-              .hasProfile()
-              .timeout(const Duration(seconds: 6));
-        } catch (_) {
-          // Network slow/unavailable: don't block the app on a blank route.
-          return isAuthRoute ? AppRoutes.home : null;
-        }
-        if (!hasProfile) {
-          return isSetupRoute ? null : AppRoutes.profileSetup;
-        }
+    // Logged in: ensure a profile row exists before entering the app.
+    // If the check fails (e.g. no internet), let the app proceed so the
+    // screens can show graceful errors instead of a blank route.
+    bool hasProfile;
+    try {
+      hasProfile = await _profileRepo.hasProfile().timeout(
+        const Duration(seconds: 6),
+      );
+    } catch (_) {
+      // Network slow/unavailable: don't block the app on a blank route.
+      return isAuthRoute ? AppRoutes.home : null;
+    }
+    if (!hasProfile) {
+      return isSetupRoute ? null : AppRoutes.profileSetup;
+    }
 
-        // Has a profile: keep them out of auth/setup screens.
-        if (isAuthRoute || isSetupRoute) return AppRoutes.home;
-        return null;
-      },
-      refreshListenable: Listenable.merge([
-        RouterRefreshStream(Supabase.instance.client.auth.onAuthStateChange),
-        passwordRecovery,
-      ]),
-      routes: [
-        GoRoute(
-          path: AppRoutes.onboarding,
-          builder: (context, state) => const OnboardingPage(),
+    // Has a profile: keep them out of auth/setup screens.
+    if (isAuthRoute || isSetupRoute) return AppRoutes.home;
+    return null;
+  },
+  refreshListenable: Listenable.merge([
+    RouterRefreshStream(Supabase.instance.client.auth.onAuthStateChange),
+    passwordRecovery,
+  ]),
+  routes: [
+    GoRoute(
+      path: AppRoutes.onboarding,
+      builder: (context, state) => const OnboardingPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.login,
+      builder: (context, state) => const LoginPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.register,
+      builder: (context, state) => const RegisterPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.resetPassword,
+      builder: (context, state) => const ResetPasswordPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.profileSetup,
+      pageBuilder: (context, state) =>
+          _animatedPage(const ProfileSetupPage(), state),
+    ),
+    GoRoute(
+      path: AppRoutes.teamDetail,
+      pageBuilder: (context, state) =>
+          _animatedPage(TeamDetailPage(team: state.extra! as TeamModel), state),
+    ),
+    GoRoute(
+      path: AppRoutes.createTeam,
+      pageBuilder: (context, state) =>
+          _animatedPage(const CreateTeamPage(), state),
+    ),
+    GoRoute(
+      path: AppRoutes.editTeam,
+      pageBuilder: (context, state) =>
+          _animatedPage(EditTeamPage(team: state.extra! as TeamModel), state),
+    ),
+    GoRoute(
+      path: AppRoutes.joinTeam,
+      pageBuilder: (context, state) =>
+          _animatedPage(const JoinTeamPage(), state),
+    ),
+    GoRoute(
+      path: AppRoutes.freeAgents,
+      pageBuilder: (context, state) =>
+          _animatedPage(const FreeAgentsPage(), state),
+    ),
+    GoRoute(
+      path: AppRoutes.invitations,
+      pageBuilder: (context, state) =>
+          _animatedPage(const InvitationsPage(), state),
+    ),
+    GoRoute(
+      path: AppRoutes.notifications,
+      pageBuilder: (context, state) =>
+          _animatedPage(const NotificationsPage(), state),
+    ),
+    GoRoute(
+      path: AppRoutes.editProfile,
+      pageBuilder: (context, state) => _animatedPage(
+        EditProfilePage(user: state.extra! as UserModel),
+        state,
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.createMatch,
+      pageBuilder: (context, state) => _animatedPage(
+        CreateMatchRequestPage(teamId: state.extra! as String),
+        state,
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.discoverMatches,
+      pageBuilder: (context, state) => _animatedPage(
+        MatchDiscoveryPage(teamId: state.extra! as String),
+        state,
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.matchDetail,
+      pageBuilder: (context, state) => _animatedPage(
+        MatchDetailPage(matchId: state.extra! as String),
+        state,
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.courts,
+      pageBuilder: (context, state) => _animatedPage(const CourtsPage(), state),
+    ),
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, shell) => HomeShellPage(navigationShell: shell),
+      branches: [
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: AppRoutes.home,
+              builder: (context, state) => const HomePage(),
+            ),
+          ],
         ),
-        GoRoute(
-          path: AppRoutes.login,
-          builder: (context, state) => const LoginPage(),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: AppRoutes.team,
+              builder: (context, state) => const TeamPage(),
+            ),
+          ],
         ),
-        GoRoute(
-          path: AppRoutes.register,
-          builder: (context, state) => const RegisterPage(),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: AppRoutes.teamRankings,
+              builder: (context, state) => const RankingsPage(),
+            ),
+          ],
         ),
-        GoRoute(
-          path: AppRoutes.resetPassword,
-          builder: (context, state) => const ResetPasswordPage(),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: AppRoutes.matches,
+              builder: (context, state) => const MatchesPage(),
+            ),
+          ],
         ),
-        GoRoute(
-          path: AppRoutes.profileSetup,
-          pageBuilder: (context, state) =>
-              _animatedPage(const ProfileSetupPage(), state),
-        ),
-        GoRoute(
-          path: AppRoutes.teamDetail,
-          pageBuilder: (context, state) =>
-              _animatedPage(TeamDetailPage(team: state.extra! as TeamModel), state),
-        ),
-        GoRoute(
-          path: AppRoutes.createTeam,
-          pageBuilder: (context, state) =>
-              _animatedPage(const CreateTeamPage(), state),
-        ),
-        GoRoute(
-          path: AppRoutes.editTeam,
-          pageBuilder: (context, state) =>
-              _animatedPage(EditTeamPage(team: state.extra! as TeamModel), state),
-        ),
-        GoRoute(
-          path: AppRoutes.joinTeam,
-          pageBuilder: (context, state) =>
-              _animatedPage(const JoinTeamPage(), state),
-        ),
-        GoRoute(
-          path: AppRoutes.freeAgents,
-          pageBuilder: (context, state) =>
-              _animatedPage(const FreeAgentsPage(), state),
-        ),
-        GoRoute(
-          path: AppRoutes.invitations,
-          pageBuilder: (context, state) =>
-              _animatedPage(const InvitationsPage(), state),
-        ),
-        GoRoute(
-          path: AppRoutes.notifications,
-          pageBuilder: (context, state) =>
-              _animatedPage(const NotificationsPage(), state),
-        ),
-        GoRoute(
-          path: AppRoutes.editProfile,
-          pageBuilder: (context, state) =>
-              _animatedPage(EditProfilePage(user: state.extra! as UserModel), state),
-        ),
-        GoRoute(
-          path: AppRoutes.createMatch,
-          pageBuilder: (context, state) => _animatedPage(
-              CreateMatchRequestPage(teamId: state.extra! as String), state),
-        ),
-        GoRoute(
-          path: AppRoutes.discoverMatches,
-          pageBuilder: (context, state) => _animatedPage(
-              MatchDiscoveryPage(teamId: state.extra! as String), state),
-        ),
-        GoRoute(
-          path: AppRoutes.matchDetail,
-          pageBuilder: (context, state) => _animatedPage(
-              MatchDetailPage(matchId: state.extra! as String), state),
-        ),
-        StatefulShellRoute.indexedStack(
-          builder: (context, state, shell) =>
-              HomeShellPage(navigationShell: shell),
-          branches: [
-            StatefulShellBranch(routes: [
-              GoRoute(
-                path: AppRoutes.home,
-                builder: (context, state) => const HomePage(),
-              ),
-            ]),
-            StatefulShellBranch(routes: [
-              GoRoute(
-                path: AppRoutes.team,
-                builder: (context, state) => const TeamPage(),
-              ),
-            ]),
-            StatefulShellBranch(routes: [
-              GoRoute(
-                path: AppRoutes.teamRankings,
-                builder: (context, state) => const RankingsPage(),
-              ),
-            ]),
-            StatefulShellBranch(routes: [
-              GoRoute(
-                path: AppRoutes.matches,
-                builder: (context, state) => const MatchesPage(),
-              ),
-            ]),
-            StatefulShellBranch(routes: [
-              GoRoute(
-                path: AppRoutes.profile,
-                builder: (context, state) => const ProfilePage(),
-              ),
-            ]),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: AppRoutes.profile,
+              builder: (context, state) => const ProfilePage(),
+            ),
           ],
         ),
       ],
-    );
+    ),
+  ],
+);
