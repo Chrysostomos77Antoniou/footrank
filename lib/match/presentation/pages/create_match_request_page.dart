@@ -36,6 +36,14 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
   List<CourtModel> _courts = [];
   bool _courtsLoading = false;
   final List<String> _selectedCourtIds = []; // ordered, up to 3
+  final _courtPageController = PageController(viewportFraction: 0.86);
+  int _courtPage = 0;
+
+  @override
+  void dispose() {
+    _courtPageController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -69,7 +77,11 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
         _courts = courts;
         _selectedCourtIds.clear();
         _courtsLoading = false;
+        _courtPage = 0;
       });
+      if (_courtPageController.hasClients) {
+        _courtPageController.jumpToPage(0);
+      }
     } catch (_) {
       if (mounted) setState(() => _courtsLoading = false);
     }
@@ -202,52 +214,172 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
       );
     }
     return Column(
-      children: _courts.map((c) {
-        final rank = _selectedCourtIds.indexOf(c.id);
-        final picked = rank != -1;
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          color: picked
-              ? AppColors.brand(context).withValues(alpha: 0.08)
-              : null,
-          child: ListTile(
-            onTap: () => _toggleCourt(c.id),
-            leading: c.imageUrl != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      c.imageUrl!,
-                      width: 44,
-                      height: 44,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          const Icon(Icons.sports_soccer, size: 30),
-                    ),
-                  )
-                : const Icon(Icons.sports_soccer, size: 30),
-            title: Text(c.name),
-            subtitle: c.address != null ? Text(c.address!) : null,
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: 'View on map',
-                  icon: const Icon(Icons.map_outlined),
-                  onPressed: () => _openMaps(c),
-                ),
-                if (picked)
-                  CircleAvatar(
-                    radius: 12,
-                    backgroundColor: AppColors.brand(context),
-                    child: Text('${rank + 1}',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold)),
-                  ),
-              ],
-            ),
+      children: [
+        SizedBox(
+          height: 300,
+          child: PageView.builder(
+            controller: _courtPageController,
+            onPageChanged: (i) => setState(() => _courtPage = i),
+            itemCount: _courts.length,
+            itemBuilder: (context, i) => _buildCourtCard(_courts[i]),
           ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_courts.length, (i) {
+            final active = i == _courtPage;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: active ? 18 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(3),
+                color: active
+                    ? AppColors.brand(context)
+                    : AppColors.iconAccent(context).withValues(alpha: 0.25),
+              ),
+            );
+          }),
+        ),
+        if (_selectedCourtIds.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _buildSelectedSummary(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCourtCard(CourtModel c) {
+    final rank = _selectedCourtIds.indexOf(c.id);
+    final picked = rank != -1;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        margin: EdgeInsets.zero,
+        color:
+            picked ? AppColors.brand(context).withValues(alpha: 0.08) : null,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: picked
+              ? BorderSide(color: AppColors.brand(context), width: 2)
+              : BorderSide.none,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AspectRatio(
+              aspectRatio: 1,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (c.imageUrl != null)
+                    Image.network(
+                      c.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _courtImagePlaceholder(),
+                    )
+                  else
+                    _courtImagePlaceholder(),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: _RoundIconButton(
+                      icon: Icons.map_outlined,
+                      tooltip: 'View on map',
+                      onPressed: () => _openMaps(c),
+                    ),
+                  ),
+                  if (picked)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: CircleAvatar(
+                        radius: 15,
+                        backgroundColor: AppColors.brand(context),
+                        child: Text('${rank + 1}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(c.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  if (c.address != null)
+                    Text(c.address!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: picked
+                        ? OutlinedButton.icon(
+                            onPressed: () => _toggleCourt(c.id),
+                            icon: const Icon(Icons.close, size: 18),
+                            label: Text('Remove (#${rank + 1} choice)'),
+                          )
+                        : FilledButton.icon(
+                            onPressed: _selectedCourtIds.length < 3
+                                ? () => _toggleCourt(c.id)
+                                : null,
+                            icon: const Icon(Icons.add, size: 18),
+                            label: Text(
+                                'Add as #${_selectedCourtIds.length + 1} choice'),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _courtImagePlaceholder() => Container(
+        color: AppColors.iconAccent(context).withValues(alpha: 0.08),
+        child: Icon(Icons.sports_soccer,
+            size: 56, color: AppColors.iconAccent(context).withValues(alpha: 0.5)),
+      );
+
+  /// Compact recap of the current ranking — the carousel only shows one court
+  /// at a time, so without this the earlier picks scroll out of view.
+  Widget _buildSelectedSummary() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _selectedCourtIds.asMap().entries.map((entry) {
+        final i = entry.key;
+        final court = _courts.firstWhere((c) => c.id == entry.value);
+        return InputChip(
+          avatar: CircleAvatar(
+            radius: 10,
+            backgroundColor: AppColors.brand(context),
+            child: Text('${i + 1}',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold)),
+          ),
+          label: Text(court.name, overflow: TextOverflow.ellipsis),
+          onDeleted: () => _toggleCourt(court.id),
         );
       }).toList(),
     );
@@ -372,6 +504,34 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
           ),
         ),
         ),
+      ),
+    );
+  }
+}
+
+/// A small circular icon button that sits legibly on top of a photo.
+class _RoundIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  const _RoundIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.45),
+      shape: const CircleBorder(),
+      child: IconButton(
+        tooltip: tooltip,
+        icon: Icon(icon, color: Colors.white, size: 20),
+        onPressed: onPressed,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        padding: EdgeInsets.zero,
       ),
     );
   }
