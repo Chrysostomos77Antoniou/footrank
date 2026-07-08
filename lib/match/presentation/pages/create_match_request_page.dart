@@ -4,6 +4,7 @@ import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/utils/maps_launcher.dart';
+import 'package:footrank/core/widgets/court_image_preview.dart';
 import 'package:footrank/core/widgets/map_pill_button.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/court_repository.dart';
@@ -281,7 +282,11 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
                     width: side,
                     height: side,
                     child: InkWell(
-                      onTap: () => _toggleCourt(c.id),
+                      onTap: () => showCourtImagePreview(
+                        context,
+                        name: c.name,
+                        imageUrl: c.imageUrl,
+                      ),
                       child: Stack(
                         fit: StackFit.expand,
                         children: [

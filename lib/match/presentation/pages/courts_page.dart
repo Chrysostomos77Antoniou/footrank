@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/maps_launcher.dart';
 import 'package:footrank/core/widgets/async_views.dart';
+import 'package:footrank/core/widgets/court_image_preview.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/models/court_model.dart';
@@ -100,15 +101,22 @@ class _CourtRow extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: court.imageUrl != null
-                ? Image.network(
-                    court.imageUrl!,
-                    width: 72,
-                    height: 72,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _placeholder(context),
-                  )
-                : _placeholder(context),
+            child: InkWell(
+              onTap: () => showCourtImagePreview(
+                context,
+                name: court.name,
+                imageUrl: court.imageUrl,
+              ),
+              child: court.imageUrl != null
+                  ? Image.network(
+                      court.imageUrl!,
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _placeholder(context),
+                    )
+                  : _placeholder(context),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
