@@ -118,9 +118,13 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       ),
     );
     if (confirm != true) return;
+    final myRequestId = opponent.matchedFromRequestId;
+    if (myRequestId == null) return; // shouldn't happen — surfaced via findAllOpponents
     try {
       await _matchRepo.acceptMatchRequest(
-          requestId: opponent.id, awayTeamId: team.id);
+          requestId: opponent.id,
+          awayTeamId: team.id,
+          myRequestId: myRequestId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

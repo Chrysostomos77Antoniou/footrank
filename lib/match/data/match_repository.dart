@@ -1,3 +1,4 @@
+import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_player_model.dart';
 import 'package:footrank/models/match_request_model.dart';
@@ -9,6 +10,22 @@ class MatchRepository {
   static const _matches = 'matches';
   static const _matchPlayers = 'match_players';
   static const _behavior = 'behavior_reports';
+  final _courtRepo = CourtRepository();
+
+  /// Combined ranked-choice score between two teams' 3 court picks (mirrors
+  /// the DB's accept_match_request resolution): 1st choice = 3pts, 2nd =
+  /// 2pts, 3rd = 1pt: highest SUM for a court on both lists wins. A court on
+  /// only one list, or no overlap at all, scores 0.
+  static int _courtCompatibility(List<String> mine, List<String> theirs) {
+    var best = 0;
+    for (var i = 0; i < mine.length; i++) {
+      final j = theirs.indexOf(mine[i]);
+      if (j == -1) continue;
+      final score = (3 - i) + (3 - j);
+      if (score > best) best = score;
+    }
+    return best;
+  }
 
   /// Default discovery windows, shared by findOpponents and findAllOpponents so
   /// both code paths use identical matching rules.
@@ -19,16 +36,23 @@ class MatchRepository {
 
   String? get _uid => SupabaseService.client.auth.currentUser?.id;
 
-  /// Creates a match request for the captain's team.
+  /// Creates a match request for the captain's team, with exactly 3 ranked
+  /// court choices (index 0 = 1st choice) in [city]. Those picks drive both
+  /// opponent matching ([findOpponents]) and, once accepted, the automatic
+  /// suggested-court resolution.
   Future<MatchRequestModel> createMatchRequest({
     required String teamId,
     required String city,
     required DateTime scheduledAt,
     required String matchType,
+    required List<String> courtIds,
     String format = '5v5',
   }) async {
     final uid = _uid;
     if (uid == null) throw StateError('No authenticated user');
+    if (courtIds.length != 3 || courtIds.toSet().length != 3) {
+      throw ArgumentError('Pick exactly 3 different courts, ranked in order of preference');
+    }
 
     final inserted = await SupabaseService.client
         .from(_requests)
@@ -43,7 +67,9 @@ class MatchRepository {
         .select('*, teams(name)')
         .single();
 
-    return MatchRequestModel.fromJson(inserted);
+    final request = MatchRequestModel.fromJson(inserted);
+    await _courtRepo.insertRequestCourtPicks(request.id, courtIds);
+    return request;
   }
 
   /// Match requests created by the current captain's team.
@@ -78,11 +104,16 @@ class MatchRepository {
   ///  - scheduled time within [withinMinutes] of the reference
   ///  - opponent team rating within [eloThreshold] of [myTeamRating]
   ///  - still 'searching' and not the requesting team
+  ///
+  /// Results are RANKED (not just filtered), in priority order: how well the
+  /// opponent's 3 ranked court picks overlap with [myCourtIds] first, then
+  /// closeness in kick-off time, then closeness in rating.
   Future<List<MatchRequestModel>> findOpponents({
     required String myTeamId,
     required int myTeamRating,
     required String city,
     required DateTime scheduledAt,
+    required List<String> myCourtIds,
     int withinMinutes = defaultWithinMinutes,
     int eloThreshold = defaultEloThreshold,
   }) async {
@@ -110,11 +141,39 @@ class MatchRepository {
         .toList();
 
     // ELO proximity is filtered client-side (needs abs of joined rating).
-    return candidates.where((r) {
+    final withinElo = candidates.where((r) {
       final rating = r.teamRating;
       if (rating == null) return false;
       return (rating - myTeamRating).abs() <= eloThreshold;
     }).toList();
+
+    if (withinElo.isEmpty) return withinElo;
+
+    final picksById = await _courtRepo
+        .fetchPicksForRequests(withinElo.map((r) => r.id).toList());
+
+    final scored = withinElo
+        .map((r) => r.copyWith(
+            courtCompatibilityScore:
+                _courtCompatibility(myCourtIds, picksById[r.id] ?? const [])))
+        .toList();
+
+    scored.sort((a, b) {
+      final byCourt = (b.courtCompatibilityScore ?? 0)
+          .compareTo(a.courtCompatibilityScore ?? 0);
+      if (byCourt != 0) return byCourt;
+      final aTimeDiff =
+          a.scheduledAt.difference(scheduledAt).inMinutes.abs();
+      final bTimeDiff =
+          b.scheduledAt.difference(scheduledAt).inMinutes.abs();
+      final byTime = aTimeDiff.compareTo(bTimeDiff);
+      if (byTime != 0) return byTime;
+      final aEloDiff = ((a.teamRating ?? myTeamRating) - myTeamRating).abs();
+      final bEloDiff = ((b.teamRating ?? myTeamRating) - myTeamRating).abs();
+      return aEloDiff.compareTo(bEloDiff);
+    });
+
+    return scored;
   }
 
   /// True when [opponent] matches [ref] under the same city/time/ELO windows
@@ -196,11 +255,14 @@ class MatchRepository {
     final seen = <String>{};
     final all = <MatchRequestModel>[];
     for (final opponent in opponentRequests) {
-      // An opponent qualifies if it matches ANY of the team's open requests.
-      final matches =
-          myRequests.any((ref) => _matchesReference(ref, opponent));
-      if (matches && seen.add(opponent.id)) {
-        all.add(opponent);
+      // An opponent qualifies if it matches ANY of the team's open requests —
+      // tag it with the FIRST one that matched, so acceptMatchRequest() knows
+      // whose court picks to resolve the suggested court against.
+      final ref = myRequests
+          .cast<MatchRequestModel?>()
+          .firstWhere((r) => _matchesReference(r!, opponent), orElse: () => null);
+      if (ref != null && seen.add(opponent.id)) {
+        all.add(opponent.copyWith(matchedFromRequestId: ref.id));
       }
     }
     return all;
@@ -209,16 +271,21 @@ class MatchRepository {
   // ---- Accept / Reject (Task 5.3) ----
 
   /// Opponent captain accepts [requestId]; creates a match and confirms the
-  /// request atomically (via DB function). Returns the new match id.
+  /// request atomically (via DB function). [myRequestId] is the accepting
+  /// captain's own reference request — its ranked court picks are compared
+  /// against the accepted request's to resolve a suggested court immediately.
+  /// Returns the new match id.
   Future<String> acceptMatchRequest({
     required String requestId,
     required String awayTeamId,
+    required String myRequestId,
   }) async {
     final result = await SupabaseService.client.rpc(
       'accept_match_request',
       params: {
         'p_request_id': requestId,
         'p_away_team_id': awayTeamId,
+        'p_my_request_id': myRequestId,
       },
     );
     return result as String;

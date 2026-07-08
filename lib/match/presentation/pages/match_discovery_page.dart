@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_request_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,6 +17,7 @@ class MatchDiscoveryPage extends StatefulWidget {
 
 class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
   final _repo = MatchRepository();
+  final _courtRepo = CourtRepository();
 
   late Future<List<MatchRequestModel>> _myRequestsFuture;
   MatchRequestModel? _reference;
@@ -80,23 +82,33 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
     _saveDismissed();
   }
 
+  Future<List<MatchRequestModel>> _findOpponentsFor(
+      MatchRequestModel ref) async {
+    final myCourtIds = await _courtRepo.fetchPicksForRequest(ref.id);
+    return _repo.findOpponents(
+      myTeamId: widget.teamId,
+      myTeamRating: ref.teamRating ?? 1500,
+      city: ref.city,
+      scheduledAt: ref.scheduledAt,
+      myCourtIds: myCourtIds,
+    );
+  }
+
   void _selectReference(MatchRequestModel ref) {
     setState(() {
       _reference = ref;
-      _opponentsFuture = _repo.findOpponents(
-        myTeamId: widget.teamId,
-        myTeamRating: ref.teamRating ?? 1500,
-        city: ref.city,
-        scheduledAt: ref.scheduledAt,
-      );
+      _opponentsFuture = _findOpponentsFor(ref);
     });
   }
 
   Future<void> _accept(MatchRequestModel opponent) async {
+    final ref = _reference;
+    if (ref == null) return;
     try {
       await _repo.acceptMatchRequest(
         requestId: opponent.id,
         awayTeamId: widget.teamId,
+        myRequestId: ref.id,
       );
       if (!mounted) return;
       setState(() => _markDismissed(opponent.id));
@@ -140,6 +152,17 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
     }
   }
 
+  /// Opponents are sorted by court compatibility first, then time, then
+  /// rating — this surfaces WHY one's ranked above another (score is
+  /// combined 1st=3pts/2nd=2pts/3rd=1pt from both sides; max 6 = both
+  /// picked the same court as their #1 choice).
+  String? _courtBadge(int? score) {
+    if (score == null || score == 0) return null;
+    if (score == 6) return '🎯 Matches your #1 court choice exactly';
+    if (score >= 3) return '✓ Court preferences overlap';
+    return '· Shares a lower-ranked court pick';
+  }
+
   String _label(MatchRequestModel r) {
     final d = r.scheduledAt.toLocal();
     final date =
@@ -177,12 +200,7 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
 
           // Default to first reference once loaded.
           _reference ??= myRequests.first;
-          _opponentsFuture ??= _repo.findOpponents(
-            myTeamId: widget.teamId,
-            myTeamRating: _reference!.teamRating ?? 1500,
-            city: _reference!.city,
-            scheduledAt: _reference!.scheduledAt,
-          );
+          _opponentsFuture ??= _findOpponentsFor(_reference!);
 
           return Column(
             children: [
@@ -326,6 +344,16 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
                         style: Theme.of(context).textTheme.labelLarge,
                       ),
                     ),
+                    if (_courtBadge(o.courtCompatibilityScore) != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          _courtBadge(o.courtCompatibilityScore)!,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.primary),
+                        ),
+                      ),
                     // Expanded bounds the buttons; the themed FilledButton uses
                     // an infinite min width that would otherwise overflow the Row.
                     Row(

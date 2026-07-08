@@ -4,7 +4,9 @@ import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/premium.dart';
+import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
+import 'package:footrank/models/court_model.dart';
 import 'package:footrank/team/data/team_repository.dart';
 
 class CreateMatchRequestPage extends StatefulWidget {
@@ -20,6 +22,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
   final _formKey = GlobalKey<FormState>();
   final _repo = MatchRepository();
   final _teamRepo = TeamRepository();
+  final _courtRepo = CourtRepository();
 
   String? _city;
   DateTime? _date;
@@ -28,6 +31,10 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
   // Matches are 5-a-side only.
   static const String _format = '5v5';
   bool _loading = false;
+
+  List<CourtModel> _courts = [];
+  bool _courtsLoading = false;
+  final List<String> _selectedCourtIds = []; // ordered, up to 3
 
   @override
   void initState() {
@@ -46,7 +53,35 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
     final team = await _teamRepo.fetchById(widget.teamId);
     if (mounted && _city == null) {
       setState(() => _city = canonicalCity(team.city));
+      _loadCourts();
     }
+  }
+
+  Future<void> _loadCourts() async {
+    final city = _city;
+    if (city == null) return;
+    setState(() => _courtsLoading = true);
+    try {
+      final courts = await _courtRepo.fetchCourtsForCity(city);
+      if (!mounted) return;
+      setState(() {
+        _courts = courts;
+        _selectedCourtIds.clear();
+        _courtsLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _courtsLoading = false);
+    }
+  }
+
+  void _toggleCourt(String courtId) {
+    setState(() {
+      if (_selectedCourtIds.contains(courtId)) {
+        _selectedCourtIds.remove(courtId);
+      } else if (_selectedCourtIds.length < 3) {
+        _selectedCourtIds.add(courtId);
+      }
+    });
   }
 
   Future<void> _pickDate() async {
@@ -85,6 +120,13 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
       );
       return;
     }
+    if (_selectedCourtIds.length != 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Pick & rank 3 courts, in order of preference')),
+      );
+      return;
+    }
     final scheduledAt = DateTime(
       _date!.year,
       _date!.month,
@@ -110,6 +152,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
         city: _city!,
         scheduledAt: scheduledAt,
         matchType: _matchType,
+        courtIds: _selectedCourtIds,
         format: _format,
       );
       if (mounted) {
@@ -126,6 +169,71 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Widget _buildCourtPicker() {
+    if (_courtsLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_courts.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.iconAccent(context).withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          _city == null
+              ? 'Select a city to see courts.'
+              : 'No courts listed yet for $_city.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      );
+    }
+    return Column(
+      children: _courts.map((c) {
+        final rank = _selectedCourtIds.indexOf(c.id);
+        final picked = rank != -1;
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          color: picked
+              ? AppColors.brand(context).withValues(alpha: 0.08)
+              : null,
+          child: ListTile(
+            onTap: () => _toggleCourt(c.id),
+            leading: c.imageUrl != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      c.imageUrl!,
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.sports_soccer, size: 30),
+                    ),
+                  )
+                : const Icon(Icons.sports_soccer, size: 30),
+            title: Text(c.name),
+            subtitle: c.address != null ? Text(c.address!) : null,
+            trailing: picked
+                ? CircleAvatar(
+                    radius: 12,
+                    backgroundColor: AppColors.brand(context),
+                    child: Text('${rank + 1}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold)),
+                  )
+                : null,
+          ),
+        );
+      }).toList(),
+    );
   }
 
   @override
@@ -180,9 +288,22 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
                       .map((c) =>
                           DropdownMenuItem(value: c, child: Text(c)))
                       .toList(),
-                  onChanged: (v) => setState(() => _city = v),
+                  onChanged: (v) {
+                    setState(() => _city = v);
+                    _loadCourts();
+                  },
                   validator: (v) => v == null ? 'City is required' : null,
                 ),
+                const SizedBox(height: 20),
+                Text('Pick & Rank 3 Courts',
+                    style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 4),
+                Text(
+                  'Tap in order of preference. We\'ll match you with an opponent who wants the same courts, starting from your #1 choice.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                _buildCourtPicker(),
                 const SizedBox(height: 20),
                 Text('Match Type',
                     style: Theme.of(context).textTheme.labelLarge),

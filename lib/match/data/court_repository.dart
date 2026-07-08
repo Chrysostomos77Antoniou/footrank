@@ -3,7 +3,7 @@ import 'package:footrank/services/supabase_service.dart';
 
 class CourtRepository {
   static const _courts = 'courts';
-  static const _picks = 'match_court_picks';
+  static const _requestPicks = 'match_request_court_picks';
 
   /// Active courts in [city] a captain can choose from. Deliberately selects
   /// only name/address/image — never phone (see [CourtModel]).
@@ -20,28 +20,41 @@ class CourtRepository {
         .toList();
   }
 
-  /// This team's already-submitted ranked picks for [matchId], if any
-  /// (ordered by rank 1..3). Empty when the captain hasn't submitted yet.
-  Future<List<String>> fetchMyPicks(String matchId, String teamId) async {
-    final data = await SupabaseService.client
-        .from(_picks)
-        .select('court_id')
-        .eq('match_id', matchId)
-        .eq('team_id', teamId)
-        .order('rank');
-
-    return (data as List)
-        .map((e) => (e as Map<String, dynamic>)['court_id'] as String)
-        .toList();
+  /// Saves a captain's 3 ranked court choices (index 0 = 1st choice) for a
+  /// newly-created match request. Matching (findOpponents) and accepting
+  /// (acceptMatchRequest) both read these back to resolve a suggested court.
+  Future<void> insertRequestCourtPicks(
+      String requestId, List<String> courtIds) async {
+    await SupabaseService.client.from(_requestPicks).insert([
+      for (var i = 0; i < courtIds.length; i++)
+        {'request_id': requestId, 'court_id': courtIds[i], 'rank': i + 1},
+    ]);
   }
 
-  /// Submits this captain's 3 ranked court choices (index 0 = 1st choice).
-  /// Once both captains have submitted, the DB resolves a suggested court
-  /// automatically (see submit_court_picks()).
-  Future<void> submitCourtPicks(String matchId, List<String> courtIds) async {
-    await SupabaseService.client.rpc('submit_court_picks', params: {
-      'p_match_id': matchId,
-      'p_court_ids': courtIds,
-    });
+  /// Ranked court picks (rank 1..3) for a single request, if any.
+  Future<List<String>> fetchPicksForRequest(String requestId) async {
+    final map = await fetchPicksForRequests([requestId]);
+    return map[requestId] ?? const [];
+  }
+
+  /// Batch fetch: request id -> its ranked court ids (rank 1..3 order).
+  /// Used to score court compatibility across many candidate opponents at
+  /// once instead of one query per candidate.
+  Future<Map<String, List<String>>> fetchPicksForRequests(
+      List<String> requestIds) async {
+    if (requestIds.isEmpty) return {};
+    final data = await SupabaseService.client
+        .from(_requestPicks)
+        .select('request_id, court_id, rank')
+        .inFilter('request_id', requestIds)
+        .order('rank');
+
+    final map = <String, List<String>>{};
+    for (final e in data as List) {
+      final row = e as Map<String, dynamic>;
+      final reqId = row['request_id'] as String;
+      (map[reqId] ??= []).add(row['court_id'] as String);
+    }
+    return map;
   }
 }

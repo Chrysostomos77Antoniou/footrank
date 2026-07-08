@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
-import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
-import 'package:footrank/models/court_model.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_player_model.dart';
 import 'package:footrank/models/match_status.dart';
@@ -555,17 +553,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           ),
         ),
         const SizedBox(height: 8),
-        if (status == MatchStatus.pending || status == MatchStatus.confirmed)
-          _CourtSection(
-            matchId: match.id,
-            city: match.city,
-            myTeamId: _myTeamId,
-            suggestedCourtId: match.suggestedCourtId,
-            suggestedCourtName: match.suggestedCourtName,
-            suggestedCourtAddress: match.suggestedCourtAddress,
-            suggestedCourtImageUrl: match.suggestedCourtImageUrl,
-            onSubmitted: _load,
-          ),
+        if (match.suggestedCourtId != null) _SuggestedCourtCard(match: match),
         const SizedBox(height: 8),
         _buildContactCard(),
         if (_isCaptain && status != MatchStatus.completed) _buildScoreSection(),
@@ -999,105 +987,17 @@ class _ScoreDialogState extends State<_ScoreDialog> {
   }
 }
 
-/// Once a match is pending/confirmed, each captain picks & ranks 3 courts in
-/// the match's city; once both have, the backend resolves a suggested court
-/// automatically (see submit_court_picks()). Deliberately shows name/address/
-/// photo only, never a phone number — the owner sees that separately when
-/// making the actual booking call.
-class _CourtSection extends StatefulWidget {
-  final String matchId;
-  final String city;
-  final String? myTeamId; // null if the viewer isn't a captain of either side
-  final String? suggestedCourtId;
-  final String? suggestedCourtName;
-  final String? suggestedCourtAddress;
-  final String? suggestedCourtImageUrl;
-  final VoidCallback onSubmitted;
+/// Both captains rank their 3 courts when creating their match request; once
+/// matched, the backend resolves a suggested court automatically (see
+/// accept_match_request()). Read-only display here — deliberately shows
+/// name/address/photo only, never a phone number; the owner sees that
+/// separately when making the actual booking call.
+class _SuggestedCourtCard extends StatelessWidget {
+  final MatchModel match;
+  const _SuggestedCourtCard({required this.match});
 
-  const _CourtSection({
-    required this.matchId,
-    required this.city,
-    required this.myTeamId,
-    required this.suggestedCourtId,
-    required this.suggestedCourtName,
-    required this.suggestedCourtAddress,
-    required this.suggestedCourtImageUrl,
-    required this.onSubmitted,
-  });
-
-  @override
-  State<_CourtSection> createState() => _CourtSectionState();
-}
-
-class _CourtSectionState extends State<_CourtSection> {
-  final _courtRepo = CourtRepository();
-  bool _loading = true;
-  List<CourtModel> _courts = [];
-  List<String> _myPicks = [];
-  final List<String> _selected = []; // ordered, up to 3
-  bool _submitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  void didUpdateWidget(covariant _CourtSection old) {
-    super.didUpdateWidget(old);
-    if (old.suggestedCourtId != widget.suggestedCourtId) _load();
-  }
-
-  Future<void> _load() async {
-    if (widget.suggestedCourtId != null || widget.myTeamId == null) {
-      setState(() => _loading = false);
-      return;
-    }
-    try {
-      final courts = await _courtRepo.fetchCourtsForCity(widget.city);
-      final myPicks =
-          await _courtRepo.fetchMyPicks(widget.matchId, widget.myTeamId!);
-      if (!mounted) return;
-      setState(() {
-        _courts = courts;
-        _myPicks = myPicks;
-        _loading = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  void _toggle(String courtId) {
-    setState(() {
-      if (_selected.contains(courtId)) {
-        _selected.remove(courtId);
-      } else if (_selected.length < 3) {
-        _selected.add(courtId);
-      }
-    });
-  }
-
-  Future<void> _submit() async {
-    if (_selected.length != 3 || widget.myTeamId == null) return;
-    setState(() => _submitting = true);
-    try {
-      await _courtRepo.submitCourtPicks(widget.matchId, _selected);
-      widget.onSubmitted();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
-
-  Future<void> _openMaps(String name, String? address) async {
-    final query = [name, if (address != null) address, widget.city].join(', ');
+  Future<void> _openMaps(String name, String? address, String city) async {
+    final query = [name, if (address != null) address, city].join(', ');
     final uri = Uri.https(
         'www.google.com', '/maps/search/', {'api': '1', 'query': query});
     await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -1105,154 +1005,38 @@ class _CourtSectionState extends State<_CourtSection> {
 
   @override
   Widget build(BuildContext context) {
-    // Resolved — show the suggested court to whoever's looking (captain or not).
-    if (widget.suggestedCourtId != null) {
-      final name = widget.suggestedCourtName ?? 'Court';
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Suggested Court',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              if (widget.suggestedCourtImageUrl != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    widget.suggestedCourtImageUrl!,
-                    height: 140,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                  ),
-                ),
-              const SizedBox(height: 8),
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
-              if (widget.suggestedCourtAddress != null)
-                Text(widget.suggestedCourtAddress!,
-                    style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () =>
-                    _openMaps(name, widget.suggestedCourtAddress),
-                icon: const Icon(Icons.map_outlined),
-                label: const Text('View on map'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Not a captain of either side — nothing to pick, nothing resolved yet.
-    if (widget.myTeamId == null) return const SizedBox.shrink();
-
-    if (_loading) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
-
-    // Already submitted our 3 — waiting on the other captain.
-    if (_myPicks.length == 3) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Court Picks Submitted',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 4),
-              Text(
-                "Waiting for the opponent's captain to pick their 3 courts too.",
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (_courts.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text('No courts listed yet for ${widget.city}.',
-              style: Theme.of(context).textTheme.bodySmall),
-        ),
-      );
-    }
-
+    final name = match.suggestedCourtName ?? 'Court';
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Pick & Rank 3 Courts',
+            Text('Suggested Court',
                 style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 2),
-            Text(
-              'Tap in order of preference. Once both captains submit, we\'ll suggest the court that suits both.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 10),
-            ..._courts.map((c) {
-              final rank = _selected.indexOf(c.id);
-              final picked = rank != -1;
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                color: picked
-                    ? AppColors.brand(context).withValues(alpha: 0.08)
-                    : null,
-                child: ListTile(
-                  onTap: () => _toggle(c.id),
-                  leading: c.imageUrl != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            c.imageUrl!,
-                            width: 48,
-                            height: 48,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const Icon(Icons.sports_soccer, size: 32),
-                          ),
-                        )
-                      : const Icon(Icons.sports_soccer, size: 32),
-                  title: Text(c.name),
-                  subtitle: c.address != null ? Text(c.address!) : null,
-                  trailing: picked
-                      ? CircleAvatar(
-                          radius: 12,
-                          backgroundColor: AppColors.brand(context),
-                          child: Text('${rank + 1}',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold)),
-                        )
-                      : null,
+            const SizedBox(height: 8),
+            if (match.suggestedCourtImageUrl != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  match.suggestedCourtImageUrl!,
+                  height: 140,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                 ),
-              );
-            }),
-            const SizedBox(height: 4),
-            FilledButton.icon(
-              onPressed: (_selected.length == 3 && !_submitting) ? _submit : null,
-              icon: _submitting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.check),
-              label: Text('Submit picks (${_selected.length}/3)'),
+              ),
+            const SizedBox(height: 8),
+            Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+            if (match.suggestedCourtAddress != null)
+              Text(match.suggestedCourtAddress!,
+                  style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () =>
+                  _openMaps(name, match.suggestedCourtAddress, match.city),
+              icon: const Icon(Icons.map_outlined),
+              label: const Text('View on map'),
             ),
           ],
         ),

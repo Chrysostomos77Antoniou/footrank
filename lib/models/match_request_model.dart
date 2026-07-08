@@ -14,6 +14,15 @@ class MatchRequestModel {
   final int? teamRating;
   final String? teamLogo;
 
+  // Set by MatchRepository.findOpponents — how well this opponent's ranked
+  // court picks overlap with yours (higher = better; null = not computed).
+  final int? courtCompatibilityScore;
+
+  // Set by MatchRepository.findAllOpponents — which of YOUR OWN open
+  // requests this opponent matched against, so acceptMatchRequest() knows
+  // whose court picks to resolve against.
+  final String? matchedFromRequestId;
+
   const MatchRequestModel({
     required this.id,
     required this.teamId,
@@ -27,9 +36,33 @@ class MatchRequestModel {
     this.teamName,
     this.teamRating,
     this.teamLogo,
+    this.courtCompatibilityScore,
+    this.matchedFromRequestId,
   });
 
   bool get isRanked => matchType == 'ranked';
+
+  MatchRequestModel copyWith({
+    int? courtCompatibilityScore,
+    String? matchedFromRequestId,
+  }) =>
+      MatchRequestModel(
+        id: id,
+        teamId: teamId,
+        captainId: captainId,
+        city: city,
+        scheduledAt: scheduledAt,
+        matchType: matchType,
+        format: format,
+        status: status,
+        createdAt: createdAt,
+        teamName: teamName,
+        teamRating: teamRating,
+        teamLogo: teamLogo,
+        courtCompatibilityScore:
+            courtCompatibilityScore ?? this.courtCompatibilityScore,
+        matchedFromRequestId: matchedFromRequestId ?? this.matchedFromRequestId,
+      );
 
   factory MatchRequestModel.fromJson(Map<String, dynamic> json) {
     final team = json['teams'] as Map<String, dynamic>?;
