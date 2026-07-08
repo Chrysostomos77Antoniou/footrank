@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
@@ -24,6 +25,7 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _googleLoading = false;
   bool _appleLoading = false;
   bool _facebookLoading = false;
+  bool _agreedToTerms = false;
 
   @override
   void dispose() {
@@ -32,8 +34,28 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
+  Future<void> _openLegal(String path) async {
+    final uri = Uri.parse(
+      'https://chrysostomos77antoniou.github.io/footrank/$path',
+    );
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  bool _requireAgreement() {
+    if (_agreedToTerms) return true;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Please agree to the Terms of Service and Privacy Policy first',
+        ),
+      ),
+    );
+    return false;
+  }
+
   Future<void> _signUpWithEmail() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_requireAgreement()) return;
     setState(() => _loading = true);
     try {
       final res = await _repo.signUp(
@@ -51,8 +73,9 @@ class _RegisterPageState extends State<RegisterPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -60,13 +83,15 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> _signInWithGoogle() async {
+    if (!_requireAgreement()) return;
     setState(() => _googleLoading = true);
     try {
       await _repo.signInWithGoogle();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _googleLoading = false);
@@ -74,13 +99,15 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> _signInWithApple() async {
+    if (!_requireAgreement()) return;
     setState(() => _appleLoading = true);
     try {
       await _repo.signInWithApple();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _appleLoading = false);
@@ -88,13 +115,15 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> _signInWithFacebook() async {
+    if (!_requireAgreement()) return;
     setState(() => _facebookLoading = true);
     try {
       await _repo.signInWithFacebook();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _facebookLoading = false);
@@ -150,6 +179,75 @@ class _RegisterPageState extends State<RegisterPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: Checkbox(
+                                    value: _agreedToTerms,
+                                    onChanged: (v) => setState(
+                                      () => _agreedToTerms = v ?? false,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Wrap(
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      Text(
+                                        'I agree to the ',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.85,
+                                          ),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      InkWell(
+                                        onTap: () => _openLegal('terms.html'),
+                                        child: const Text(
+                                          'Terms of Service',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            decoration:
+                                                TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        ' and ',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.85,
+                                          ),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      InkWell(
+                                        onTap: () => _openLegal('privacy.html'),
+                                        child: const Text(
+                                          'Privacy Policy',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            decoration:
+                                                TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
                             AuthGoogleButton(
                               loading: _googleLoading,
                               label: 'Sign up with Google',
@@ -200,9 +298,11 @@ class _RegisterPageState extends State<RegisterPage> {
                             TextButton(
                               onPressed: () => context.go(AppRoutes.login),
                               style: TextButton.styleFrom(
-                                  foregroundColor: Colors.white),
-                              child:
-                                  const Text('Already have an account? Login'),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text(
+                                'Already have an account? Login',
+                              ),
                             ),
                           ],
                         ),

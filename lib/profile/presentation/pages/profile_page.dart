@@ -43,8 +43,10 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
     final team = await _teamRepo.fetchMyTeam();
     if (team == null) return (teamId: null, matches: <MatchModel>[]);
     final all = await _matchRepo.fetchTeamMatches(team.id);
-    final completed =
-        all.where((m) => m.status == 'completed').take(10).toList();
+    final completed = all
+        .where((m) => m.status == 'completed')
+        .take(10)
+        .toList();
     return (teamId: team.id, matches: completed);
   }
 
@@ -67,14 +69,15 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
     if (mounted) context.go(AppRoutes.login);
   }
 
-  Future<void> _openPrivacy() async {
+  Future<void> _openLegal(String path, String label) async {
     final uri = Uri.parse(
-        'https://chrysostomos77antoniou.github.io/footrank/privacy.html');
+      'https://chrysostomos77antoniou.github.io/footrank/$path',
+    );
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open the privacy policy')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not open the $label')));
       }
     }
   }
@@ -85,12 +88,14 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
       builder: (ctx) => AlertDialog(
         title: const Text('Delete account?'),
         content: const Text(
-            'This permanently deletes your account, profile, and any team you '
-            'captain. This cannot be undone.'),
+          'This permanently deletes your account, profile, and any team you '
+          'captain. This cannot be undone.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () => Navigator.pop(ctx, true),
@@ -113,7 +118,10 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
   }
 
   Future<void> _openEdit(UserModel user) async {
-    final updated = await context.push<bool>(AppRoutes.editProfile, extra: user);
+    final updated = await context.push<bool>(
+      AppRoutes.editProfile,
+      extra: user,
+    );
     if (updated == true) {
       setState(() => _profileFuture = _profileRepo.fetchMyProfile());
     }
@@ -224,18 +232,49 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
                       child: Column(
                         children: [
                           ListTile(
-                            leading: Icon(Icons.privacy_tip_outlined,
-                                color: AppColors.iconAccent(context)),
+                            leading: Icon(
+                              Icons.privacy_tip_outlined,
+                              color: AppColors.iconAccent(context),
+                            ),
                             title: const Text('Privacy Policy'),
                             trailing: const Icon(Icons.open_in_new, size: 18),
-                            onTap: _openPrivacy,
+                            onTap: () =>
+                                _openLegal('privacy.html', 'privacy policy'),
                           ),
                           const Divider(height: 1),
                           ListTile(
-                            leading: const Icon(Icons.delete_forever,
-                                color: AppColors.danger),
-                            title: const Text('Delete account',
-                                style: TextStyle(color: AppColors.danger)),
+                            leading: Icon(
+                              Icons.description_outlined,
+                              color: AppColors.iconAccent(context),
+                            ),
+                            title: const Text('Terms of Service'),
+                            trailing: const Icon(Icons.open_in_new, size: 18),
+                            onTap: () =>
+                                _openLegal('terms.html', 'terms of service'),
+                          ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: Icon(
+                              Icons.code,
+                              color: AppColors.iconAccent(context),
+                            ),
+                            title: const Text('Open Source Licenses'),
+                            trailing: const Icon(Icons.chevron_right, size: 18),
+                            onTap: () => showLicensePage(
+                              context: context,
+                              applicationName: 'FootRank',
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(
+                              Icons.delete_forever,
+                              color: AppColors.danger,
+                            ),
+                            title: const Text(
+                              'Delete account',
+                              style: TextStyle(color: AppColors.danger),
+                            ),
                             onTap: _deleteAccount,
                           ),
                         ],
@@ -275,11 +314,12 @@ class _MatchHistory extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Text('Match History',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800)),
+              child: Text(
+                'Match History',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
             ),
             GlassCard(
               child: Column(
@@ -319,8 +359,10 @@ class _MatchHistory extends StatelessWidget {
     return ListTile(
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-      title: Text('vs ${oppName ?? 'Opponent'}',
-          style: const TextStyle(fontWeight: FontWeight.w700)),
+      title: Text(
+        'vs ${oppName ?? 'Opponent'}',
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
       subtitle: Text('${m.homeScore ?? '-'} - ${m.awayScore ?? '-'} · $when'),
       trailing: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -328,9 +370,14 @@ class _MatchHistory extends StatelessWidget {
           color: color.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(result,
-            style: TextStyle(
-                color: color, fontWeight: FontWeight.w800, fontSize: 12)),
+        child: Text(
+          result,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w800,
+            fontSize: 12,
+          ),
+        ),
       ),
     );
   }
@@ -364,81 +411,89 @@ class _ProfileHero extends StatelessWidget {
 
   Widget _heroColumn(BuildContext context) {
     return Column(
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.bottomRight,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border:
-                      Border.all(color: AppColors.brand(context), width: 3),
-                ),
-                child: GradientAvatar(
-                    name: user.name, imageUrl: user.avatarUrl, radius: 44),
-              ),
-              // Hero level badge — Playtomic-style focal rating.
-              Positioned(
-                bottom: -6,
-                right: -6,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  padding: const EdgeInsets.all(3),
-                  child: LevelBadge(value: user.elo, size: 40, showLabel: true),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(user.name,
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w900)),
-          Text('@${user.username}',
-              style: TextStyle(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.6))),
-          if (user.position != null || user.city != null) ...[
-            const SizedBox(height: 12),
-            GradientPill(
-              icon: positionIcon(user.position),
-              text: [user.position, user.city]
-                  .where((e) => e != null)
-                  .join(' · '),
-            ),
-          ],
-          if (user.flagged) ...[
-            const SizedBox(height: 10),
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.bottomRight,
+          children: [
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: AppColors.danger.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(10),
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.brand(context), width: 3),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.flag, color: AppColors.danger, size: 16),
-                  SizedBox(width: 6),
-                  Text('Flagged for repeated score disputes',
-                      style: TextStyle(
-                          color: AppColors.danger,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12)),
-                ],
+              child: GradientAvatar(
+                name: user.name,
+                imageUrl: user.avatarUrl,
+                radius: 44,
+              ),
+            ),
+            // Hero level badge — Playtomic-style focal rating.
+            Positioned(
+              bottom: -6,
+              right: -6,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.all(3),
+                child: LevelBadge(value: user.elo, size: 40, showLabel: true),
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 14),
+        Text(
+          user.name,
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        Text(
+          '@${user.username}',
+          style: TextStyle(
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+        if (user.position != null || user.city != null) ...[
+          const SizedBox(height: 12),
+          GradientPill(
+            icon: positionIcon(user.position),
+            text: [
+              user.position,
+              user.city,
+            ].where((e) => e != null).join(' · '),
+          ),
         ],
+        if (user.flagged) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.danger.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.flag, color: AppColors.danger, size: 16),
+                SizedBox(width: 6),
+                Text(
+                  'Flagged for repeated score disputes',
+                  style: TextStyle(
+                    color: AppColors.danger,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -462,12 +517,13 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final numStyle = TextStyle(
-        fontFamily: 'Sora',
-        fontSize: 24,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -0.5,
-        color: onSurface,
-        fontFeatures: const [FontFeature.tabularFigures()]);
+      fontFamily: 'Sora',
+      fontSize: 24,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.5,
+      color: onSurface,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     return Expanded(
       child: GlassCard(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
@@ -480,11 +536,12 @@ class _StatCard extends StatelessWidget {
             else
               Text(value, style: numStyle),
             const SizedBox(height: 2),
-            Text(label,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppColors.muted(context))),
+            Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.muted(context)),
+            ),
           ],
         ),
       ),

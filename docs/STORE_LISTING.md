@@ -1,7 +1,6 @@
 # FootRank — Store Listing Kit
 
 Copy/paste material for Google Play Console and Apple App Store Connect.
-Replace the privacy URL once GitHub Pages is enabled.
 
 ---
 
@@ -50,10 +49,13 @@ football,soccer,5-a-side,matchmaking,ranking,elo,team,league,futsal,sports,amate
 
 ## Privacy
 - Privacy Policy URL: `https://chrysostomos77antoniou.github.io/footrank/privacy.html`
-- Data collected: name, email, profile photo, city, gameplay stats.
+- Terms of Service URL: `https://chrysostomos77antoniou.github.io/footrank/terms.html`
+- Data collected: name, email, profile photo, phone (optional), city, gameplay stats.
 - Used for: app functionality (account, matchmaking, rankings). Not sold.
-- Provide an in-app **account deletion** path (planned) + email
-  tomisapoelcity@gmail.com for deletion requests.
+- In-app **account deletion** path: Profile → Delete Account ✅ (done), plus
+  email tomisapoelcity@gmail.com for other deletion requests.
+- Signup requires ticking "I agree to the Terms of Service and Privacy
+  Policy" ✅ (done).
 
 ## Support
 - Support email: tomisapoelcity@gmail.com
@@ -78,11 +80,13 @@ football,soccer,5-a-side,matchmaking,ranking,elo,team,league,futsal,sports,amate
 ---
 
 ## Pre-submission checklist
-- [ ] App ID set to `com.footballcy.footrank` ✅ (done)
-- [ ] Release signed with upload keystore ✅ (done — back up the .jks!)
-- [ ] Privacy Policy live (enable GitHub Pages)
+- [x] App ID set to `com.footballcy.footrank` ✅ (done)
+- [x] Release signed with upload keystore ✅ (done — back up the .jks!)
+- [x] Privacy Policy live (GitHub Pages)
+- [x] Terms of Service live (GitHub Pages)
+- [x] In-app account deletion path
+- [x] Signup consent checkbox (Terms + Privacy)
 - [ ] Remove mock/test data from the database
-- [ ] In-app account deletion path
 - [ ] Firebase: register `com.footballcy.footrank` + new google-services.json
       (for push notifications)
 - [ ] Supabase Pro: leaked-password protection, auth rate limits + CAPTCHA,
