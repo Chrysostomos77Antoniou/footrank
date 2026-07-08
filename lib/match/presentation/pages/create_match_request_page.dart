@@ -8,6 +8,7 @@ import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/court_model.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CreateMatchRequestPage extends StatefulWidget {
   /// The captain's team id (required to create a request).
@@ -82,6 +83,13 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
         _selectedCourtIds.add(courtId);
       }
     });
+  }
+
+  Future<void> _openMaps(CourtModel c) async {
+    final query = [c.name, if (c.address != null) c.address, c.city].join(', ');
+    final uri = Uri.https(
+        'www.google.com', '/maps/search/', {'api': '1', 'query': query});
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Future<void> _pickDate() async {
@@ -219,8 +227,16 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
                 : const Icon(Icons.sports_soccer, size: 30),
             title: Text(c.name),
             subtitle: c.address != null ? Text(c.address!) : null,
-            trailing: picked
-                ? CircleAvatar(
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'View on map',
+                  icon: const Icon(Icons.map_outlined),
+                  onPressed: () => _openMaps(c),
+                ),
+                if (picked)
+                  CircleAvatar(
                     radius: 12,
                     backgroundColor: AppColors.brand(context),
                     child: Text('${rank + 1}',
@@ -228,8 +244,9 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
                             color: Colors.white,
                             fontSize: 12,
                             fontWeight: FontWeight.bold)),
-                  )
-                : null,
+                  ),
+              ],
+            ),
           ),
         );
       }).toList(),
