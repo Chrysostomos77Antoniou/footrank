@@ -615,7 +615,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Text(
-              'As captain, mark your players who attended (up to 5).',
+              'Squads of exactly 5 are counted automatically. With a bigger '
+              'squad, mark as captain which 5 actually played.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -769,6 +770,11 @@ class _TeamRoster extends StatelessWidget {
                 child: Text('No players listed'),
               );
             }
+            // A squad of exactly (or fewer than) 5 has no bench to choose
+            // from -- everyone who's on the team played, so there's nothing
+            // for the captain to decide. Manual marking only matters once a
+            // squad is bigger than the 5 that can actually take the pitch.
+            final smallSquad = members.length <= 5;
             return Column(
               children: members.map((m) {
                 final att = attendance[m.userId]?.attended;
@@ -779,12 +785,14 @@ class _TeamRoster extends StatelessWidget {
                     onGood: () => onRateGood(m),
                     onBad: () => onRateBad(m),
                   );
-                } else if (canMark) {
+                } else if (canMark && !smallSquad) {
                   trailing = _AttendanceToggle(
                     attended: att,
                     onPresent: () => onMark(m, true),
                     onAbsent: () => onMark(m, false),
                   );
+                } else if (smallSquad) {
+                  trailing = const _AttendanceBadge(attended: true);
                 } else {
                   trailing = _AttendanceBadge(attended: att);
                 }
