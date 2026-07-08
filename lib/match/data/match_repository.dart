@@ -254,7 +254,7 @@ class MatchRepository {
     final data = await SupabaseService.client
         .from(_matches)
         .select(
-            '*, home_team:home_team_id(name, logo_url, rating, wins, losses, draws), away_team:away_team_id(name, logo_url, rating, wins, losses, draws)')
+            '*, home_team:home_team_id(name, logo_url, rating, wins, losses, draws), away_team:away_team_id(name, logo_url, rating, wins, losses, draws), suggested_court:suggested_court_id(name, address, image_url)')
         .eq('id', matchId)
         .single();
     return MatchModel.fromJson(data);
@@ -265,7 +265,7 @@ class MatchRepository {
     final data = await SupabaseService.client
         .from(_matches)
         .select(
-            '*, home_team:home_team_id(name, logo_url, rating, wins, losses, draws), away_team:away_team_id(name, logo_url, rating, wins, losses, draws)')
+            '*, home_team:home_team_id(name, logo_url, rating, wins, losses, draws), away_team:away_team_id(name, logo_url, rating, wins, losses, draws), suggested_court:suggested_court_id(name, address, image_url)')
         .or('home_team_id.eq.$teamId,away_team_id.eq.$teamId')
         .order('scheduled_at', ascending: false);
 

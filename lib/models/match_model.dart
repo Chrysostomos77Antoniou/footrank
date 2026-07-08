@@ -21,6 +21,8 @@ class MatchModel {
   final int? awayReportA; // away captain's reported away score
   final bool scoreDisputed;
   final DateTime createdAt;
+  final String? suggestedCourtId;
+  final String? courtBookingStatus; // pending | booked, null = not resolved yet
 
   // Optional joined team fields
   final String? homeTeamName;
@@ -31,6 +33,11 @@ class MatchModel {
   final int? awayTeamRating;
   final String? homeTeamRecord;
   final String? awayTeamRecord;
+
+  // Optional joined suggested-court fields
+  final String? suggestedCourtName;
+  final String? suggestedCourtAddress;
+  final String? suggestedCourtImageUrl;
 
   const MatchModel({
     required this.id,
@@ -55,6 +62,8 @@ class MatchModel {
     this.awayReportA,
     this.scoreDisputed = false,
     required this.createdAt,
+    this.suggestedCourtId,
+    this.courtBookingStatus,
     this.homeTeamName,
     this.awayTeamName,
     this.homeTeamLogo,
@@ -63,6 +72,9 @@ class MatchModel {
     this.awayTeamRating,
     this.homeTeamRecord,
     this.awayTeamRecord,
+    this.suggestedCourtName,
+    this.suggestedCourtAddress,
+    this.suggestedCourtImageUrl,
   });
 
   static String? _recordOf(Map<String, dynamic>? team) {
@@ -79,6 +91,7 @@ class MatchModel {
   factory MatchModel.fromJson(Map<String, dynamic> json) {
     final home = json['home_team'] as Map<String, dynamic>?;
     final away = json['away_team'] as Map<String, dynamic>?;
+    final suggestedCourt = json['suggested_court'] as Map<String, dynamic>?;
     return MatchModel(
       id: json['id'] as String,
       requestId: json['request_id'] as String?,
@@ -102,6 +115,11 @@ class MatchModel {
       awayReportA: json['away_report_a'] as int?,
       scoreDisputed: (json['score_disputed'] as bool?) ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
+      suggestedCourtId: json['suggested_court_id'] as String?,
+      courtBookingStatus: json['court_booking_status'] as String?,
+      suggestedCourtName: suggestedCourt?['name'] as String?,
+      suggestedCourtAddress: suggestedCourt?['address'] as String?,
+      suggestedCourtImageUrl: suggestedCourt?['image_url'] as String?,
       homeTeamName: home?['name'] as String?,
       awayTeamName: away?['name'] as String?,
       homeTeamLogo: home?['logo_url'] as String?,
