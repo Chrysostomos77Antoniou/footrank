@@ -99,8 +99,10 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
 
   Future<void> _openMaps(CourtModel c) async {
     final query = [c.name, if (c.address != null) c.address, c.city].join(', ');
-    final uri = Uri.https(
-        'www.google.com', '/maps/search/', {'api': '1', 'query': query});
+    final uri = Uri.https('www.google.com', '/maps/search/', {
+      'api': '1',
+      'query': query,
+    });
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
@@ -129,9 +131,9 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_city == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a city')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a city')));
       return;
     }
     if (_date == null || _time == null) {
@@ -143,7 +145,8 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
     if (_selectedCourtIds.length != 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Pick & rank 3 courts, in order of preference')),
+          content: Text('Pick & rank 3 courts, in order of preference'),
+        ),
       );
       return;
     }
@@ -176,15 +179,16 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
         format: _format,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Match request created')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Match request created')));
         context.pop(true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -216,7 +220,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
     return Column(
       children: [
         SizedBox(
-          height: 300,
+          height: 380,
           child: PageView.builder(
             controller: _courtPageController,
             onPageChanged: (i) => setState(() => _courtPage = i),
@@ -259,8 +263,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
       child: Card(
         clipBehavior: Clip.antiAlias,
         margin: EdgeInsets.zero,
-        color:
-            picked ? AppColors.brand(context).withValues(alpha: 0.08) : null,
+        color: picked ? AppColors.brand(context).withValues(alpha: 0.08) : null,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: picked
@@ -270,62 +273,85 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AspectRatio(
-              aspectRatio: 1,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (c.imageUrl != null)
-                    Image.network(
-                      c.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _courtImagePlaceholder(),
-                    )
-                  else
-                    _courtImagePlaceholder(),
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: _RoundIconButton(
-                      icon: Icons.map_outlined,
-                      tooltip: 'View on map',
-                      onPressed: () => _openMaps(c),
-                    ),
-                  ),
-                  if (picked)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: CircleAvatar(
-                        radius: 15,
-                        backgroundColor: AppColors.brand(context),
-                        child: Text('${rank + 1}',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold)),
+            // Capped square: sized off the card's own width but never taller
+            // than 240 — a true square that still leaves guaranteed room for
+            // the name/address/button below inside the fixed carousel height.
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final side = constraints.maxWidth < 240
+                    ? constraints.maxWidth
+                    : 240.0;
+                return Center(
+                  child: SizedBox(
+                    width: side,
+                    height: side,
+                    child: InkWell(
+                      onTap: () => _toggleCourt(c.id),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (c.imageUrl != null)
+                            Image.network(
+                              c.imageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  _courtImagePlaceholder(),
+                            )
+                          else
+                            _courtImagePlaceholder(),
+                          Positioned(
+                            top: 8,
+                            left: 8,
+                            child: _RoundIconButton(
+                              icon: Icons.map_outlined,
+                              tooltip: 'View on map',
+                              onPressed: () => _openMaps(c),
+                            ),
+                          ),
+                          if (picked)
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: CircleAvatar(
+                                radius: 15,
+                                backgroundColor: AppColors.brand(context),
+                                child: Text(
+                                  '${rank + 1}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                ],
-              ),
+                  ),
+                );
+              },
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(c.name,
+                  Text(
+                    c.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (c.address != null)
+                    Text(
+                      c.address!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700)),
-                  if (c.address != null)
-                    Text(c.address!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
@@ -341,7 +367,8 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
                                 : null,
                             icon: const Icon(Icons.add, size: 18),
                             label: Text(
-                                'Add as #${_selectedCourtIds.length + 1} choice'),
+                              'Add as #${_selectedCourtIds.length + 1} choice',
+                            ),
                           ),
                   ),
                 ],
@@ -354,10 +381,13 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
   }
 
   Widget _courtImagePlaceholder() => Container(
-        color: AppColors.iconAccent(context).withValues(alpha: 0.08),
-        child: Icon(Icons.sports_soccer,
-            size: 56, color: AppColors.iconAccent(context).withValues(alpha: 0.5)),
-      );
+    color: AppColors.iconAccent(context).withValues(alpha: 0.08),
+    child: Icon(
+      Icons.sports_soccer,
+      size: 56,
+      color: AppColors.iconAccent(context).withValues(alpha: 0.5),
+    ),
+  );
 
   /// Compact recap of the current ranking — the carousel only shows one court
   /// at a time, so without this the earlier picks scroll out of view.
@@ -372,11 +402,14 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
           avatar: CircleAvatar(
             radius: 10,
             backgroundColor: AppColors.brand(context),
-            child: Text('${i + 1}',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold)),
+            child: Text(
+              '${i + 1}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           label: Text(court.name, overflow: TextOverflow.ellipsis),
           onDeleted: () => _toggleCourt(court.id),
@@ -396,113 +429,121 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
       appBar: AppBar(title: const Text('Create Match')),
       body: AmbientBackground(
         child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _PickerField(
-                        label: 'Date',
-                        value: dateLabel,
-                        icon: Icons.calendar_today,
-                        onTap: _pickDate,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _PickerField(
-                        label: 'Kick-off time',
-                        value: timeLabel,
-                        icon: Icons.access_time,
-                        onTap: _pickTime,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _city,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'City',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.place_outlined),
-                  ),
-                  items: kCities
-                      .map((c) =>
-                          DropdownMenuItem(value: c, child: Text(c)))
-                      .toList(),
-                  onChanged: (v) {
-                    setState(() => _city = v);
-                    _loadCourts();
-                  },
-                  validator: (v) => v == null ? 'City is required' : null,
-                ),
-                const SizedBox(height: 20),
-                Text('Pick & Rank 3 Courts',
-                    style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 4),
-                Text(
-                  'Tap in order of preference. We\'ll match you with an opponent who wants the same courts, starting from your #1 choice.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                _buildCourtPicker(),
-                const SizedBox(height: 20),
-                Text('Match Type',
-                    style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 8),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'casual', label: Text('Casual')),
-                    ButtonSegment(value: 'ranked', label: Text('Ranked')),
-                  ],
-                  selected: {_matchType},
-                  onSelectionChanged: (s) =>
-                      setState(() => _matchType = s.first),
-                ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _loading ? null : _submit,
-                  child: _loading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Create Match Request'),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.iconAccent(context).withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
                     children: [
-                      Icon(Icons.info_outline,
-                          size: 20, color: AppColors.iconAccent(context)),
-                      const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          'After creating, tap "Find Opponents" to match with a '
-                          'nearby team at a similar time and rating.',
-                          style: Theme.of(context).textTheme.bodySmall,
+                        child: _PickerField(
+                          label: 'Date',
+                          value: dateLabel,
+                          icon: Icons.calendar_today,
+                          onTap: _pickDate,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _PickerField(
+                          label: 'Kick-off time',
+                          value: timeLabel,
+                          icon: Icons.access_time,
+                          onTap: _pickTime,
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _city,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'City',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.place_outlined),
+                    ),
+                    items: kCities
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: (v) {
+                      setState(() => _city = v);
+                      _loadCourts();
+                    },
+                    validator: (v) => v == null ? 'City is required' : null,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Pick & Rank 3 Courts',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tap in order of preference. We\'ll match you with an opponent who wants the same courts, starting from your #1 choice.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildCourtPicker(),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Match Type',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'casual', label: Text('Casual')),
+                      ButtonSegment(value: 'ranked', label: Text('Ranked')),
+                    ],
+                    selected: {_matchType},
+                    onSelectionChanged: (s) =>
+                        setState(() => _matchType = s.first),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: _loading ? null : _submit,
+                    child: _loading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Create Match Request'),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.iconAccent(
+                        context,
+                      ).withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 20,
+                          color: AppColors.iconAccent(context),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'After creating, tap "Find Opponents" to match with a '
+                            'nearby team at a similar time and rating.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
         ),
       ),
     );
@@ -561,11 +602,12 @@ class _PickerField extends StatelessWidget {
           labelText: label,
           border: const OutlineInputBorder(),
           prefixIcon: Icon(icon, color: AppColors.iconAccent(context)),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 16,
+          ),
         ),
-        child: Text(value,
-            style: const TextStyle(fontWeight: FontWeight.w600)),
+        child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
     );
   }
