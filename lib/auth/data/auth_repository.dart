@@ -13,42 +13,45 @@ class AuthRepository {
   Future<AuthResponse> signIn({
     required String email,
     required String password,
-  }) =>
-      _client.auth.signInWithPassword(email: email, password: password);
+  }) => _client.auth.signInWithPassword(email: email, password: password);
 
   Future<AuthResponse> signUp({
     required String email,
     required String password,
-  }) =>
-      _client.auth.signUp(email: email, password: password);
+  }) => _client.auth.signUp(email: email, password: password);
 
+  // supabase_flutter's default launch mode (platformDefault) opens an
+  // in-app browser view, which is unreliable at handing the custom
+  // io.supabase.footrank:// redirect back to the app on iOS (and Google's
+  // own OAuth already refuses to run inside any embedded webview at all).
+  // Forcing the real external browser fixes both.
   Future<void> signInWithGoogle() => _client.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: _redirectUrl,
-      );
+    OAuthProvider.google,
+    redirectTo: _redirectUrl,
+    authScreenLaunchMode: LaunchMode.externalApplication,
+  );
 
   /// Sign in with Apple. Functional once the Apple provider is configured in
   /// Supabase (requires a paid Apple Developer account); works on iOS/macOS.
   Future<void> signInWithApple() => _client.auth.signInWithOAuth(
-        OAuthProvider.apple,
-        redirectTo: _redirectUrl,
-      );
+    OAuthProvider.apple,
+    redirectTo: _redirectUrl,
+    authScreenLaunchMode: LaunchMode.externalApplication,
+  );
 
   /// Sign in with Facebook. Functional once the Facebook provider is enabled
   /// in Supabase (needs a Facebook app's ID + secret).
   Future<void> signInWithFacebook() => _client.auth.signInWithOAuth(
-        OAuthProvider.facebook,
-        redirectTo: _redirectUrl,
-      );
+    OAuthProvider.facebook,
+    redirectTo: _redirectUrl,
+    authScreenLaunchMode: LaunchMode.externalApplication,
+  );
 
   /// Sends a password reset email to [email] so the user can recover access.
   /// The email link deep-links back into the app (the recovery event then routes
   /// to the "set a new password" screen).
   Future<void> resetPassword(String email) =>
-      _client.auth.resetPasswordForEmail(
-        email,
-        redirectTo: _redirectUrl,
-      );
+      _client.auth.resetPasswordForEmail(email, redirectTo: _redirectUrl);
 
   /// Sets a new password for the user during an active recovery session
   /// (after they followed the reset link from their email).
