@@ -43,8 +43,9 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) context.go(AppRoutes.home);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -56,7 +57,9 @@ class _LoginPageState extends State<LoginPage> {
     if (email.isEmpty || !email.contains('@')) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Enter your email above first, then tap "Forgot password?"'),
+          content: Text(
+            'Enter your email above first, then tap "Forgot password?"',
+          ),
         ),
       );
       return;
@@ -72,8 +75,9 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     }
   }
@@ -84,8 +88,9 @@ class _LoginPageState extends State<LoginPage> {
       await _repo.signInWithGoogle();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _googleLoading = false);
@@ -98,8 +103,9 @@ class _LoginPageState extends State<LoginPage> {
       await _repo.signInWithApple();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _appleLoading = false);
@@ -112,8 +118,9 @@ class _LoginPageState extends State<LoginPage> {
       await _repo.signInWithFacebook();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _facebookLoading = false);
@@ -125,143 +132,163 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       body: AuthVideoBackground(
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: MediaQuery.of(context).size.height - 48,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 16),
-                  FadeSlideIn(child: const BrandLogo(size: 100)),
-                  const SizedBox(height: 22),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 80),
-                    child: const GradientText(
-                      'FootRank',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 36,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Compresses spacing/sizing to fit shorter phone screens
+              // (e.g. iPhone 13) without scrolling, instead of a single
+              // fixed layout that only fits the tallest devices.
+              final compact = constraints.maxHeight < 820;
+              final logoSize = compact ? 68.0 : 100.0;
+              final titleSize = compact ? 28.0 : 36.0;
+              final gapXl = compact ? 16.0 : 34.0;
+              final gapLg = compact ? 10.0 : 22.0;
+              final gapSm = compact ? 3.0 : 6.0;
+              final gapMd = compact ? 10.0 : 18.0;
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(height: compact ? 4 : 16),
+                      FadeSlideIn(child: BrandLogo(size: logoSize)),
+                      SizedBox(height: gapLg),
+                      FadeSlideIn(
+                        delay: const Duration(milliseconds: 80),
+                        child: GradientText(
+                          'FootRank',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: titleSize,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 140),
-                    child: Text(
-                      'Rank up. Find matches. Play.',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        fontSize: 15,
+                      SizedBox(height: gapSm),
+                      FadeSlideIn(
+                        delay: const Duration(milliseconds: 140),
+                        child: Text(
+                          'Rank up. Find matches. Play.',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 15,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 34),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 200),
-                    child: AuthCard(
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                      SizedBox(height: gapXl),
+                      FadeSlideIn(
+                        delay: const Duration(milliseconds: 200),
+                        child: AuthCard(
+                          compact: compact,
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                AuthGoogleButton(
+                                  loading: _googleLoading,
+                                  label: 'Continue with Google',
+                                  onPressed: _signInWithGoogle,
+                                ),
+                                SizedBox(height: compact ? 6 : 10),
+                                AuthGoogleButton(
+                                  loading: _appleLoading,
+                                  label: 'Continue with Apple',
+                                  icon: Icons.apple,
+                                  onPressed: _signInWithApple,
+                                ),
+                                SizedBox(height: compact ? 6 : 10),
+                                AuthGoogleButton(
+                                  loading: _facebookLoading,
+                                  label: 'Continue with Facebook',
+                                  icon: Icons.facebook,
+                                  onPressed: _signInWithFacebook,
+                                ),
+                                SizedBox(height: gapMd),
+                                const AuthOrDivider(),
+                                SizedBox(height: gapMd),
+                                AuthField(
+                                  controller: _emailCtrl,
+                                  label: 'Email',
+                                  icon: Icons.email_outlined,
+                                  keyboardType: TextInputType.emailAddress,
+                                  validator: (v) =>
+                                      v == null || !v.contains('@')
+                                      ? 'Enter a valid email'
+                                      : null,
+                                ),
+                                SizedBox(height: compact ? 8 : 14),
+                                AuthField(
+                                  controller: _passwordCtrl,
+                                  label: 'Password',
+                                  icon: Icons.lock_outline,
+                                  obscure: true,
+                                  validator: (v) => v == null || v.length < 6
+                                      ? 'Min 6 characters'
+                                      : null,
+                                ),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: _sendPasswordReset,
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white70,
+                                    ),
+                                    child: const Text('Forgot password?'),
+                                  ),
+                                ),
+                                SizedBox(height: compact ? 2 : 8),
+                                AuthPrimaryButton(
+                                  loading: _loading,
+                                  label: 'Login',
+                                  onPressed: _signInWithEmail,
+                                ),
+                                TextButton(
+                                  onPressed: () =>
+                                      context.go(AppRoutes.register),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text(
+                                    "Don't have an account? Sign Up",
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: gapMd),
+                      FadeSlideIn(
+                        delay: const Duration(milliseconds: 280),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            AuthGoogleButton(
-                              loading: _googleLoading,
-                              label: 'Continue with Google',
-                              onPressed: _signInWithGoogle,
+                            Icon(
+                              Icons.lock_outline,
+                              size: 14,
+                              color: Colors.white.withValues(alpha: 0.6),
                             ),
-                            const SizedBox(height: 10),
-                            AuthGoogleButton(
-                              loading: _appleLoading,
-                              label: 'Continue with Apple',
-                              icon: Icons.apple,
-                              onPressed: _signInWithApple,
-                            ),
-                            const SizedBox(height: 10),
-                            AuthGoogleButton(
-                              loading: _facebookLoading,
-                              label: 'Continue with Facebook',
-                              icon: Icons.facebook,
-                              onPressed: _signInWithFacebook,
-                            ),
-                            const SizedBox(height: 18),
-                            const AuthOrDivider(),
-                            const SizedBox(height: 18),
-                            AuthField(
-                              controller: _emailCtrl,
-                              label: 'Email',
-                              icon: Icons.email_outlined,
-                              keyboardType: TextInputType.emailAddress,
-                              validator: (v) => v == null || !v.contains('@')
-                                  ? 'Enter a valid email'
-                                  : null,
-                            ),
-                            const SizedBox(height: 14),
-                            AuthField(
-                              controller: _passwordCtrl,
-                              label: 'Password',
-                              icon: Icons.lock_outline,
-                              obscure: true,
-                              validator: (v) => v == null || v.length < 6
-                                  ? 'Min 6 characters'
-                                  : null,
-                            ),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: _sendPasswordReset,
-                                style: TextButton.styleFrom(
-                                    foregroundColor: Colors.white70),
-                                child: const Text('Forgot password?'),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Encrypted & secure sign-in',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.6),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            AuthPrimaryButton(
-                              loading: _loading,
-                              label: 'Login',
-                              onPressed: _signInWithEmail,
-                            ),
-                            TextButton(
-                              onPressed: () => context.go(AppRoutes.register),
-                              style: TextButton.styleFrom(
-                                  foregroundColor: Colors.white),
-                              child:
-                                  const Text("Don't have an account? Sign Up"),
                             ),
                           ],
                         ),
                       ),
-                    ),
+                      SizedBox(height: compact ? 4 : 8),
+                    ],
                   ),
-                  const SizedBox(height: 18),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 280),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.lock_outline,
-                            size: 14,
-                            color: Colors.white.withValues(alpha: 0.6)),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Encrypted & secure sign-in',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
         ),
       ),

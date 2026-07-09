@@ -78,13 +78,18 @@ class AuthPrimaryButton extends StatelessWidget {
                 height: 22,
                 width: 22,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: AppColors.navy),
+                  strokeWidth: 2,
+                  color: AppColors.navy,
+                ),
               )
-            : Text(label,
+            : Text(
+                label,
                 style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800)),
+                  color: AppColors.navy,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
       ),
     );
   }
@@ -118,7 +123,9 @@ class AuthGoogleButton extends StatelessWidget {
               height: 18,
               width: 18,
               child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Colors.white),
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
             )
           : Icon(icon, size: icon == Icons.g_mobiledata ? 26 : 20),
       label: Text(label),
@@ -126,15 +133,18 @@ class AuthGoogleButton extends StatelessWidget {
   }
 }
 
-/// The dark translucent card that wraps an auth form.
+/// The dark translucent card that wraps an auth form. [compact] tightens
+/// the padding on shorter screens (e.g. iPhone 13) so the whole auth screen
+/// fits without scrolling.
 class AuthCard extends StatelessWidget {
   final Widget child;
-  const AuthCard({super.key, required this.child});
+  final bool compact;
+  const AuthCard({super.key, required this.child, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(compact ? 14 : 22),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(20),
@@ -151,14 +161,18 @@ class AuthOrDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.25))),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child:
-            Text('or', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
-      ),
-      Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.25))),
-    ]);
+    return Row(
+      children: [
+        Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.25))),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            'or',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+          ),
+        ),
+        Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.25))),
+      ],
+    );
   }
 }
