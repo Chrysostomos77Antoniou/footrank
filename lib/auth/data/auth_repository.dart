@@ -1,6 +1,29 @@
+import 'dart:convert';
+import 'dart:io' show Platform;
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:footrank/services/fcm_token_service.dart';
 import 'package:footrank/services/supabase_service.dart';
+
+/// Random string used to bind an Apple sign-in request to the resulting ID
+/// token, mitigating replay attacks. Apple receives its SHA-256 hash;
+/// Supabase verifies against the raw value.
+String _randomNonce([int length = 32]) {
+  const charset =
+      '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+  final random = Random.secure();
+  return List.generate(
+    length,
+    (_) => charset[random.nextInt(charset.length)],
+  ).join();
+}
+
+String _sha256Hex(String input) =>
+    sha256.convert(utf8.encode(input)).toString();
 
 class AuthRepository {
   SupabaseClient get _client => SupabaseService.client;
@@ -31,13 +54,55 @@ class AuthRepository {
     authScreenLaunchMode: LaunchMode.externalApplication,
   );
 
-  /// Sign in with Apple. Functional once the Apple provider is configured in
-  /// Supabase (requires a paid Apple Developer account); works on iOS/macOS.
-  Future<void> signInWithApple() => _client.auth.signInWithOAuth(
-    OAuthProvider.apple,
-    redirectTo: _redirectUrl,
-    authScreenLaunchMode: LaunchMode.externalApplication,
-  );
+  /// Sign in with Apple. On iOS/macOS this uses Apple's native
+  /// AuthenticationServices sheet (Face ID/passcode, no browser at all) --
+  /// required by Apple's Sign in with Apple design guidelines, and how every
+  /// polished app does it. Other platforms fall back to the web-based OAuth
+  /// redirect, since native Sign in with Apple isn't available there.
+  Future<void> signInWithApple() async {
+    if (kIsWeb || !(Platform.isIOS || Platform.isMacOS)) {
+      await _client.auth.signInWithOAuth(
+        OAuthProvider.apple,
+        redirectTo: _redirectUrl,
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+      return;
+    }
+
+    final rawNonce = _randomNonce();
+    final credential = await SignInWithApple.getAppleIDCredential(
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+      nonce: _sha256Hex(rawNonce),
+    );
+
+    final idToken = credential.identityToken;
+    if (idToken == null) {
+      throw const AuthException('Apple sign-in did not return an ID token.');
+    }
+
+    await _client.auth.signInWithIdToken(
+      provider: OAuthProvider.apple,
+      idToken: idToken,
+      nonce: rawNonce,
+    );
+
+    // Apple only ever sends the user's name on the very first authorization
+    // for this app -- capture it into user_metadata now (the profile setup
+    // screen's pre-fill reads it from there) since it will never be sent
+    // again on subsequent sign-ins.
+    final fullName = [
+      credential.givenName,
+      credential.familyName,
+    ].whereType<String>().join(' ').trim();
+    if (fullName.isNotEmpty) {
+      await _client.auth.updateUser(
+        UserAttributes(data: {'full_name': fullName}),
+      );
+    }
+  }
 
   /// Sign in with Facebook. Functional once the Facebook provider is enabled
   /// in Supabase (needs a Facebook app's ID + secret).
