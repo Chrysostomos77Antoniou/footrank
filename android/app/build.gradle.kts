@@ -20,7 +20,10 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.footballcy.footrank"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_facebook_auth and flutter_secure_storage require compiling
+    // against SDK 36; Flutter's own default (flutter.compileSdkVersion) is
+    // still 35 as of this writing.
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -37,7 +40,9 @@ android {
         applicationId = "com.footballcy.footrank"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // flutter_secure_storage (pulled in transitively by flutter_facebook_auth's
+        // desktop variant) requires API 23+ for its Android Keystore-backed storage.
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
