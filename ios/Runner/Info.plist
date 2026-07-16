@@ -32,6 +32,14 @@
 					<string>io.supabase.footrank</string>
 				</array>
 			</dict>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.159555623346-s3r9fdk2g0ab2l5sp6kc7ft64eobpfh3</string>
+				</array>
+			</dict>
 		</array>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>

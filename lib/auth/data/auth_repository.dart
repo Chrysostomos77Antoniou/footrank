@@ -4,6 +4,8 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:footrank/services/fcm_token_service.dart';
@@ -30,6 +32,23 @@ class AuthRepository {
 
   static const _redirectUrl = 'io.supabase.footrank://login-callback';
 
+  // iOS-registered OAuth client, required for the native picker to launch
+  // on iOS at all.
+  static const _googleIosClientId =
+      '159555623346-s3r9fdk2g0ab2l5sp6kc7ft64eobpfh3.apps.googleusercontent.com';
+
+  // The Web OAuth client already registered with Supabase's Google provider.
+  // Passing it as serverClientId makes native Google Sign-In return an
+  // idToken whose audience Supabase already trusts, and is required on
+  // Android to receive an idToken at all.
+  static const _googleServerClientId =
+      '159555623346-u1uuaqnl9rc7rtg7af3sc62o8tnj6j70.apps.googleusercontent.com';
+
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: _googleIosClientId,
+    serverClientId: _googleServerClientId,
+  );
+
   User? get currentUser => _client.auth.currentUser;
   Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
 
@@ -43,16 +62,35 @@ class AuthRepository {
     required String password,
   }) => _client.auth.signUp(email: email, password: password);
 
-  // supabase_flutter's default launch mode (platformDefault) opens an
-  // in-app browser view, which is unreliable at handing the custom
-  // io.supabase.footrank:// redirect back to the app on iOS (and Google's
-  // own OAuth already refuses to run inside any embedded webview at all).
-  // Forcing the real external browser fixes both.
-  Future<void> signInWithGoogle() => _client.auth.signInWithOAuth(
-    OAuthProvider.google,
-    redirectTo: _redirectUrl,
-    authScreenLaunchMode: LaunchMode.externalApplication,
-  );
+  /// Sign in with Google. On iOS/Android this uses Google's native account
+  /// picker (no browser, no OS "open this app?" prompt) -- how every
+  /// polished app does it. Other platforms fall back to the web-based OAuth
+  /// redirect, since the native SDK isn't available there.
+  Future<void> signInWithGoogle() async {
+    if (kIsWeb || !(Platform.isIOS || Platform.isAndroid)) {
+      await _client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: _redirectUrl,
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+      return;
+    }
+
+    final account = await _googleSignIn.signIn();
+    if (account == null) return; // user cancelled the picker
+
+    final auth = await account.authentication;
+    final idToken = auth.idToken;
+    if (idToken == null) {
+      throw const AuthException('Google sign-in did not return an ID token.');
+    }
+
+    await _client.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+      accessToken: auth.accessToken,
+    );
+  }
 
   /// Sign in with Apple. On iOS/macOS this uses Apple's native
   /// AuthenticationServices sheet (Face ID/passcode, no browser at all) --
@@ -104,8 +142,9 @@ class AuthRepository {
     }
   }
 
-  /// Sign in with Facebook. Functional once the Facebook provider is enabled
-  /// in Supabase (needs a Facebook app's ID + secret).
+  /// Sign in with Facebook. Still using the web-based OAuth redirect for
+  /// now -- native login is pending a real Meta Client Token and, on
+  /// Android, a public Play Store listing.
   Future<void> signInWithFacebook() => _client.auth.signInWithOAuth(
     OAuthProvider.facebook,
     redirectTo: _redirectUrl,
@@ -133,6 +172,13 @@ class AuthRepository {
     // Drop this device's push token first (while still authenticated) so a
     // shared device never delivers the next user's alerts to the previous one.
     await FcmTokenService.remove();
+    // Otherwise the native Google/Facebook pickers silently re-sign the
+    // same account back in next time instead of letting the user
+    // choose/switch.
+    if (await _googleSignIn.isSignedIn()) {
+      await _googleSignIn.signOut();
+    }
+    await FacebookAuth.instance.logOut();
     await _client.auth.signOut();
   }
 
