@@ -50,3 +50,6 @@ android/app/upload-keystore.jks
 *.jks
 *.keystore
 store_screens/
+
+# Local Claude Code config (contains local permission history, not for git)
+.claude/
