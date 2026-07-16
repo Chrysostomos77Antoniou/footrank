@@ -4,6 +4,7 @@ import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
+import 'package:footrank/services/supabase_service.dart';
 
 const _positions = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'];
 
@@ -22,6 +23,25 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   String? _city;
   String? _position;
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Sign in with Apple (and Google/Facebook) already hand us the user's
+    // name on first authorization -- Apple's review guidelines require we
+    // not make the user re-type it. Pre-fill (still editable) instead of
+    // starting from a blank field.
+    final meta = SupabaseService.client.auth.currentUser?.userMetadata;
+    final given = meta?['given_name'] as String?;
+    final family = meta?['family_name'] as String?;
+    final prefillName =
+        (meta?['full_name'] as String?) ??
+        (meta?['name'] as String?) ??
+        [given, family].whereType<String>().join(' ').trim();
+    if (prefillName.isNotEmpty) {
+      _nameCtrl.text = prefillName;
+    }
+  }
 
   @override
   void dispose() {
@@ -43,9 +63,9 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       if (mounted) _routeAfterSetup();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_friendlyError(e))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -142,8 +162,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                     border: OutlineInputBorder(),
                   ),
                   items: kCities
-                      .map((c) =>
-                          DropdownMenuItem(value: c, child: Text(c)))
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                       .toList(),
                   onChanged: (v) => setState(() => _city = v),
                 ),
@@ -155,8 +174,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                     border: OutlineInputBorder(),
                   ),
                   items: _positions
-                      .map((p) =>
-                          DropdownMenuItem(value: p, child: Text(p)))
+                      .map((p) => DropdownMenuItem(value: p, child: Text(p)))
                       .toList(),
                   onChanged: (v) => setState(() => _position = v),
                 ),
