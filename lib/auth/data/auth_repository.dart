@@ -44,10 +44,16 @@ class AuthRepository {
   static const _googleServerClientId =
       '159555623346-u1uuaqnl9rc7rtg7af3sc62o8tnj6j70.apps.googleusercontent.com';
 
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: _googleIosClientId,
-    serverClientId: _googleServerClientId,
-  );
+  // GoogleSignIn.instance.initialize() must run exactly once (per the
+  // package's own contract) before any other call -- cached across every
+  // AuthRepository() instance rather than re-run per instance.
+  static Future<void>? _googleInit;
+  Future<void> _ensureGoogleInitialized() => _googleInit ??= GoogleSignIn
+      .instance
+      .initialize(
+        clientId: _googleIosClientId,
+        serverClientId: _googleServerClientId,
+      );
 
   User? get currentUser => _client.auth.currentUser;
   Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
@@ -66,6 +72,14 @@ class AuthRepository {
   /// picker (no browser, no OS "open this app?" prompt) -- how every
   /// polished app does it. Other platforms fall back to the web-based OAuth
   /// redirect, since the native SDK isn't available there.
+  ///
+  /// Uses google_sign_in v7's `authenticate()`/`GoogleSignIn.instance` API
+  /// rather than v6's `GoogleSignIn().signIn()`: v6's iOS implementation
+  /// silently embeds its own nonce in the returned ID token (a deprecated-API
+  /// quirk) with no way for callers to read or match it, which Supabase
+  /// rejects with "Passed nonce and nonce in id_token should either both
+  /// exist or not." v7 doesn't have this problem, so no nonce handling is
+  /// needed here at all.
   Future<void> signInWithGoogle() async {
     if (kIsWeb || !(Platform.isIOS || Platform.isAndroid)) {
       await _client.auth.signInWithOAuth(
@@ -76,19 +90,32 @@ class AuthRepository {
       return;
     }
 
-    final account = await _googleSignIn.signIn();
-    if (account == null) return; // user cancelled the picker
+    await _ensureGoogleInitialized();
 
-    final auth = await account.authentication;
-    final idToken = auth.idToken;
+    const scopes = ['email'];
+    final GoogleSignInAccount account;
+    try {
+      account = await GoogleSignIn.instance.authenticate(scopeHint: scopes);
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        return; // user cancelled the picker
+      }
+      rethrow;
+    }
+
+    final idToken = account.authentication.idToken;
     if (idToken == null) {
       throw const AuthException('Google sign-in did not return an ID token.');
     }
 
+    final authorization =
+        await account.authorizationClient.authorizationForScopes(scopes) ??
+        await account.authorizationClient.authorizeScopes(scopes);
+
     await _client.auth.signInWithIdToken(
       provider: OAuthProvider.google,
       idToken: idToken,
-      accessToken: auth.accessToken,
+      accessToken: authorization.accessToken,
     );
   }
 
@@ -175,8 +202,8 @@ class AuthRepository {
     // Otherwise the native Google/Facebook pickers silently re-sign the
     // same account back in next time instead of letting the user
     // choose/switch.
-    if (await _googleSignIn.isSignedIn()) {
-      await _googleSignIn.signOut();
+    if (_googleInit != null) {
+      await GoogleSignIn.instance.signOut();
     }
     await FacebookAuth.instance.logOut();
     await _client.auth.signOut();
