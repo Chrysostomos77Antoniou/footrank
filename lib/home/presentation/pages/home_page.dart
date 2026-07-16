@@ -94,6 +94,23 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
       title: 'Create a match for…',
     );
     if (!mounted || team == null) return;
+
+    // Matches are 5-a-side -- fail fast with a clear message instead of
+    // letting the request hit the server's "at least 5 players" check.
+    final members = await _teamRepo.fetchMembers(team.id);
+    if (!mounted) return;
+    if (members.length < 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${team.name} needs at least 5 players before you can create a '
+            'match (currently ${members.length}).',
+          ),
+        ),
+      );
+      return;
+    }
+
     context.push(AppRoutes.createMatch, extra: team.id);
   }
 

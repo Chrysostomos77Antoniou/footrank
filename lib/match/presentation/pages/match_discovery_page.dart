@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_request_model.dart';
+import 'package:footrank/team/data/team_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -18,6 +20,7 @@ class MatchDiscoveryPage extends StatefulWidget {
 class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
   final _repo = MatchRepository();
   final _courtRepo = CourtRepository();
+  final _teamRepo = TeamRepository();
 
   late Future<List<MatchRequestModel>> _myRequestsFuture;
   MatchRequestModel? _reference;
@@ -104,6 +107,23 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
   Future<void> _accept(MatchRequestModel opponent) async {
     final ref = _reference;
     if (ref == null) return;
+
+    // Matches are 5-a-side -- fail fast with a clear message instead of
+    // letting the request hit the server's "at least 5 players" check.
+    final members = await _teamRepo.fetchMembers(widget.teamId);
+    if (!mounted) return;
+    if (members.length < 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Your team needs at least 5 players before you can accept a '
+            'match (currently ${members.length}).',
+          ),
+        ),
+      );
+      return;
+    }
+
     try {
       await _repo.acceptMatchRequest(
         requestId: opponent.id,
@@ -119,9 +139,9 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     }
   }

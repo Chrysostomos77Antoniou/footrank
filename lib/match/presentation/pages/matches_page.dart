@@ -7,6 +7,7 @@ import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/level_badge.dart';
+import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_request_model.dart';
@@ -120,6 +121,23 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     if (confirm != true) return;
     final myRequestId = opponent.matchedFromRequestId;
     if (myRequestId == null) return; // shouldn't happen — surfaced via findAllOpponents
+
+    // Matches are 5-a-side -- fail fast with a clear message instead of
+    // letting the request hit the server's "at least 5 players" check.
+    final members = await _teamRepo.fetchMembers(team.id);
+    if (!mounted) return;
+    if (members.length < 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${team.name} needs at least 5 players before you can accept a '
+            'match (currently ${members.length}).',
+          ),
+        ),
+      );
+      return;
+    }
+
     try {
       await _matchRepo.acceptMatchRequest(
           requestId: opponent.id,
@@ -135,10 +153,9 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       _reloadRequests();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(e.toString().replaceFirst('Exception: ', ''))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     }
   }

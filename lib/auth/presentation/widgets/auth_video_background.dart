@@ -70,16 +70,18 @@ class _AuthVideoBackgroundState extends State<AuthVideoBackground> {
               child: VideoPlayer(_controller!),
             ),
           ),
-        // Dark overlay for contrast/readability
+        // Dark overlay for contrast/readability -- kept light so the video
+        // shows through brightly, darkening only slightly toward the
+        // bottom where the form card needs a bit more contrast.
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withValues(alpha: 0.55),
-                Colors.black.withValues(alpha: 0.70),
-                Colors.black.withValues(alpha: 0.82),
+                Colors.black.withValues(alpha: 0.22),
+                Colors.black.withValues(alpha: 0.32),
+                Colors.black.withValues(alpha: 0.42),
               ],
             ),
           ),
