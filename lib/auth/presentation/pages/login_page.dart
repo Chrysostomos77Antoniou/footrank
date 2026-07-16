@@ -19,6 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  final _passwordFocus = FocusNode();
   final _repo = AuthRepository();
   bool _loading = false;
   bool _googleLoading = false;
@@ -29,6 +30,7 @@ class _LoginPageState extends State<LoginPage> {
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -184,78 +186,90 @@ class _LoginPageState extends State<LoginPage> {
                           compact: compact,
                           child: Form(
                             key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                AuthGoogleButton(
-                                  loading: _googleLoading,
-                                  label: 'Continue with Google',
-                                  onPressed: _signInWithGoogle,
-                                ),
-                                SizedBox(height: compact ? 6 : 10),
-                                AuthGoogleButton(
-                                  loading: _appleLoading,
-                                  label: 'Continue with Apple',
-                                  icon: Icons.apple,
-                                  onPressed: _signInWithApple,
-                                ),
-                                SizedBox(height: compact ? 6 : 10),
-                                AuthGoogleButton(
-                                  loading: _facebookLoading,
-                                  label: 'Continue with Facebook',
-                                  icon: Icons.facebook,
-                                  onPressed: _signInWithFacebook,
-                                ),
-                                SizedBox(height: gapMd),
-                                const AuthOrDivider(),
-                                SizedBox(height: gapMd),
-                                AuthField(
-                                  controller: _emailCtrl,
-                                  label: 'Email',
-                                  icon: Icons.email_outlined,
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: (v) =>
-                                      v == null || !v.contains('@')
-                                      ? 'Enter a valid email'
-                                      : null,
-                                ),
-                                SizedBox(height: compact ? 8 : 14),
-                                AuthField(
-                                  controller: _passwordCtrl,
-                                  label: 'Password',
-                                  icon: Icons.lock_outline,
-                                  obscure: true,
-                                  validator: (v) => v == null || v.length < 6
-                                      ? 'Min 6 characters'
-                                      : null,
-                                ),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: TextButton(
-                                    onPressed: _sendPasswordReset,
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Colors.white70,
+                            child: AutofillGroup(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  AuthGoogleButton(
+                                    loading: _googleLoading,
+                                    label: 'Continue with Google',
+                                    onPressed: _signInWithGoogle,
+                                  ),
+                                  SizedBox(height: compact ? 6 : 10),
+                                  AuthGoogleButton(
+                                    loading: _appleLoading,
+                                    label: 'Continue with Apple',
+                                    icon: Icons.apple,
+                                    onPressed: _signInWithApple,
+                                  ),
+                                  SizedBox(height: compact ? 6 : 10),
+                                  AuthGoogleButton(
+                                    loading: _facebookLoading,
+                                    label: 'Continue with Facebook',
+                                    icon: Icons.facebook,
+                                    onPressed: _signInWithFacebook,
+                                  ),
+                                  SizedBox(height: gapMd),
+                                  const AuthOrDivider(),
+                                  SizedBox(height: gapMd),
+                                  AuthField(
+                                    controller: _emailCtrl,
+                                    label: 'Email',
+                                    icon: Icons.email_outlined,
+                                    keyboardType: TextInputType.emailAddress,
+                                    autofillHints: const [AutofillHints.email],
+                                    textInputAction: TextInputAction.next,
+                                    onFieldSubmitted: (_) =>
+                                        _passwordFocus.requestFocus(),
+                                    validator: (v) =>
+                                        v == null || !v.contains('@')
+                                        ? 'Enter a valid email'
+                                        : null,
+                                  ),
+                                  SizedBox(height: compact ? 8 : 14),
+                                  AuthField(
+                                    controller: _passwordCtrl,
+                                    focusNode: _passwordFocus,
+                                    label: 'Password',
+                                    icon: Icons.lock_outline,
+                                    obscure: true,
+                                    autofillHints: const [
+                                      AutofillHints.password,
+                                    ],
+                                    textInputAction: TextInputAction.done,
+                                    onFieldSubmitted: (_) => _signInWithEmail(),
+                                    validator: (v) => v == null || v.length < 6
+                                        ? 'Min 6 characters'
+                                        : null,
+                                  ),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: _sendPasswordReset,
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: Colors.white70,
+                                      ),
+                                      child: const Text('Forgot password?'),
                                     ),
-                                    child: const Text('Forgot password?'),
                                   ),
-                                ),
-                                SizedBox(height: compact ? 2 : 8),
-                                AuthPrimaryButton(
-                                  loading: _loading,
-                                  label: 'Login',
-                                  onPressed: _signInWithEmail,
-                                ),
-                                TextButton(
-                                  onPressed: () =>
-                                      context.go(AppRoutes.register),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.white,
+                                  SizedBox(height: compact ? 2 : 8),
+                                  AuthPrimaryButton(
+                                    loading: _loading,
+                                    label: 'Login',
+                                    onPressed: _signInWithEmail,
                                   ),
-                                  child: const Text(
-                                    "Don't have an account? Sign Up",
+                                  TextButton(
+                                    onPressed: () =>
+                                        context.go(AppRoutes.register),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: const Text(
+                                      "Don't have an account? Sign Up",
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),

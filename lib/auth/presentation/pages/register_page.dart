@@ -20,6 +20,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  final _passwordFocus = FocusNode();
   final _repo = AuthRepository();
   bool _loading = false;
   bool _googleLoading = false;
@@ -31,6 +32,7 @@ class _RegisterPageState extends State<RegisterPage> {
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -187,138 +189,155 @@ class _RegisterPageState extends State<RegisterPage> {
                           compact: compact,
                           child: Form(
                             key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: Checkbox(
-                                        value: _agreedToTerms,
-                                        onChanged: (v) => setState(
-                                          () => _agreedToTerms = v ?? false,
+                            child: AutofillGroup(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: Checkbox(
+                                          value: _agreedToTerms,
+                                          onChanged: (v) => setState(
+                                            () => _agreedToTerms = v ?? false,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Wrap(
-                                        crossAxisAlignment:
-                                            WrapCrossAlignment.center,
-                                        children: [
-                                          Text(
-                                            'I agree to the ',
-                                            style: TextStyle(
-                                              color: Colors.white.withValues(
-                                                alpha: 0.85,
-                                              ),
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          InkWell(
-                                            onTap: () =>
-                                                _openLegal('terms.html'),
-                                            child: const Text(
-                                              'Terms of Service',
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Wrap(
+                                          crossAxisAlignment:
+                                              WrapCrossAlignment.center,
+                                          children: [
+                                            Text(
+                                              'I agree to the ',
                                               style: TextStyle(
-                                                color: Colors.white,
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.85,
+                                                ),
                                                 fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                                decoration:
-                                                    TextDecoration.underline,
                                               ),
                                             ),
-                                          ),
-                                          Text(
-                                            ' and ',
-                                            style: TextStyle(
-                                              color: Colors.white.withValues(
-                                                alpha: 0.85,
+                                            InkWell(
+                                              onTap: () =>
+                                                  _openLegal('terms.html'),
+                                              child: const Text(
+                                                'Terms of Service',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  decoration:
+                                                      TextDecoration.underline,
+                                                ),
                                               ),
-                                              fontSize: 12,
                                             ),
-                                          ),
-                                          InkWell(
-                                            onTap: () =>
-                                                _openLegal('privacy.html'),
-                                            child: const Text(
-                                              'Privacy Policy',
+                                            Text(
+                                              ' and ',
                                               style: TextStyle(
-                                                color: Colors.white,
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.85,
+                                                ),
                                                 fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                                decoration:
-                                                    TextDecoration.underline,
                                               ),
                                             ),
-                                          ),
-                                        ],
+                                            InkWell(
+                                              onTap: () =>
+                                                  _openLegal('privacy.html'),
+                                              child: const Text(
+                                                'Privacy Policy',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  decoration:
+                                                      TextDecoration.underline,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
+                                    ],
+                                  ),
+                                  SizedBox(height: gapMd),
+                                  AuthGoogleButton(
+                                    loading: _googleLoading,
+                                    label: 'Sign up with Google',
+                                    onPressed: _signInWithGoogle,
+                                  ),
+                                  SizedBox(height: compact ? 6 : 10),
+                                  AuthGoogleButton(
+                                    loading: _appleLoading,
+                                    label: 'Sign up with Apple',
+                                    icon: Icons.apple,
+                                    onPressed: _signInWithApple,
+                                  ),
+                                  SizedBox(height: compact ? 6 : 10),
+                                  AuthGoogleButton(
+                                    loading: _facebookLoading,
+                                    label: 'Sign up with Facebook',
+                                    icon: Icons.facebook,
+                                    onPressed: _signInWithFacebook,
+                                  ),
+                                  SizedBox(height: gapMd),
+                                  const AuthOrDivider(),
+                                  SizedBox(height: gapMd),
+                                  AuthField(
+                                    controller: _emailCtrl,
+                                    label: 'Email',
+                                    icon: Icons.email_outlined,
+                                    keyboardType: TextInputType.emailAddress,
+                                    autofillHints: const [AutofillHints.email],
+                                    textInputAction: TextInputAction.next,
+                                    onFieldSubmitted: (_) =>
+                                        _passwordFocus.requestFocus(),
+                                    validator: (v) =>
+                                        v == null || !v.contains('@')
+                                        ? 'Enter a valid email'
+                                        : null,
+                                  ),
+                                  SizedBox(height: compact ? 8 : 14),
+                                  AuthField(
+                                    controller: _passwordCtrl,
+                                    focusNode: _passwordFocus,
+                                    label: 'Password',
+                                    icon: Icons.lock_outline,
+                                    obscure: true,
+                                    // newPassword (not password) so the OS
+                                    // offers to *generate* a strong one here,
+                                    // since this is an account creation form.
+                                    autofillHints: const [
+                                      AutofillHints.newPassword,
+                                    ],
+                                    textInputAction: TextInputAction.done,
+                                    onFieldSubmitted: (_) => _signUpWithEmail(),
+                                    validator: (v) => v == null || v.length < 8
+                                        ? 'Min 8 characters'
+                                        : null,
+                                  ),
+                                  SizedBox(height: compact ? 10 : 22),
+                                  AuthPrimaryButton(
+                                    loading: _loading,
+                                    label: 'Sign Up',
+                                    onPressed: _signUpWithEmail,
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        context.go(AppRoutes.login),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white,
                                     ),
-                                  ],
-                                ),
-                                SizedBox(height: gapMd),
-                                AuthGoogleButton(
-                                  loading: _googleLoading,
-                                  label: 'Sign up with Google',
-                                  onPressed: _signInWithGoogle,
-                                ),
-                                SizedBox(height: compact ? 6 : 10),
-                                AuthGoogleButton(
-                                  loading: _appleLoading,
-                                  label: 'Sign up with Apple',
-                                  icon: Icons.apple,
-                                  onPressed: _signInWithApple,
-                                ),
-                                SizedBox(height: compact ? 6 : 10),
-                                AuthGoogleButton(
-                                  loading: _facebookLoading,
-                                  label: 'Sign up with Facebook',
-                                  icon: Icons.facebook,
-                                  onPressed: _signInWithFacebook,
-                                ),
-                                SizedBox(height: gapMd),
-                                const AuthOrDivider(),
-                                SizedBox(height: gapMd),
-                                AuthField(
-                                  controller: _emailCtrl,
-                                  label: 'Email',
-                                  icon: Icons.email_outlined,
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: (v) =>
-                                      v == null || !v.contains('@')
-                                      ? 'Enter a valid email'
-                                      : null,
-                                ),
-                                SizedBox(height: compact ? 8 : 14),
-                                AuthField(
-                                  controller: _passwordCtrl,
-                                  label: 'Password',
-                                  icon: Icons.lock_outline,
-                                  obscure: true,
-                                  validator: (v) => v == null || v.length < 8
-                                      ? 'Min 8 characters'
-                                      : null,
-                                ),
-                                SizedBox(height: compact ? 10 : 22),
-                                AuthPrimaryButton(
-                                  loading: _loading,
-                                  label: 'Sign Up',
-                                  onPressed: _signUpWithEmail,
-                                ),
-                                TextButton(
-                                  onPressed: () => context.go(AppRoutes.login),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.white,
+                                    child: const Text(
+                                      'Already have an account? Login',
+                                    ),
                                   ),
-                                  child: const Text(
-                                    'Already have an account? Login',
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),

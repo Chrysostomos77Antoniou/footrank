@@ -3,13 +3,17 @@ import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/widgets/premium.dart';
 
 /// Dark, translucent text field used on the branded auth screens.
-class AuthField extends StatelessWidget {
+class AuthField extends StatefulWidget {
   final TextEditingController controller;
   final String label;
   final IconData icon;
   final bool obscure;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
+  final Iterable<String>? autofillHints;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onFieldSubmitted;
+  final FocusNode? focusNode;
 
   const AuthField({
     super.key,
@@ -19,20 +23,55 @@ class AuthField extends StatelessWidget {
     this.obscure = false,
     this.keyboardType,
     this.validator,
+    this.autofillHints,
+    this.textInputAction,
+    this.onFieldSubmitted,
+    this.focusNode,
   });
+
+  @override
+  State<AuthField> createState() => _AuthFieldState();
+}
+
+class _AuthFieldState extends State<AuthField> {
+  // Only relevant when widget.obscure is true; lets the user reveal a
+  // password instead of it being permanently hidden with no way to check it.
+  bool _reveal = false;
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
-      controller: controller,
-      obscureText: obscure,
-      keyboardType: keyboardType,
+      controller: widget.controller,
+      focusNode: widget.focusNode,
+      obscureText: widget.obscure && !_reveal,
+      keyboardType: widget.keyboardType,
+      textInputAction: widget.textInputAction,
+      onFieldSubmitted: widget.onFieldSubmitted,
+      autofillHints: widget.autofillHints,
+      // A password manager shouldn't get autocorrect/suggestions fighting it.
+      autocorrect: !widget.obscure,
+      enableSuggestions: !widget.obscure,
       style: const TextStyle(color: Colors.white),
-      validator: validator,
+      validator: widget.validator,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: widget.label,
         labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-        prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.7)),
+        prefixIcon: Icon(
+          widget.icon,
+          color: Colors.white.withValues(alpha: 0.7),
+        ),
+        suffixIcon: widget.obscure
+            ? IconButton(
+                icon: Icon(
+                  _reveal
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  color: Colors.white.withValues(alpha: 0.7),
+                ),
+                tooltip: _reveal ? 'Hide password' : 'Show password',
+                onPressed: () => setState(() => _reveal = !_reveal),
+              )
+            : null,
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.08),
         enabledBorder: OutlineInputBorder(

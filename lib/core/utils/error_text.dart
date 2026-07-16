@@ -1,5 +1,13 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 /// Converts an exception into a concise, user-friendly message.
 String friendlyError(Object error) {
+  // Supabase's own .message is already clean, human-readable text (e.g.
+  // "Invalid login credentials") -- error.toString() instead dumps the raw
+  // "AuthApiException(message: ..., statusCode: ..., code: ...)" wrapper,
+  // which is what every auth screen was actually showing users.
+  if (error is AuthException) return error.message;
+
   var msg = error.toString();
 
   // Strip common Dart/Supabase prefixes.
