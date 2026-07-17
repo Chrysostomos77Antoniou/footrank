@@ -389,7 +389,7 @@ class _TeamView extends StatelessWidget {
               ],
             ),
           ),
-          if (_isCaptain && team.inviteCode != null) ...[
+          if (team.inviteCode != null) ...[
             const SizedBox(height: 14),
             FadeSlideIn(
               delay: const Duration(milliseconds: 160),

@@ -12,7 +12,6 @@ import 'package:footrank/models/user_model.dart';
 import 'package:footrank/notifications/data/notification_repository.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
-import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/team/presentation/widgets/team_picker.dart';
 
@@ -29,7 +28,6 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   Future<int> _unread = Future.value(0);
   bool _syncing = false;
   List<TeamModel> _teams = [];
-  List<TeamModel> _captainTeams = [];
   bool _teamLoaded = false;
   int _inviteCount = 0;
 
@@ -69,11 +67,9 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   Future<void> _loadTeam() async {
     try {
       final teams = await _teamRepo.fetchMyTeams();
-      final uid = SupabaseService.client.auth.currentUser?.id;
       if (!mounted) return;
       setState(() {
         _teams = teams;
-        _captainTeams = teams.where((t) => t.captainId == uid).toList();
         _teamLoaded = true;
       });
     } catch (_) {
@@ -81,7 +77,6 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
       if (!mounted) return;
       setState(() {
         _teams = [];
-        _captainTeams = [];
         _teamLoaded = true;
       });
     }
@@ -90,7 +85,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   Future<void> _createMatch() async {
     final team = await chooseTeam(
       context,
-      _captainTeams,
+      _teams,
       title: 'Create a match for…',
     );
     if (!mounted || team == null) return;
@@ -241,7 +236,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                 const SizedBox(height: 20),
               ],
               // ---- Primary actions: the core engagement loop ----
-              if (_captainTeams.isNotEmpty) ...[
+              if (_teams.isNotEmpty) ...[
                 FadeSlideIn(
                   delay: const Duration(milliseconds: 160),
                   child: _ActionCard(
@@ -252,7 +247,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                     ),
                     color: AppColors.iconAccent(context),
                     title: 'Create Match',
-                    subtitle: _captainTeams.length > 1
+                    subtitle: _teams.length > 1
                         ? 'Set up a match — pick which team'
                         : 'Set up a match for your team',
                     onTap: _createMatch,

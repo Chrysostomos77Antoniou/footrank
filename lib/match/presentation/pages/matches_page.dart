@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
@@ -31,8 +30,6 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
 
   TeamModel? _team; // the currently-selected team (when in several)
   List<TeamModel> _teams = [];
-  List<TeamModel> _captainTeams = [];
-  bool _isCaptain = false;
   bool _loadingTeam = true;
   Future<List<MatchRequestModel>>? _future;
   Future<List<MatchModel>>? _matchesFuture;
@@ -53,7 +50,6 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
 
   Future<void> _load() async {
     final teams = await _teamRepo.fetchMyTeams();
-    final uid = SupabaseService.client.auth.currentUser?.id;
     if (!mounted) return;
     // Keep the current selection if it still exists, else default to the first.
     TeamModel? selected;
@@ -65,9 +61,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     final sel = selected;
     setState(() {
       _teams = teams;
-      _captainTeams = teams.where((t) => t.captainId == uid).toList();
       _team = sel;
-      _isCaptain = sel != null && sel.captainId == uid;
       _loadingTeam = false;
       _future = sel == null ? null : _matchRepo.fetchMyTeamRequests(sel.id);
       _matchesFuture = sel == null ? null : _matchRepo.fetchTeamMatches(sel.id);
@@ -77,10 +71,8 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
 
   void _selectTeam(TeamModel team) {
     if (team.id == _team?.id) return;
-    final uid = SupabaseService.client.auth.currentUser?.id;
     setState(() {
       _team = team;
-      _isCaptain = team.captainId == uid;
       _future = _matchRepo.fetchMyTeamRequests(team.id);
       _matchesFuture = _matchRepo.fetchTeamMatches(team.id);
       _opponentsFuture = _matchRepo.findAllOpponents(team.id);
@@ -182,8 +174,8 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   }
 
   Future<void> _openCreate() async {
-    // Ask which team to create the match for (only when captaining several).
-    final team = await chooseTeam(context, _captainTeams,
+    // Ask which team to create the match for (only when in several).
+    final team = await chooseTeam(context, _teams,
         title: 'Create a match for…');
     if (!mounted || team == null) return;
     // Keep the Matches view in sync with the team just chosen.
@@ -257,30 +249,6 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     }
   }
 
-  Future<void> _contactCaptain() async {
-    final team = _team;
-    if (team == null) return;
-    try {
-      final contact = await _teamRepo.fetchCaptainContact(team.id);
-      final phone = contact?['captain_phone'] as String?;
-      if (phone == null || phone.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text("Your captain hasn't added a phone number yet.")),
-        );
-        return;
-      }
-      await launchUrl(Uri(scheme: 'tel', path: phone));
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-        );
-      }
-    }
-  }
-
   Future<void> _openDiscovery() async {
     final team = _team;
     if (team == null) return;
@@ -294,7 +262,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       appBar: AppBar(
         title: const Text('Matches'),
         actions: [
-          if (_isCaptain)
+          if (_team != null)
             TextButton.icon(
               icon: const Icon(Icons.search),
               label: const Text('Find Opponents'),
@@ -302,7 +270,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
             ),
         ],
       ),
-      floatingActionButton: _captainTeams.isNotEmpty
+      floatingActionButton: _teams.isNotEmpty
           ? FloatingActionButton.extended(
               onPressed: _openCreate,
               icon: const Icon(Icons.add),
@@ -354,35 +322,29 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                       .toList() ??
                   [];
               if (requests.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
                   child: EmptyView(
                     icon: Icons.sports_soccer_outlined,
                     title: 'No matches scheduled yet',
-                    hint: _isCaptain
-                        ? 'Tap "Create Match" to start.'
-                        : 'Ask your team captain to create one.',
-                    action: _isCaptain
-                        ? null
-                        : OutlinedButton.icon(
-                            icon: const Icon(Icons.call_outlined),
-                            label: const Text('Contact captain'),
-                            onPressed: _contactCaptain,
-                          ),
+                    hint: 'Tap "Create Match" to start.',
                   ),
                 );
               }
+              final uid = SupabaseService.client.auth.currentUser?.id;
               return Column(
                 children: requests
                     .map((r) => _RequestCard(
                           request: r,
-                          onCancel: _isCaptain ? () => _cancelRequest(r) : null,
+                          onCancel: r.captainId == uid
+                              ? () => _cancelRequest(r)
+                              : null,
                         ))
                     .toList(),
               );
             },
           ),
-          if (_isCaptain) ...[
+          if (_team != null) ...[
             _SectionHeader(title: 'Available Opponents'),
             FutureBuilder<List<MatchRequestModel>>(
               future: _opponentsFuture,

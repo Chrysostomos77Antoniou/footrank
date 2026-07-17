@@ -72,6 +72,47 @@ class MatchRepository {
     return request;
   }
 
+  /// Checks whether [teamId] already has an open request or confirmed match
+  /// within an hour of [scheduledAt] -- mirrors the server-side guard in
+  /// enforce_no_overlapping_team_commitment(), so the UI can reject with a
+  /// friendly, specific message before the request ever hits the API.
+  /// Returns the conflicting time (local) if one exists, otherwise null.
+  Future<DateTime?> findSchedulingConflict({
+    required String teamId,
+    required DateTime scheduledAt,
+  }) async {
+    final anchor = scheduledAt.toUtc();
+    final from = anchor.subtract(const Duration(hours: 1));
+    final to = anchor.add(const Duration(hours: 1));
+
+    final requests = await SupabaseService.client
+        .from(_requests)
+        .select('scheduled_at')
+        .eq('team_id', teamId)
+        .eq('status', 'searching')
+        .gte('scheduled_at', from.toIso8601String())
+        .lte('scheduled_at', to.toIso8601String())
+        .limit(1);
+    if ((requests as List).isNotEmpty) {
+      return DateTime.parse(requests.first['scheduled_at'] as String)
+          .toLocal();
+    }
+
+    final matches = await SupabaseService.client
+        .from(_matches)
+        .select('scheduled_at')
+        .or('home_team_id.eq.$teamId,away_team_id.eq.$teamId')
+        .gte('scheduled_at', from.toIso8601String())
+        .lte('scheduled_at', to.toIso8601String())
+        .limit(1);
+    if ((matches as List).isNotEmpty) {
+      return DateTime.parse(matches.first['scheduled_at'] as String)
+          .toLocal();
+    }
+
+    return null;
+  }
+
   /// Match requests created by the current captain's team.
   Future<List<MatchRequestModel>> fetchMyTeamRequests(String teamId) async {
     final data = await SupabaseService.client

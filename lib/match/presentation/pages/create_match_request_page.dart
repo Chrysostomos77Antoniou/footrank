@@ -166,6 +166,25 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
 
     setState(() => _loading = true);
     try {
+      final conflict = await _repo.findSchedulingConflict(
+        teamId: widget.teamId,
+        scheduledAt: scheduledAt,
+      );
+      if (conflict != null) {
+        if (mounted) {
+          final t = TimeOfDay.fromDateTime(conflict).format(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Your team already has an open request or confirmed match '
+                'for $t that day.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
       await _repo.createMatchRequest(
         teamId: widget.teamId,
         city: _city!,
