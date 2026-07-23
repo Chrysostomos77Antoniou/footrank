@@ -36,6 +36,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
         return (icon: Icons.sports_soccer, color: accent);
       case 'match_accepted':
         return (icon: Icons.check_circle_outline, color: AppColors.success);
+      case 'match_cancelled':
+        return (icon: Icons.event_busy, color: AppColors.danger);
       case 'match_reminder':
         return (icon: Icons.alarm, color: AppColors.gold);
       case 'player_invite':

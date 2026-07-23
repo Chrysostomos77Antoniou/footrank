@@ -343,6 +343,17 @@ class MatchRepository {
   Future<void> cancelMatch(String matchId) =>
       SupabaseService.client.rpc('cancel_match', params: {'p_match_id': matchId});
 
+  /// Captain cancels an already-CONFIRMED (upcoming) match. Free more than 2
+  /// hours before kick-off; from the 2-hour mark onward (including after
+  /// kick-off, if it was never scored) the cancelling team loses 200 Pitch
+  /// Power. The opponent's slot is reopened into the matchmaking pool either
+  /// way. Returns true if the penalty was applied.
+  Future<bool> cancelConfirmedMatch(String matchId) async {
+    final result = await SupabaseService.client
+        .rpc('cancel_confirmed_match', params: {'p_match_id': matchId});
+    return (result as Map<String, dynamic>)['penalized'] as bool? ?? false;
+  }
+
   /// Captains' contact details for a match — participants only.
   Future<List<Map<String, dynamic>>> matchCaptainContacts(String matchId) async {
     final data = await SupabaseService.client

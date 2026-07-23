@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/utils/maps_launcher.dart';
@@ -280,14 +281,65 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     }
   }
 
+  /// Confirmed matches can be cancelled any time, but a captain who cancels
+  /// from the 2-hour mark before kick-off onward (including after kick-off,
+  /// if it was never scored) costs their team 200 Pitch Power. Matches that
+  /// aren't mutually confirmed yet ('pending') stay free to back out of.
   Future<void> _cancelMatch() async {
+    final match = _match!;
+    if (match.status != 'confirmed') {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Cancel this match?'),
+          content: const Text(
+            'This removes the match for both teams. This cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Cancel match'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+      try {
+        await _matchRepo.cancelMatch(match.id);
+        if (!mounted) return;
+        triggerAppRefresh();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Match cancelled')));
+        Navigator.of(context).pop(true);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          );
+        }
+      }
+      return;
+    }
+
+    final cutoff = match.scheduledAt.subtract(const Duration(hours: 2));
+    final tooLate = !DateTime.now().toUtc().isBefore(cutoff);
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cancel this match?'),
-        content: const Text(
-          'This removes the match for both teams. This cannot be undone.',
-        ),
+        content: Text(tooLate
+            ? 'Kick-off is less than 2 hours away. If you cancel now, your '
+                'team will lose 200 Pitch Power. This cannot be undone.'
+            : 'This removes the match for both teams and reopens the slot '
+                'for the opponent to find a new match. This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -296,18 +348,22 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cancel match'),
+            child: Text(tooLate ? 'Cancel & lose 200 PWR' : 'Cancel match'),
           ),
         ],
       ),
     );
     if (confirm != true) return;
     try {
-      await _matchRepo.cancelMatch(_match!.id);
+      final penalized = await _matchRepo.cancelConfirmedMatch(match.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Match cancelled')));
+      triggerAppRefresh();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(penalized
+                ? 'Match cancelled — your team lost 200 Pitch Power.'
+                : 'Match cancelled.')),
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {

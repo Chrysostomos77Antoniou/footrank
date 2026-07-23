@@ -831,22 +831,35 @@ class _PendingMatchCard extends StatelessWidget {
               Text('${match.city} · $when · ${match.matchType}',
                   style: Theme.of(context).textTheme.bodySmall),
               if (match.suggestedCourtName != null) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.place,
-                        size: 14, color: AppColors.iconAccent(context)),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(match.suggestedCourtName!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.iconAccent(context)
+                          .withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.place,
+                            size: 18, color: AppColors.iconAccent(context)),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(match.suggestedCourtName!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                  color: AppColors.iconAccent(context))),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
               const SizedBox(height: 10),
