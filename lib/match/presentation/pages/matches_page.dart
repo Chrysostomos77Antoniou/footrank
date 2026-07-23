@@ -173,6 +173,46 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     }
   }
 
+  Future<void> _rejectMatch(MatchModel m) async {
+    final opponentName = m.homeTeamId == _team?.id
+        ? (m.awayTeamName ?? 'the opponent')
+        : (m.homeTeamName ?? 'the opponent');
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject this match?'),
+        content: Text(
+            'This removes the pending match against $opponentName for both '
+            'teams. This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Reject')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await _matchRepo.cancelMatch(m.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Match rejected')),
+      );
+      _reloadRequests();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
   Future<void> _openCreate() async {
     // Ask which team to create the match for (only when in several).
     final team = await chooseTeam(context, _teams,
@@ -405,6 +445,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                         match: m,
                         iConfirmed: iConfirmed,
                         onConfirm: () => _confirmFixture(m),
+                        onReject: () => _rejectMatch(m),
                       );
                     }),
                   ],
@@ -737,10 +778,12 @@ class _PendingMatchCard extends StatelessWidget {
   final MatchModel match;
   final bool iConfirmed;
   final VoidCallback onConfirm;
+  final VoidCallback onReject;
   const _PendingMatchCard({
     required this.match,
     required this.iConfirmed,
     required this.onConfirm,
+    required this.onReject,
   });
 
   @override
@@ -751,61 +794,102 @@ class _PendingMatchCard extends StatelessWidget {
         '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _TeamMini(
-                    name: match.homeTeamName ?? 'Home',
-                    logo: match.homeTeamLogo,
-                    rating: match.homeTeamRating,
-                      record: match.homeTeamRecord,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => context.push(AppRoutes.matchDetail, extra: match.id),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _TeamMini(
+                      name: match.homeTeamName ?? 'Home',
+                      logo: match.homeTeamLogo,
+                      rating: match.homeTeamRating,
+                        record: match.homeTeamRecord,
+                    ),
                   ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('vs',
-                      style: TextStyle(fontWeight: FontWeight.w900)),
-                ),
-                Expanded(
-                  child: _TeamMini(
-                    name: match.awayTeamName ?? 'Away',
-                    logo: match.awayTeamLogo,
-                    rating: match.awayTeamRating,
-                      record: match.awayTeamRecord,
-                    alignEnd: true,
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('vs',
+                        style: TextStyle(fontWeight: FontWeight.w900)),
                   ),
+                  Expanded(
+                    child: _TeamMini(
+                      name: match.awayTeamName ?? 'Away',
+                      logo: match.awayTeamLogo,
+                      rating: match.awayTeamRating,
+                        record: match.awayTeamRecord,
+                      alignEnd: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text('${match.city} · $when · ${match.matchType}',
+                  style: Theme.of(context).textTheme.bodySmall),
+              if (match.suggestedCourtName != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.place,
+                        size: 14, color: AppColors.iconAccent(context)),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(match.suggestedCourtName!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(fontWeight: FontWeight.w700)),
+                    ),
+                  ],
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Text('${match.city} · $when · ${match.matchType}',
-                      style: Theme.of(context).textTheme.bodySmall),
-                ),
-                iConfirmed
-                    ? Text('Waiting…',
-                        style: Theme.of(context).textTheme.bodySmall)
-                    : SizedBox(
-                        height: 36,
-                        child: FilledButton(
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(0, 36),
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 14),
-                          ),
-                          onPressed: onConfirm,
-                          child: const Text('Confirm'),
-                        ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (iConfirmed)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Text('Waiting…',
+                          style: Theme.of(context).textTheme.bodySmall),
+                    ),
+                  SizedBox(
+                    height: 36,
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 36),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        foregroundColor: AppColors.danger,
+                        side: BorderSide(color: AppColors.danger),
                       ),
-              ],
-            ),
-          ],
+                      onPressed: onReject,
+                      child: const Text('Reject'),
+                    ),
+                  ),
+                  if (!iConfirmed) ...[
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      height: 36,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(0, 36),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                        ),
+                        onPressed: onConfirm,
+                        child: const Text('Confirm'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
