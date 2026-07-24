@@ -15,8 +15,10 @@ import 'package:footrank/services/fcm_token_service.dart';
 import 'package:footrank/services/notification_service.dart';
 import 'package:footrank/services/supabase_service.dart';
 
-/// Minimum time the branded splash stays on screen.
-const _minSplash = Duration(milliseconds: 1700);
+/// Minimum time the native splash stays up -- just long enough to bridge
+/// into the first Flutter frame, where VideoSplashOverlay takes over the
+/// brand moment and plays until it finishes.
+const _minSplash = Duration(milliseconds: 350);
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
