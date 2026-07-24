@@ -104,22 +104,28 @@ class _VideoSplashOverlayState extends State<VideoSplashOverlay>
         onTap: _dismiss,
         child: Material(
           type: MaterialType.transparency,
-          child: DecoratedBox(
-            // Brand fallback while the video initializes, and letterboxing
-            // behind it if the aspect ratio doesn't fill the screen.
-            decoration: const BoxDecoration(gradient: AppColors.authGradient),
-            child: (controller != null && controller.value.isInitialized)
-                ? Center(
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      child: SizedBox(
-                        width: controller.value.size.width,
-                        height: controller.value.size.height,
-                        child: VideoPlayer(controller),
-                      ),
+          child: SizedBox.expand(
+            // Explicit full-screen size for this whole layer -- the brand
+            // gradient is always present and always covers edge-to-edge, so
+            // the app underneath is never visible, before or during the
+            // video (which is layered on top only once ready).
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const DecoratedBox(
+                  decoration: BoxDecoration(gradient: AppColors.authGradient),
+                ),
+                if (controller != null && controller.value.isInitialized)
+                  FittedBox(
+                    fit: BoxFit.cover,
+                    child: SizedBox(
+                      width: controller.value.size.width,
+                      height: controller.value.size.height,
+                      child: VideoPlayer(controller),
                     ),
-                  )
-                : const SizedBox.shrink(),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

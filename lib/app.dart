@@ -46,6 +46,11 @@ class _FootRankAppState extends State<FootRankApp> {
               // redirects, etc. all resolve underneath it), then fades away
               // -- no routing involved, so deep links stay untouched.
               child: Stack(
+                // Force both layers to the full screen size -- without this,
+                // the overlay (and its fallback background) can collapse to
+                // its content's natural size and expose the app underneath
+                // at the edges, or entirely, while the video is loading.
+                fit: StackFit.expand,
                 children: [
                   child ?? const SizedBox.shrink(),
                   if (!_splashDone)
