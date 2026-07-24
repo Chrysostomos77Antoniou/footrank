@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_theme.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
-import 'package:footrank/core/widgets/video_splash_overlay.dart';
 import 'package:footrank/routing/app_router.dart';
 
 class FootRankApp extends StatefulWidget {
@@ -13,9 +12,6 @@ class FootRankApp extends StatefulWidget {
 
 class _FootRankAppState extends State<FootRankApp> {
   late final _router = buildRouter();
-
-  /// Cold-start branded video splash; removed from the tree once it finishes.
-  bool _splashDone = false;
 
   @override
   Widget build(BuildContext context) {
@@ -42,23 +38,7 @@ class _FootRankAppState extends State<FootRankApp> {
             );
             return MediaQuery(
               data: mq.copyWith(textScaler: clamped),
-              // The video splash sits above the booting app (router, auth
-              // redirects, etc. all resolve underneath it), then fades away
-              // -- no routing involved, so deep links stay untouched.
-              child: Stack(
-                // Force both layers to the full screen size -- without this,
-                // the overlay (and its fallback background) can collapse to
-                // its content's natural size and expose the app underneath
-                // at the edges, or entirely, while the video is loading.
-                fit: StackFit.expand,
-                children: [
-                  child ?? const SizedBox.shrink(),
-                  if (!_splashDone)
-                    VideoSplashOverlay(
-                      onFinished: () => setState(() => _splashDone = true),
-                    ),
-                ],
-              ),
+              child: child ?? const SizedBox.shrink(),
             );
           },
         );

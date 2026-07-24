@@ -25,7 +25,6 @@ dependencies:
   image_picker_platform_interface: ^2.10.0
   video_player: ^2.9.2
   url_launcher: ^6.3.0
-  flutter_native_splash: ^2.4.3
   cached_network_image: ^3.4.1
   firebase_crashlytics: ^4.1.5
   sign_in_with_apple: ^6.1.4
@@ -53,21 +52,10 @@ flutter_launcher_icons:
   adaptive_icon_background: "#0B6E3D"
   adaptive_icon_foreground: "assets/branding/app_icon.png"
 
-# Splash / loading screen (Image 2 lockup)
-flutter_native_splash:
-  color: "#FFFFFF"
-  image: "assets/branding/splash_clean.png"
-  color_dark: "#BFBFBF"
-  android_12:
-    image: "assets/branding/splash_clean.png"
-    color: "#FFFFFF"
-    color_dark: "#BFBFBF"
-
 flutter:
   uses-material-design: true
   assets:
     - assets/video/auth_bg.mp4
-    - assets/video/splash_intro.mp4
   fonts:
     - family: Sora
       fonts:

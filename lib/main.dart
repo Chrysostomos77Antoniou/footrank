@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:image_picker_android/image_picker_android.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:footrank/app.dart';
@@ -15,16 +14,8 @@ import 'package:footrank/services/fcm_token_service.dart';
 import 'package:footrank/services/notification_service.dart';
 import 'package:footrank/services/supabase_service.dart';
 
-/// Minimum time the native splash stays up -- just long enough to bridge
-/// into the first Flutter frame, where VideoSplashOverlay takes over the
-/// brand moment and plays until it finishes.
-const _minSplash = Duration(milliseconds: 350);
-
 Future<void> main() async {
-  final binding = WidgetsFlutterBinding.ensureInitialized();
-  // Keep the native splash up until we explicitly remove it below.
-  FlutterNativeSplash.preserve(widgetsBinding: binding);
-  final startedAt = DateTime.now();
+  WidgetsFlutterBinding.ensureInitialized();
 
   // Use Android's system Photo Picker (gallery grid) where available.
   final picker = ImagePickerPlatform.instance;
@@ -60,12 +51,4 @@ Future<void> main() async {
   FcmTokenService.init();
 
   runApp(const FootRankApp());
-
-  // Hold the splash for at least _minSplash so the brand is clearly visible.
-  final elapsed = DateTime.now().difference(startedAt);
-  final remaining = _minSplash - elapsed;
-  if (remaining > Duration.zero) {
-    await Future.delayed(remaining);
-  }
-  FlutterNativeSplash.remove();
 }
