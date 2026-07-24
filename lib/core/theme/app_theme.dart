@@ -1,5 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
+
+/// Route transition: incoming page fades in while drifting up slightly;
+/// the page underneath settles back. Subtle spatial continuity instead of a
+/// hard cut — applied app-wide via [ThemeData.pageTransitionsTheme].
+class _FadeSlidePageTransitionsBuilder extends PageTransitionsBuilder {
+  const _FadeSlidePageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: AppMotion.easeOut,
+      reverseCurve: AppMotion.easeIn,
+    );
+    final covered = CurvedAnimation(
+      parent: secondaryAnimation,
+      curve: AppMotion.easeOut,
+    );
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.02),
+          end: Offset.zero,
+        ).animate(curved),
+        child: FadeTransition(
+          // Page being covered recedes slightly for depth.
+          opacity: Tween<double>(begin: 1, end: 0.88).animate(covered),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
 
 class AppTheme {
   AppTheme._();
@@ -43,6 +84,25 @@ class AppTheme {
       fontFamily: 'Manrope',
       textTheme: _textTheme(onSurface),
 
+      // Smooth, consistent screen-to-screen motion on every platform.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: _FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: _FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.macOS: _FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.linux: _FadeSlidePageTransitionsBuilder(),
+        },
+      ),
+
+      // Icon-only buttons must still give a 44x44+ touch target.
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          minimumSize: const Size(44, 44),
+          tapTargetSize: MaterialTapTargetSize.padded,
+        ),
+      ),
+
       appBarTheme: AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -64,7 +124,7 @@ class AppTheme {
         color: cardColor,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           side: BorderSide(color: borderColor),
         ),
       ),
@@ -73,7 +133,7 @@ class AppTheme {
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.md),
           ),
           textStyle: const TextStyle(
               fontFamily: 'Sora',
@@ -88,9 +148,16 @@ class AppTheme {
           minimumSize: const Size.fromHeight(52),
           side: BorderSide(color: borderColor),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.md),
           ),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+      ),
+
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(44, 44),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
         ),
       ),
 
@@ -98,15 +165,15 @@ class AppTheme {
         filled: true,
         fillColor: cardColor,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           borderSide: BorderSide(color: borderColor),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           borderSide: BorderSide(color: borderColor),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           borderSide: BorderSide(color: accent, width: 1.5),
         ),
       ),
@@ -117,9 +184,21 @@ class AppTheme {
         backgroundColor: cardColor,
         surfaceTintColor: Colors.transparent,
         indicatorColor: accent.withValues(alpha: 0.18),
-        labelTextStyle: WidgetStateProperty.all(
-          const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        ),
+        // Selected tab reads clearly: accent + heavier weight, not color alone.
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            color: selected ? accent : onSurface.withValues(alpha: 0.72),
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected ? accent : onSurface.withValues(alpha: 0.72),
+          );
+        }),
       ),
 
       chipTheme: ChipThemeData(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -143,7 +144,8 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
       body: AmbientBackground(
         child: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 108),
             children: [
               FadeSlideIn(
                 child: Row(
@@ -157,10 +159,10 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                           Text(
                             'Welcome back',
                             style: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withValues(alpha: 0.6),
+                              color: AppColors.muted(context),
                               fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
                             ),
                           ),
                           const GradientText(
@@ -177,20 +179,28 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                       onTap: _sync,
                       child: GlassCard(
                         padding: const EdgeInsets.all(12),
-                        radius: 16,
-                        child: _syncing
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.4,
-                                  color: AppColors.iconAccent(context),
+                        radius: AppRadius.lg,
+                        child: AnimatedSwitcher(
+                          duration: AppMotion.quick,
+                          transitionBuilder: (child, anim) =>
+                              ScaleTransition(scale: anim, child: child),
+                          child: _syncing
+                              ? SizedBox(
+                                  key: const ValueKey('spinner'),
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.4,
+                                    color: AppColors.iconAccent(context),
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.sync,
+                                  key: const ValueKey('icon'),
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
                                 ),
-                              )
-                            : Icon(
-                                Icons.sync,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -221,31 +231,25 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xl),
               FadeSlideIn(
-                delay: const Duration(milliseconds: 100),
+                delay: const Duration(milliseconds: 60),
                 child: _HeroBanner(),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.xl),
               // Nudge players who aren't on a team yet into the core loop.
               if (_teamLoaded && _teams.isEmpty) ...[
                 FadeSlideIn(
-                  delay: const Duration(milliseconds: 130),
+                  delay: const Duration(milliseconds: 120),
                   child: _NoTeamCard(onChanged: _loadTeam),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.xl),
               ],
-              // ---- Primary actions: the core engagement loop ----
+              // ---- Primary action: the single most important thing to do ----
               if (_teams.isNotEmpty) ...[
                 FadeSlideIn(
-                  delay: const Duration(milliseconds: 160),
-                  child: _ActionCard(
-                    emoji: '',
-                    iconWidget: Icon(
-                      Icons.add_circle_outline,
-                      color: AppColors.iconAccent(context),
-                    ),
-                    color: AppColors.iconAccent(context),
+                  delay: const Duration(milliseconds: 120),
+                  child: _PrimaryCta(
                     title: 'Create Match',
                     subtitle: _teams.length > 1
                         ? 'Set up a match — pick which team'
@@ -253,49 +257,27 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                     onTap: _createMatch,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
               ],
               FadeSlideIn(
-                delay: const Duration(milliseconds: 220),
+                delay: const Duration(milliseconds: 180),
                 child: _ActionCard(
-                  emoji: '',
-                  iconWidget: Icon(
-                    Icons.leaderboard,
-                    color: AppColors.iconAccent(context),
-                  ),
-                  color: AppColors.iconAccent(context),
+                  icon: Icons.leaderboard,
                   title: 'Leaderboard',
                   subtitle: 'See where you rank',
                   onTap: () => context.push(AppRoutes.teamRankings),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xxl),
               // ---- Secondary actions ----
               FadeSlideIn(
-                delay: const Duration(milliseconds: 280),
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 12),
-                  child: Text(
-                    'Manage',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.6),
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ),
+                delay: const Duration(milliseconds: 240),
+                child: const _SectionLabel('MANAGE'),
               ),
               FadeSlideIn(
-                delay: const Duration(milliseconds: 320),
+                delay: const Duration(milliseconds: 280),
                 child: _ActionCard(
-                  emoji: '',
-                  iconWidget: Icon(
-                    Icons.notifications_active_outlined,
-                    color: AppColors.iconAccent(context),
-                  ),
-                  color: AppColors.iconAccent(context),
+                  icon: Icons.notifications_active_outlined,
                   title: 'Notifications',
                   subtitle: 'Match & team updates',
                   onTap: () async {
@@ -304,46 +286,31 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                   },
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               FadeSlideIn(
-                delay: const Duration(milliseconds: 350),
+                delay: const Duration(milliseconds: 320),
                 child: _ActionCard(
-                  emoji: '',
-                  iconWidget: Icon(
-                    Icons.sports_soccer,
-                    color: AppColors.iconAccent(context),
-                  ),
-                  color: AppColors.iconAccent(context),
+                  icon: Icons.sports_soccer,
                   title: 'Courts',
                   subtitle: 'Browse every court you can play at',
                   onTap: () => context.push(AppRoutes.courts),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               FadeSlideIn(
-                delay: const Duration(milliseconds: 380),
+                delay: const Duration(milliseconds: 360),
                 child: _ActionCard(
-                  emoji: '',
-                  iconWidget: Icon(
-                    Icons.person_search_outlined,
-                    color: AppColors.iconAccent(context),
-                  ),
-                  color: AppColors.iconAccent(context),
+                  icon: Icons.person_search_outlined,
                   title: 'Free Agents',
                   subtitle: 'Find players without a team',
                   onTap: () => context.push(AppRoutes.freeAgents),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               FadeSlideIn(
-                delay: const Duration(milliseconds: 440),
+                delay: const Duration(milliseconds: 400),
                 child: _ActionCard(
-                  emoji: '',
-                  iconWidget: Icon(
-                    Icons.mail_outline,
-                    color: AppColors.iconAccent(context),
-                  ),
-                  color: AppColors.iconAccent(context),
+                  icon: Icons.mail_outline,
                   title: 'Team Invitations',
                   subtitle: 'Invitations from team captains',
                   badgeCount: _inviteCount,
@@ -552,19 +519,118 @@ class _NoTeamCard extends StatelessWidget {
   }
 }
 
+/// Small uppercase eyebrow label that separates sections — hierarchy through
+/// typography (size + tracking + weight) rather than another heavy heading.
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(
+          left: AppSpacing.xxs, bottom: AppSpacing.sm),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontFamily: 'Sora',
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.4,
+          color: AppColors.muted(context),
+        ),
+      ),
+    );
+  }
+}
+
+/// The one visually-dominant action on Home: brand gradient + glow so it
+/// clearly outranks every glass card below it.
+class _PrimaryCta extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _PrimaryCta({
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final onBrand = AppColors.onBrand(context);
+    return PressableScale(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          gradient: AppColors.brandGrad(context),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.brand(context).withValues(alpha: 0.35),
+              blurRadius: 22,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: onBrand.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+              ),
+              child: Icon(Icons.add_circle_outline, color: onBrand, size: 28),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: 'Sora',
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                      color: onBrand,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: onBrand.withValues(alpha: 0.8),
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward, color: onBrand, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ActionCard extends StatelessWidget {
-  final String emoji;
-  final Widget? iconWidget;
-  final Color color;
+  final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
   final int badgeCount;
 
   const _ActionCard({
-    required this.emoji,
-    this.iconWidget,
-    required this.color,
+    required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
@@ -573,9 +639,10 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = AppColors.iconAccent(context);
     return GlassCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Row(
         children: [
           Stack(
@@ -585,13 +652,11 @@ class _ActionCard extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(14),
+                  color: accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(AppRadius.lg - 2),
                 ),
                 alignment: Alignment.center,
-                child:
-                    iconWidget ??
-                    Text(emoji, style: const TextStyle(fontSize: 22)),
+                child: Icon(icon, color: accent),
               ),
               if (badgeCount > 0)
                 Positioned(
@@ -604,7 +669,7 @@ class _ActionCard extends StatelessWidget {
                       minHeight: 22,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE53935),
+                      color: AppColors.danger,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: Theme.of(context).scaffoldBackgroundColor,
@@ -625,7 +690,7 @@ class _ActionCard extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -637,7 +702,14 @@ class _ActionCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                // bodyMedium + muted: readable 14px secondary text instead of
+                // 12px that was straining against the card background.
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.muted(context),
+                      ),
+                ),
               ],
             ),
           ),
@@ -646,7 +718,7 @@ class _ActionCard extends StatelessWidget {
             size: 16,
             color: Theme.of(
               context,
-            ).colorScheme.onSurface.withValues(alpha: 0.4),
+            ).colorScheme.onSurface.withValues(alpha: 0.55),
           ),
         ],
       ),

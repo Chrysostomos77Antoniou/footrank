@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 
 /// App background: a layered, gently-drifting gradient. In dark mode it stacks
 /// several shades of near-black navy with a faint accent glow; in light mode,
@@ -205,7 +206,7 @@ class _PressableScaleState extends State<PressableScale> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => setState(() => _scale = 0.985),
+      onTapDown: (_) => setState(() => _scale = 0.97),
       onTapUp: (_) => setState(() => _scale = 1),
       onTapCancel: () => setState(() => _scale = 1),
       onTap: () {
@@ -214,7 +215,7 @@ class _PressableScaleState extends State<PressableScale> {
       },
       child: AnimatedScale(
         scale: _scale,
-        duration: const Duration(milliseconds: 90),
+        duration: AppMotion.press,
         curve: Curves.easeOut,
         child: widget.child,
       ),
@@ -393,19 +394,24 @@ class FadeSlideIn extends StatefulWidget {
 
 class _FadeSlideInState extends State<FadeSlideIn>
     with SingleTickerProviderStateMixin {
-  // Minimal motion: a single quick fade, no slide, no stagger — content
-  // appears almost instantly for a calm, professional feel.
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 150),
+    duration: AppMotion.enter,
   );
-  late final Animation<double> _fade =
-      CurvedAnimation(parent: _c, curve: Curves.easeOut);
+  late final CurvedAnimation _curve =
+      CurvedAnimation(parent: _c, curve: AppMotion.easeOut);
 
   @override
   void initState() {
     super.initState();
-    _c.forward();
+    // Honor the stagger delay so lists cascade in instead of popping at once.
+    if (widget.delay == Duration.zero) {
+      _c.forward();
+    } else {
+      Future.delayed(widget.delay, () {
+        if (mounted) _c.forward();
+      });
+    }
   }
 
   @override
@@ -416,7 +422,21 @@ class _FadeSlideInState extends State<FadeSlideIn>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(opacity: _fade, child: widget.child);
+    // Accessibility: skip the entrance entirely under reduced motion.
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
+      return widget.child;
+    }
+    return FadeTransition(
+      opacity: _curve,
+      child: AnimatedBuilder(
+        animation: _curve,
+        builder: (context, child) => Transform.translate(
+          offset: Offset(0, widget.offsetY * 0.6 * (1 - _curve.value)),
+          child: child,
+        ),
+        child: widget.child,
+      ),
+    );
   }
 }
 

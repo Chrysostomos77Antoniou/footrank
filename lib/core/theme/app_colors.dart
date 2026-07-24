@@ -77,10 +77,12 @@ class AppColors {
           : const Color(0xFFE6E8EC);
 
   // Muted secondary text/icon color — kept fairly strong so light mode stays
-  // legible (low-opacity grey-on-white was washing out).
+  // legible (low-opacity grey-on-white was washing out). Dark mode sits at
+  // 0.72 so secondary text clears WCAG AA (~7:1 on cards) instead of hovering
+  // near the 4.5:1 floor like the old 0.6 did.
   static Color muted(BuildContext context) =>
       Theme.of(context).colorScheme.onSurface.withValues(
-          alpha: Theme.of(context).brightness == Brightness.dark ? 0.6 : 0.82);
+          alpha: Theme.of(context).brightness == Brightness.dark ? 0.72 : 0.82);
 
   static const List<Color> rankColors = [gold, silver, bronze];
 }
