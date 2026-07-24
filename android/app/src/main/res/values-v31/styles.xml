@@ -6,6 +6,10 @@
         <item name="android:windowFullscreen">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">false</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <!-- Match the video splash's opening navy tone so the OS's mandatory
+             icon splash (Android 12+, can't be removed or replaced) blends
+             into the video instead of cutting from white. -->
+        <item name="android:windowSplashScreenBackground">#0C1022</item>
     </style>
     <!-- Theme applied to the Android Window as soon as the process has started.
          This theme determines the color of the Android Window while your
