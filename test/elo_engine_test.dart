@@ -75,6 +75,12 @@ void main() {
       expect(EloEngine.teamRating([1500, 1501]), 1501);
     });
 
+    test('teamRating matches the documented Team Power formula', () {
+      // Sum of the squad's Pitch Power divided by the number of players:
+      // (1500 + 1550 + 1525 + 1600 + 1630) / 5 = 7805 / 5 = 1561.
+      expect(EloEngine.teamRating([1500, 1550, 1525, 1600, 1630]), 1561);
+    });
+
     test('teamRating falls back to starting ELO when empty', () {
       expect(EloEngine.teamRating([]), EloEngine.startingElo);
     });
