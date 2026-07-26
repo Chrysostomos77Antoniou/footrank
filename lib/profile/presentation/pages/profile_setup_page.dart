@@ -19,6 +19,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _usernameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _repo = ProfileRepository();
   String? _city;
   String? _position;
@@ -47,7 +48,23 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   void dispose() {
     _nameCtrl.dispose();
     _usernameCtrl.dispose();
+    _phoneCtrl.dispose();
     super.dispose();
+  }
+
+  /// Cyprus mobile: 8 digits starting with 9, with or without the +357 /
+  /// 00357 prefix. Mirrors the server-side check so the user gets the error
+  /// inline instead of after a round-trip.
+  static String? _validatePhone(String? v) {
+    final digits = (v ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return 'Phone number is required';
+    var d = digits;
+    if (d.startsWith('00')) d = d.substring(2);
+    if (d.length == 8 && d.startsWith('9')) d = '357$d';
+    if (!RegExp(r'^3579[0-9]{7}$').hasMatch(d)) {
+      return 'Enter a valid Cyprus mobile, e.g. 99 123456';
+    }
+    return null;
   }
 
   Future<void> _submit() async {
@@ -57,6 +74,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       await _repo.createProfile(
         name: _nameCtrl.text.trim(),
         username: _usernameCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
         city: _city,
         position: _position,
       );
@@ -99,6 +117,16 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
 
   String _friendlyError(Object e) {
     final msg = e.toString();
+    if (msg.contains('PHONE_TAKEN') ||
+        msg.contains('uq_user_contacts_phone_normalized')) {
+      return 'That phone number is already linked to another account';
+    }
+    if (msg.contains('PHONE_INVALID')) {
+      return 'Enter a valid Cyprus mobile, e.g. 99 123456';
+    }
+    if (msg.contains('PHONE_REQUIRED')) {
+      return 'Phone number is required';
+    }
     if (msg.contains('duplicate') || msg.contains('unique')) {
       return 'That username is already taken';
     }
@@ -152,6 +180,19 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile Number',
+                    prefixText: '+357 ',
+                    hintText: '99 123456',
+                    helperText: 'Used to confirm you and to reach you about matches',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: _validatePhone,
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(

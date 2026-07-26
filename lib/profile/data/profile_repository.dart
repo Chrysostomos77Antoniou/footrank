@@ -76,9 +76,14 @@ class ProfileRepository {
   }
 
   /// Creates the user record after signup.
+  ///
+  /// The profile and the (mandatory) phone are written by a single server-side
+  /// call: doing it as two round-trips would let a rejected phone leave behind
+  /// a profile with no number, quietly bypassing the requirement.
   Future<UserModel> createProfile({
     required String name,
     required String username,
+    required String phone,
     String? city,
     String? position,
   }) async {
@@ -87,16 +92,21 @@ class ProfileRepository {
       throw StateError('No authenticated user');
     }
 
+    await SupabaseService.client.rpc(
+      'create_profile_with_phone',
+      params: {
+        'p_name': name,
+        'p_username': username,
+        'p_city': city,
+        'p_position': position,
+        'p_phone': phone,
+      },
+    );
+
     final inserted = await SupabaseService.client
         .from(_table)
-        .insert({
-          'id': userId,
-          'name': name,
-          'username': username,
-          'city': city,
-          'position': position,
-        })
         .select(_publicColumns)
+        .eq('id', userId)
         .single();
 
     _cachedHasProfile = true;
