@@ -79,7 +79,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         position: _position,
         avatarUrl: avatarUrl,
       );
-      await _repo.saveMyPhone(_phoneCtrl.text);
+      await _repo.saveMyPhone(_phoneCtrl.text.trim());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated')),
@@ -98,10 +98,35 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   String _friendly(Object e) {
     final m = e.toString();
+    if (m.contains('PHONE_TAKEN') ||
+        m.contains('uq_user_contacts_phone_normalized')) {
+      return 'That phone number is already linked to another account';
+    }
+    if (m.contains('PHONE_INVALID')) {
+      return 'Enter a valid Cyprus mobile, e.g. 99 123456';
+    }
+    if (m.contains('PHONE_REQUIRED')) {
+      return 'Phone number is required';
+    }
     if (m.contains('duplicate') || m.contains('unique')) {
       return 'That username is already taken';
     }
     return friendlyError(e);
+  }
+
+  /// Cyprus mobile: 8 digits starting with 9, with or without the +357 /
+  /// 00357 prefix. Mirrors the server-side check (and profile_setup_page's
+  /// copy) so the user gets the error inline instead of after a round-trip.
+  static String? _validatePhone(String? v) {
+    final digits = (v ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return 'Phone number is required';
+    var d = digits;
+    if (d.startsWith('00')) d = d.substring(2);
+    if (d.length == 8 && d.startsWith('9')) d = '357$d';
+    if (!RegExp(r'^3579[0-9]{7}$').hasMatch(d)) {
+      return 'Enter a valid Cyprus mobile, e.g. 99 123456';
+    }
+    return null;
   }
 
   @override
@@ -187,10 +212,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     controller: _phoneCtrl,
                     keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
-                      labelText: 'Contact phone (optional)',
+                      labelText: 'Contact phone',
                       prefixIcon: Icon(Icons.phone_outlined),
                       helperText: 'Shared with opponents for confirmed matches',
                     ),
+                    validator: _validatePhone,
                   ),
                   const SizedBox(height: 28),
                   PressableScale(

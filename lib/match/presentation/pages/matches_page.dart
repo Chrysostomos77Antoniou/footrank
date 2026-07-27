@@ -6,6 +6,7 @@ import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/level_badge.dart';
+import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_model.dart';
@@ -34,6 +35,9 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   Future<List<MatchRequestModel>>? _future;
   Future<List<MatchModel>>? _matchesFuture;
   Future<List<MatchRequestModel>>? _opponentsFuture;
+
+  // Upcoming Matches / Match History.
+  int _matchesTab = 0;
 
   @override
   void initState() {
@@ -449,24 +453,46 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                       );
                     }),
                   ],
-                  _SectionHeader(title: 'Upcoming Matches'),
-                  if (upcoming.isEmpty)
-                    const Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Text('No upcoming matches.'),
-                    )
-                  else
-                    ...upcoming.map((m) => _MatchCard(match: m, myTeamId: myTeamId)),
-                  _SectionHeader(title: 'Match History'),
-                  if (history.isEmpty)
-                    const Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Text('No past matches yet.'),
-                    )
-                  else
-                    ...history.map((m) => _MatchCard(match: m, myTeamId: myTeamId)),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: GlassTabs(
+                      index: _matchesTab,
+                      tabs: const ['Upcoming Matches', 'Match History'],
+                      onChanged: (i) => setState(() => _matchesTab = i),
+                    ),
+                  ),
+                  IndexedStack(
+                    index: _matchesTab,
+                    alignment: Alignment.topCenter,
+                    children: [
+                      if (upcoming.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          child: Text('No upcoming matches.'),
+                        )
+                      else
+                        Column(
+                          children: upcoming
+                              .map((m) =>
+                                  _MatchCard(match: m, myTeamId: myTeamId))
+                              .toList(),
+                        ),
+                      if (history.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          child: Text('No past matches yet.'),
+                        )
+                      else
+                        Column(
+                          children: history
+                              .map((m) =>
+                                  _MatchCard(match: m, myTeamId: myTeamId))
+                              .toList(),
+                        ),
+                    ],
+                  ),
                 ],
               );
             },

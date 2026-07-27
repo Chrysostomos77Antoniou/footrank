@@ -127,16 +127,13 @@ class ProfileRepository {
     return rows.first['phone'] as String?;
   }
 
-  /// Upserts the current user's contact phone into the locked contacts table.
-  Future<void> saveMyPhone(String? phone) async {
-    final userId = SupabaseService.client.auth.currentUser?.id;
-    if (userId == null) throw StateError('No authenticated user');
-    await SupabaseService.client.from('user_contacts').upsert({
-      'user_id': userId,
-      'phone': (phone == null || phone.trim().isEmpty) ? null : phone.trim(),
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }, onConflict: 'user_id');
-  }
+  /// Validates and saves the current user's contact phone (required, unique,
+  /// Cyprus format) via a server-side RPC. The phone can never be cleared --
+  /// the RPC rejects empty/invalid/duplicate values with a distinct error
+  /// code (PHONE_REQUIRED / PHONE_INVALID / PHONE_TAKEN) instead of silently
+  /// nulling it out.
+  Future<void> saveMyPhone(String phone) => SupabaseService.client
+      .rpc('update_my_phone', params: {'p_phone': phone});
 
   Future<UserModel> updateProfile({
     required String name,

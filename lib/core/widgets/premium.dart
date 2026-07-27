@@ -190,6 +190,64 @@ class GlassCard extends StatelessWidget {
   }
 }
 
+/// Segmented tab switcher styled to match [GlassCard]. Pairs with an
+/// [IndexedStack] (or similar) for the actual tab content -- this widget is
+/// just the control, it doesn't manage a `TabController`.
+class GlassTabs extends StatelessWidget {
+  final int index;
+  final List<String> tabs;
+  final ValueChanged<int> onChanged;
+
+  const GlassTabs({
+    super.key,
+    required this.index,
+    required this.tabs,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(6),
+      radius: 20,
+      child: Row(
+        children: [
+          for (var i = 0; i < tabs.length; i++)
+            Expanded(
+              child: PressableScale(
+                onTap: () => onChanged(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: index == i
+                        ? AppColors.iconAccent(context).withValues(alpha: 0.14)
+                        : null,
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Text(
+                    tabs[i],
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: index == i
+                          ? AppColors.iconAccent(context)
+                          : Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Scales down briefly on tap for a tactile micro-interaction.
 class PressableScale extends StatefulWidget {
   final Widget child;

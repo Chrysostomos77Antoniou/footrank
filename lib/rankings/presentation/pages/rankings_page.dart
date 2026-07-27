@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/app_refresh.dart';
-import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
@@ -61,7 +60,7 @@ class _RankingsPageState extends State<RankingsPage> with ThemeRepaintMixin {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _GlassTabs(
+                child: GlassTabs(
                   index: _tab,
                   tabs: const ['Players', 'Teams'],
                   onChanged: (i) => setState(() => _tab = i),
@@ -83,60 +82,6 @@ class _RankingsPageState extends State<RankingsPage> with ThemeRepaintMixin {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _GlassTabs extends StatelessWidget {
-  final int index;
-  final List<String> tabs;
-  final ValueChanged<int> onChanged;
-
-  const _GlassTabs({
-    required this.index,
-    required this.tabs,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(6),
-      radius: 20,
-      child: Row(
-        children: [
-          for (var i = 0; i < tabs.length; i++)
-            Expanded(
-              child: PressableScale(
-                onTap: () => onChanged(i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  curve: Curves.easeOut,
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: index == i
-                        ? AppColors.iconAccent(context).withValues(alpha: 0.14)
-                        : null,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Text(
-                    tabs[i],
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: index == i
-                          ? AppColors.iconAccent(context)
-                          : Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.6),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }

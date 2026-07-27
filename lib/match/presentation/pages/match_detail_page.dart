@@ -4,6 +4,7 @@ import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/utils/maps_launcher.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
+import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_player_model.dart';
@@ -36,9 +37,14 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
   String? _opponentTeamId;
   TeamModel? _homeTeam;
   TeamModel? _awayTeam;
+  List<TeamMemberModel> _homeMembers = [];
+  List<TeamMemberModel> _awayMembers = [];
   List<Map<String, dynamic>> _contacts = [];
   Map<String, MatchPlayerModel> _attendance = {};
   Map<String, String> _myBehavior = {}; // targetUserId -> 'good'|'bad'
+
+  // Information / Contact / Attendance.
+  int _tab = 0;
 
   @override
   void initState() {
@@ -52,6 +58,11 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       final uid = SupabaseService.client.auth.currentUser?.id;
       final home = await _teamRepo.fetchById(match.homeTeamId);
       final away = await _teamRepo.fetchById(match.awayTeamId);
+      // Fetched once here (not per-rebuild) so marking attendance doesn't
+      // re-trigger a network fetch that reflows the page and jumps the
+      // scroll position back to the top.
+      final homeMembers = await _teamRepo.fetchMembers(home.id);
+      final awayMembers = await _teamRepo.fetchMembers(away.id);
 
       bool isCaptain = false;
       String? myTeamId;
@@ -62,6 +73,12 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
         opponentTeamId = away.id;
       } else if (uid == away.captainId) {
         isCaptain = true;
+        myTeamId = away.id;
+        opponentTeamId = home.id;
+      } else if (homeMembers.any((m) => m.userId == uid)) {
+        myTeamId = home.id;
+        opponentTeamId = away.id;
+      } else if (awayMembers.any((m) => m.userId == uid)) {
         myTeamId = away.id;
         opponentTeamId = home.id;
       }
@@ -84,6 +101,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
         _opponentTeamId = opponentTeamId;
         _homeTeam = home;
         _awayTeam = away;
+        _homeMembers = homeMembers;
+        _awayMembers = awayMembers;
         _contacts = contacts;
         _attendance = attendance;
         _myBehavior = behavior;
@@ -595,10 +614,12 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     final match = _match!;
     final status = MatchStatus.fromString(match.status);
     final hasScore = match.homeScore != null && match.awayScore != null;
-    final d = match.scheduledAt.toLocal();
-    final when =
-        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}'
-        ' · ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
+    final opponentMembers = _opponentTeamId == null
+        ? const <TeamMemberModel>[]
+        : (_opponentTeamId == match.homeTeamId ? _homeMembers : _awayMembers);
+    final showRateSection =
+        _isCaptain && _matchStarted && _opponentTeamId != null;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -634,7 +655,49 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        if (_isCaptain && status != MatchStatus.completed) ...[
+          const SizedBox(height: 8),
+          _buildScoreSection(),
+        ],
+        const SizedBox(height: 16),
+        GlassTabs(
+          index: _tab,
+          tabs: const ['Information', 'Contact', 'Attendance'],
+          onChanged: (i) => setState(() => _tab = i),
+        ),
+        const SizedBox(height: 12),
+        IndexedStack(
+          index: _tab,
+          alignment: Alignment.topCenter,
+          children: [
+            _buildInfoTab(match, status),
+            _buildContactTab(),
+            _buildAttendanceTab(match),
+          ],
+        ),
+        if (showRateSection) ...[
+          const SizedBox(height: 16),
+          _RateOppositionSection(
+            title: _opponentTeamId == match.homeTeamId
+                ? (match.homeTeamName ?? 'Home')
+                : (match.awayTeamName ?? 'Away'),
+            members: opponentMembers,
+            behavior: _myBehavior,
+            onRateGood: _rateGood,
+            onRateBad: _rateBad,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildInfoTab(MatchModel match, MatchStatus status) {
+    final d = match.scheduledAt.toLocal();
+    final when =
+        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}'
+        ' · ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    return Column(
+      children: [
         Card(
           child: Column(
             children: [
@@ -661,52 +724,54 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
             ],
           ),
         ),
-        const SizedBox(height: 8),
-        if (match.suggestedCourtId != null) _SuggestedCourtCard(match: match),
-        const SizedBox(height: 8),
-        _buildContactCard(),
-        if (_isCaptain && status != MatchStatus.completed) _buildScoreSection(),
-        const SizedBox(height: 16),
+        if (match.suggestedCourtId != null) ...[
+          const SizedBox(height: 8),
+          _SuggestedCourtCard(match: match),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildContactTab() {
+    if (_contacts.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: Text('No contacts to show yet.')),
+      );
+    }
+    return _buildContactCard();
+  }
+
+  Widget _buildAttendanceTab(MatchModel match) {
+    if (_myTeamId == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: Text('You are not part of either squad.')),
+      );
+    }
+    final myTeamName = _myTeamId == match.homeTeamId
+        ? (match.homeTeamName ?? 'Home')
+        : (match.awayTeamName ?? 'Away');
+    final myMembers = _myTeamId == match.homeTeamId ? _homeMembers : _awayMembers;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         if (_isCaptain)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: Text(
-              'Squads of exactly 5 are counted automatically. With a bigger '
-              'squad, mark as captain who actually played (at least 5 -- '
-              'more if you used substitutes).',
+              'Mark which of your players actually played (at least 5). '
+              'You can change a mark any time before the score is submitted.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
+        const SizedBox(height: 4),
         _TeamRoster(
-          title: match.homeTeamName ?? 'Home',
-          teamId: match.homeTeamId,
-          teamRepo: _teamRepo,
+          title: myTeamName,
+          members: myMembers,
           attendance: _attendance,
-          canMark: _isCaptain && _myTeamId == match.homeTeamId,
+          canMark: _isCaptain,
           onMark: _mark,
-          canRate:
-              _isCaptain &&
-              _opponentTeamId == match.homeTeamId &&
-              _matchStarted,
-          behavior: _myBehavior,
-          onRateGood: _rateGood,
-          onRateBad: _rateBad,
-        ),
-        const SizedBox(height: 16),
-        _TeamRoster(
-          title: match.awayTeamName ?? 'Away',
-          teamId: match.awayTeamId,
-          teamRepo: _teamRepo,
-          attendance: _attendance,
-          canMark: _isCaptain && _myTeamId == match.awayTeamId,
-          onMark: _mark,
-          canRate:
-              _isCaptain &&
-              _opponentTeamId == match.awayTeamId &&
-              _matchStarted,
-          behavior: _myBehavior,
-          onRateGood: _rateGood,
-          onRateBad: _rateBad,
         ),
       ],
     );
@@ -776,29 +841,23 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
+/// A single team's squad list. Purely presentational -- takes the already
+/// fetched [members] instead of re-fetching on every rebuild, which used to
+/// cause a loading-spinner flicker (and the resulting scroll jump) every
+/// time a captain marked one player's attendance.
 class _TeamRoster extends StatelessWidget {
   final String title;
-  final String teamId;
-  final TeamRepository teamRepo;
+  final List<TeamMemberModel> members;
   final Map<String, MatchPlayerModel> attendance;
   final bool canMark;
   final void Function(TeamMemberModel player, bool attended) onMark;
-  final bool canRate;
-  final Map<String, String> behavior;
-  final void Function(TeamMemberModel player) onRateGood;
-  final void Function(TeamMemberModel player) onRateBad;
 
   const _TeamRoster({
     required this.title,
-    required this.teamId,
-    required this.teamRepo,
+    required this.members,
     required this.attendance,
     required this.canMark,
     required this.onMark,
-    this.canRate = false,
-    this.behavior = const {},
-    required this.onRateGood,
-    required this.onRateBad,
   });
 
   @override
@@ -811,66 +870,95 @@ class _TeamRoster extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
-        FutureBuilder<List<TeamMemberModel>>(
-          future: teamRepo.fetchMembers(teamId),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-            final members = snapshot.data ?? [];
-            if (members.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.all(8),
-                child: Text('No players listed'),
-              );
-            }
-            // A squad of exactly (or fewer than) 5 has no bench to choose
-            // from -- everyone who's on the team played, so there's nothing
-            // for the captain to decide. Manual marking only matters once a
-            // squad is bigger than the 5 that can actually take the pitch.
-            final smallSquad = members.length <= 5;
-            return Column(
-              children: members.map((m) {
-                final att = attendance[m.userId]?.attended;
-                final Widget trailing;
-                if (canRate) {
-                  trailing = _BehaviorControl(
-                    rating: behavior[m.userId],
-                    onGood: () => onRateGood(m),
-                    onBad: () => onRateBad(m),
-                  );
-                } else if (canMark && !smallSquad) {
-                  trailing = _AttendanceToggle(
-                    attended: att,
-                    onPresent: () => onMark(m, true),
-                    onAbsent: () => onMark(m, false),
-                  );
-                } else if (smallSquad) {
-                  trailing = const _AttendanceBadge(attended: true);
-                } else {
-                  trailing = _AttendanceBadge(attended: att);
-                }
-                return Card(
-                  child: ListTile(
-                    dense: true,
-                    onTap: () => showPlayerSheetById(context, m.userId),
-                    leading: GradientAvatar(name: m.name, radius: 18),
-                    title: Text(m.name),
-                    subtitle: Text(
-                      [
-                        if (m.position != null) m.position,
-                        'PWR ${m.elo}',
-                      ].join(' · '),
-                    ),
-                    trailing: trailing,
+        if (members.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(8),
+            child: Text('No players listed'),
+          )
+        else
+          Column(
+            children: members.map((m) {
+              final att = attendance[m.userId]?.attended;
+              final Widget trailing = canMark
+                  ? _AttendanceToggle(
+                      attended: att,
+                      onPresent: () => onMark(m, true),
+                      onAbsent: () => onMark(m, false),
+                    )
+                  : _AttendanceBadge(attended: att);
+              return Card(
+                child: ListTile(
+                  dense: true,
+                  onTap: () => showPlayerSheetById(context, m.userId),
+                  leading: GradientAvatar(name: m.name, radius: 18),
+                  title: Text(m.name),
+                  subtitle: Text(
+                    [
+                      if (m.position != null) m.position,
+                      'PWR ${m.elo}',
+                    ].join(' · '),
                   ),
-                );
-              }).toList(),
+                  trailing: trailing,
+                ),
+              );
+            }).toList(),
+          ),
+      ],
+    );
+  }
+}
+
+/// The opponent squad, shown only for rating post-match behavior -- no
+/// attendance data, matching the captain's own squad being the only roster
+/// visible in the Attendance tab.
+class _RateOppositionSection extends StatelessWidget {
+  final String title;
+  final List<TeamMemberModel> members;
+  final Map<String, String> behavior;
+  final void Function(TeamMemberModel player) onRateGood;
+  final void Function(TeamMemberModel player) onRateBad;
+
+  const _RateOppositionSection({
+    required this.title,
+    required this.members,
+    required this.behavior,
+    required this.onRateGood,
+    required this.onRateBad,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (members.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Rate $title',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Column(
+          children: members.map((m) {
+            return Card(
+              child: ListTile(
+                dense: true,
+                onTap: () => showPlayerSheetById(context, m.userId),
+                leading: GradientAvatar(name: m.name, radius: 18),
+                title: Text(m.name),
+                subtitle: Text(
+                  [
+                    if (m.position != null) m.position,
+                    'PWR ${m.elo}',
+                  ].join(' · '),
+                ),
+                trailing: _BehaviorControl(
+                  rating: behavior[m.userId],
+                  onGood: () => onRateGood(m),
+                  onBad: () => onRateBad(m),
+                ),
+              ),
             );
-          },
+          }).toList(),
         ),
       ],
     );
