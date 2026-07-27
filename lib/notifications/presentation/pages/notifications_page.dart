@@ -52,9 +52,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Notifications')),
       body: AmbientBackground(
-        child: RefreshIndicator(
-          onRefresh: () async => _reload(),
-          child: FutureBuilder<List<NotificationModel>>(
+        child: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: () async => _reload(),
+            child: FutureBuilder<List<NotificationModel>>(
             future: _future,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -136,6 +137,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 },
               );
             },
+            ),
           ),
         ),
       ),

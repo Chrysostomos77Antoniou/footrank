@@ -6,6 +6,8 @@ import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/utils/emojis.dart';
+import 'package:footrank/core/utils/error_text.dart';
+import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -135,14 +137,20 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
           future: _profileFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const LoadingView();
             }
             if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
+              return ErrorView(
+                message: friendlyError(snapshot.error!),
+                onRetry: _refresh,
+              );
             }
             final user = snapshot.data;
             if (user == null) {
-              return const Center(child: Text('No profile found'));
+              return const EmptyView(
+                icon: Icons.person_off_outlined,
+                title: 'No profile found',
+              );
             }
             return SafeArea(
               child: ListView(
@@ -182,29 +190,18 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  // Pitch Power already has the hero LevelBadge on the avatar
+                  // above — no need to repeat it as an equal-weight stat tile.
                   FadeSlideIn(
                     delay: const Duration(milliseconds: 120),
                     child: Row(
                       children: [
                         _StatCard(
-                          label: 'Pitch Power',
-                          animateTo: user.elo,
-                          icon: Icons.trending_up,
-                        ),
-                        const SizedBox(width: 12),
-                        _StatCard(
                           label: 'Matches',
                           animateTo: user.matchesPlayed,
                           icon: Icons.sports_soccer,
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 200),
-                    child: Row(
-                      children: [
+                        const SizedBox(width: 12),
                         _StatCard(
                           label: 'Reliability',
                           animateTo: user.reliability,
@@ -303,7 +300,10 @@ class _MatchHistory extends StatelessWidget {
         final data = snap.data;
         final matches = data?.matches ?? [];
         if (snap.connectionState != ConnectionState.done) {
-          return const SizedBox.shrink();
+          return const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: SkeletonList(count: 2, itemHeight: 48),
+          );
         }
         if (data?.teamId == null || matches.isEmpty) {
           return const SizedBox.shrink();
@@ -400,7 +400,6 @@ class _ProfileHero extends StatelessWidget {
               onPressed: onEdit,
               icon: const Icon(Icons.edit_outlined),
               tooltip: 'Edit Profile',
-              visualDensity: VisualDensity.compact,
             ),
           ),
           _heroColumn(context),

@@ -113,55 +113,73 @@ class _CreateTeamPageState extends State<CreateTeamPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 8),
-                  Center(
-                      child: Icon(Icons.shield_outlined,
-                          size: 52, color: AppColors.iconAccent(context))),
+                  FadeSlideIn(
+                    child: Center(
+                        child: Icon(Icons.shield_outlined,
+                            size: 52, color: AppColors.iconAccent(context))),
+                  ),
                   const SizedBox(height: 8),
-                  const Center(
-                    child: GradientText('Start your squad',
-                        style: TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.w900)),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 80),
+                    child: const Center(
+                      child: GradientText('Start your squad',
+                          style: TextStyle(
+                              fontSize: 22, fontWeight: FontWeight.w900)),
+                    ),
                   ),
                   const SizedBox(height: 4),
-                  Text('You\'ll be the captain. Add a logo later from the team page.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 120),
+                    child: Text(
+                        'You\'ll be the captain. Add a logo later from the team page.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ),
                   const SizedBox(height: 24),
-                  TextFormField(
-                    controller: _nameCtrl,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                      labelText: 'Team Name',
-                      prefixIcon: Icon(Icons.shield_outlined),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 160),
+                    child: TextFormField(
+                      controller: _nameCtrl,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'Team Name',
+                        prefixIcon: Icon(Icons.shield_outlined),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Team name is required'
+                          : null,
                     ),
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'Team name is required'
-                        : null,
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _city,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'City',
-                      prefixIcon: Icon(Icons.place_outlined),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 200),
+                    child: DropdownButtonFormField<String>(
+                      value: _city,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'City',
+                        prefixIcon: Icon(Icons.place_outlined),
+                      ),
+                      items: kCities
+                          .map((c) =>
+                              DropdownMenuItem(value: c, child: Text(c)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _city = v),
                     ),
-                    items: kCities
-                        .map((c) =>
-                            DropdownMenuItem(value: c, child: Text(c)))
-                        .toList(),
-                    onChanged: (v) => setState(() => _city = v),
                   ),
                   const SizedBox(height: 28),
-                  FilledButton(
-                    onPressed: _loading ? null : _submit,
-                    child: _loading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Create Team'),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 240),
+                    child: FilledButton(
+                      onPressed: _loading ? null : _submit,
+                      child: _loading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Create Team'),
+                    ),
                   ),
                 ],
               ),

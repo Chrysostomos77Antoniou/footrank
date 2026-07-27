@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
+import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
@@ -140,97 +141,111 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
         title: const Text('Set Up Your Profile'),
         automaticallyImplyLeading: false,
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Tell us about yourself',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 24),
-                TextFormField(
-                  controller: _nameCtrl,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    border: OutlineInputBorder(),
+      body: AmbientBackground(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FadeSlideIn(
+                    child: Text(
+                      'Tell us about yourself',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty ? 'Name is required' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _usernameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
-                    prefixText: '@',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 24),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 60),
+                    child: TextFormField(
+                      controller: _nameCtrl,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(labelText: 'Full Name'),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Name is required'
+                          : null,
+                    ),
                   ),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Username is required';
-                    }
-                    if (v.trim().length < 3) {
-                      return 'At least 3 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Mobile Number',
-                    prefixText: '+357 ',
-                    hintText: '99 123456',
-                    helperText: 'Used to confirm you and to reach you about matches',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 100),
+                    child: TextFormField(
+                      controller: _usernameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Username',
+                        prefixText: '@',
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Username is required';
+                        }
+                        if (v.trim().length < 3) {
+                          return 'At least 3 characters';
+                        }
+                        return null;
+                      },
+                    ),
                   ),
-                  validator: _validatePhone,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _city,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'City',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 140),
+                    child: TextFormField(
+                      controller: _phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Mobile Number',
+                        prefixText: '+357 ',
+                        hintText: '99 123456',
+                        helperText:
+                            'Used to confirm you and to reach you about matches',
+                      ),
+                      validator: _validatePhone,
+                    ),
                   ),
-                  items: kCities
-                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _city = v),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _position,
-                  decoration: const InputDecoration(
-                    labelText: 'Preferred Position',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 180),
+                    child: DropdownButtonFormField<String>(
+                      value: _city,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'City'),
+                      items: kCities
+                          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _city = v),
+                    ),
                   ),
-                  items: _positions
-                      .map((p) => DropdownMenuItem(value: p, child: Text(p)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _position = v),
-                ),
-                const SizedBox(height: 32),
-                FilledButton(
-                  onPressed: _loading ? null : _submit,
-                  child: _loading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Continue'),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 220),
+                    child: DropdownButtonFormField<String>(
+                      value: _position,
+                      decoration: const InputDecoration(
+                          labelText: 'Preferred Position'),
+                      items: _positions
+                          .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _position = v),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 260),
+                    child: FilledButton(
+                      onPressed: _loading ? null : _submit,
+                      child: _loading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Continue'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

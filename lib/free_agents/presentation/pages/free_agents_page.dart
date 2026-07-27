@@ -100,54 +100,56 @@ class _FreeAgentsPageState extends State<FreeAgentsPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Free Agents')),
       body: AmbientBackground(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: _FilterBar(filter: _filter, onChanged: _applyFilter),
-            ),
-            Expanded(
-              child: FutureBuilder<List<UserModel>>(
-                future: _future,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const LoadingView();
-                  }
-                  if (snapshot.hasError) {
-                    return ErrorView(
-                        onRetry: () => _applyFilter(_filter));
-                  }
-                  final agents = snapshot.data ?? [];
-                  if (agents.isEmpty) {
-                    return const EmptyView(
-                      icon: Icons.person_search_outlined,
-                      title: 'No free agents found',
-                      hint: 'Try clearing the filters, or check back later.',
-                    );
-                  }
-                  return ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-                    itemCount: agents.length,
-                    itemBuilder: (context, i) {
-                      final a = agents[i];
-                      return FadeSlideIn(
-                        delay: Duration(milliseconds: 30 * i),
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _AgentCard(
-                            agent: a,
-                            canInvite: _myTeam != null,
-                            invited: _invitedIds.contains(a.id),
-                            onInvite: () => _invite(a),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: _FilterBar(filter: _filter, onChanged: _applyFilter),
               ),
-            ),
-          ],
+              Expanded(
+                child: FutureBuilder<List<UserModel>>(
+                  future: _future,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const LoadingView();
+                    }
+                    if (snapshot.hasError) {
+                      return ErrorView(
+                          onRetry: () => _applyFilter(_filter));
+                    }
+                    final agents = snapshot.data ?? [];
+                    if (agents.isEmpty) {
+                      return const EmptyView(
+                        icon: Icons.person_search_outlined,
+                        title: 'No free agents found',
+                        hint: 'Try clearing the filters, or check back later.',
+                      );
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                      itemCount: agents.length,
+                      itemBuilder: (context, i) {
+                        final a = agents[i];
+                        return FadeSlideIn(
+                          delay: Duration(milliseconds: 30 * i),
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _AgentCard(
+                              agent: a,
+                              canInvite: _myTeam != null,
+                              invited: _invitedIds.contains(a.id),
+                              onInvite: () => _invite(a),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -200,9 +202,12 @@ class _AgentCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              _Chip(icon: Icons.shield_outlined, text: '${agent.reliability}%'),
+              GradientPill(
+                  icon: Icons.shield_outlined,
+                  text: '${agent.reliability}%'),
               const SizedBox(width: 8),
-              _Chip(icon: Icons.handshake_outlined, text: agent.behaviorLabel),
+              GradientPill(
+                  icon: Icons.handshake_outlined, text: agent.behaviorLabel),
               const Spacer(),
               if (canInvite)
                 invited
@@ -214,7 +219,7 @@ class _AgentCard extends StatelessWidget {
                     : FilledButton.icon(
                         onPressed: onInvite,
                         style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 38),
+                          minimumSize: const Size(0, 44),
                           padding:
                               const EdgeInsets.symmetric(horizontal: 16),
                         ),
@@ -223,32 +228,6 @@ class _AgentCard extends StatelessWidget {
                       ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _Chip({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: c),
-          const SizedBox(width: 4),
-          Text(text, style: TextStyle(fontSize: 12, color: c)),
         ],
       ),
     );

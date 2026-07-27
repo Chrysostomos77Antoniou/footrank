@@ -66,43 +66,57 @@ class _JoinTeamPageState extends State<JoinTeamPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 8),
-                  Center(
-                      child: Icon(Icons.vpn_key_outlined,
-                          size: 52, color: AppColors.iconAccent(context))),
+                  FadeSlideIn(
+                    child: Center(
+                        child: Icon(Icons.vpn_key_outlined,
+                            size: 52, color: AppColors.iconAccent(context))),
+                  ),
                   const SizedBox(height: 8),
-                  const Center(
-                    child: GradientText('Join a team',
-                        style: TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.w900)),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 80),
+                    child: const Center(
+                      child: GradientText('Join a team',
+                          style: TextStyle(
+                              fontSize: 22, fontWeight: FontWeight.w900)),
+                    ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Enter the invite code shared by the team captain.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall,
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 120),
+                    child: Text(
+                      'Enter the invite code shared by the team captain.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ),
                   const SizedBox(height: 24),
-                  TextFormField(
-                    controller: _codeCtrl,
-                    textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(
-                      labelText: 'Invite Code',
-                      prefixIcon: Icon(Icons.vpn_key_outlined),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 160),
+                    child: TextFormField(
+                      controller: _codeCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: const InputDecoration(
+                        labelText: 'Invite Code',
+                        prefixIcon: Icon(Icons.vpn_key_outlined),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Invite code is required'
+                          : null,
                     ),
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'Invite code is required'
-                        : null,
                   ),
                   const SizedBox(height: 28),
-                  FilledButton(
-                    onPressed: _loading ? null : _submit,
-                    child: _loading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Send Join Request'),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 200),
+                    child: FilledButton(
+                      onPressed: _loading ? null : _submit,
+                      child: _loading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Send Join Request'),
+                    ),
                   ),
                 ],
               ),

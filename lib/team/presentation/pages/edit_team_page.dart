@@ -95,66 +95,62 @@ class _EditTeamPageState extends State<EditTeamPage> {
               key: _formKey,
               child: Column(
                 children: [
-                  _LogoPicker(
-                    name: _nameCtrl.text.isEmpty ? '?' : _nameCtrl.text,
-                    pickedBytes: _pickedBytes,
-                    currentUrl: _currentLogo,
-                    onTap: _pickImage,
+                  FadeSlideIn(
+                    child: _LogoPicker(
+                      name: _nameCtrl.text.isEmpty ? '?' : _nameCtrl.text,
+                      pickedBytes: _pickedBytes,
+                      currentUrl: _currentLogo,
+                      onTap: _pickImage,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: _pickImage,
-                    icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('Change team logo'),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 60),
+                    child: TextButton.icon(
+                      onPressed: _pickImage,
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text('Change team logo'),
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _nameCtrl,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                      labelText: 'Team Name',
-                      prefixIcon: Icon(Icons.shield_outlined),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 120),
+                    child: TextFormField(
+                      controller: _nameCtrl,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'Team Name',
+                        prefixIcon: Icon(Icons.shield_outlined),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Team name is required'
+                          : null,
                     ),
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'Team name is required'
-                        : null,
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _city,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'City',
-                      prefixIcon: Icon(Icons.place_outlined),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 160),
+                    child: DropdownButtonFormField<String>(
+                      value: _city,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'City',
+                        prefixIcon: Icon(Icons.place_outlined),
+                      ),
+                      items: kCities
+                          .map((c) =>
+                              DropdownMenuItem(value: c, child: Text(c)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _city = v),
                     ),
-                    items: kCities
-                        .map((c) =>
-                            DropdownMenuItem(value: c, child: Text(c)))
-                        .toList(),
-                    onChanged: (v) => setState(() => _city = v),
                   ),
                   const SizedBox(height: 28),
-                  PressableScale(
-                    onTap: _saving ? () {} : _save,
-                    child: Container(
-                      height: 54,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: AppColors.brand(context),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: _saving
-                          ? SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: AppColors.onBrand(context)),
-                            )
-                          : Text('Save Changes',
-                              style: TextStyle(
-                                  color: AppColors.onBrand(context),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800)),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 200),
+                    child: BrandButton(
+                      label: 'Save Changes',
+                      loading: _saving,
+                      onPressed: _save,
                     ),
                   ),
                 ],

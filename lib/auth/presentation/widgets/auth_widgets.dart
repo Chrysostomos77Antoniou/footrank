@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/widgets/premium.dart';
 
 /// Dark, translucent text field used on the branded auth screens.
@@ -75,11 +76,11 @@ class _AuthFieldState extends State<AuthField> {
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.08),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           borderSide: const BorderSide(color: AppColors.lime, width: 1.6),
         ),
         errorStyle: const TextStyle(color: Color(0xFFFFB4A8)),
@@ -106,11 +107,11 @@ class AuthPrimaryButton extends StatelessWidget {
     return PressableScale(
       onTap: loading ? () {} : onPressed,
       child: Container(
-        height: 54,
+        height: 52,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: AppColors.lime,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
         child: loading
             ? const SizedBox(
@@ -183,10 +184,10 @@ class AuthCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(compact ? 14 : 22),
+      padding: EdgeInsets.all(compact ? AppSpacing.md : AppSpacing.xl),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppRadius.xl),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: child,
@@ -204,7 +205,7 @@ class AuthOrDivider extends StatelessWidget {
       children: [
         Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.25))),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           child: Text(
             'or',
             style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),

@@ -8,6 +8,7 @@ import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
+import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/join_request_model.dart';
 import 'package:footrank/models/team_member_model.dart';
@@ -68,7 +69,10 @@ class _TeamPageState extends State<TeamPage> with ThemeRepaintMixin {
                 return const SkeletonList();
               }
               if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
+                return ErrorView(
+                  message: friendlyError(snapshot.error!),
+                  onRetry: _reload,
+                );
               }
               final teams = snapshot.data ?? [];
               if (teams.isEmpty) {
@@ -300,10 +304,10 @@ class _NoTeamView extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 24),
-                _GradientButton(
+                BrandButton(
                   label: 'Create Team',
                   icon: Icons.add,
-                  onTap: onCreate,
+                  onPressed: onCreate,
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
@@ -364,11 +368,17 @@ class _TeamView extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: _MiniStat(
-                    leading: Icon(Icons.star_rounded,
-                        color: AppColors.iconAccent(context)),
-                    value: '${team.rating}',
-                    label: 'Pitch Power',
+                  child: GlassCard(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+                    child: Column(
+                      children: [
+                        LevelBadge(value: team.rating, size: 46),
+                        const SizedBox(height: 8),
+                        Text('Pitch Power',
+                            style: Theme.of(context).textTheme.bodySmall),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -402,22 +412,32 @@ class _TeamView extends StatelessWidget {
             ),
           ],
           if (_isCaptain && !team.isDisbanded)
-            _PendingRequests(team: team, repo: repo, onChanged: onChanged),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 200),
+              child: _PendingRequests(
+                  team: team, repo: repo, onChanged: onChanged),
+            ),
           const SizedBox(height: 18),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text('Squad',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w800)),
+          FadeSlideIn(
+            delay: const Duration(milliseconds: 240),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text('Squad',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800)),
+            ),
           ),
           const SizedBox(height: 10),
-          _MemberList(
-            teamId: team.id,
-            repo: repo,
-            isCaptain: _isCaptain && !team.isDisbanded,
-            onChanged: onChanged,
+          FadeSlideIn(
+            delay: const Duration(milliseconds: 280),
+            child: _MemberList(
+              teamId: team.id,
+              repo: repo,
+              isCaptain: _isCaptain && !team.isDisbanded,
+              onChanged: onChanged,
+            ),
           ),
           const SizedBox(height: 24),
           _LeaveDisbandButton(
@@ -645,42 +665,6 @@ class _InviteCodeCard extends StatelessWidget {
             },
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _GradientButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  const _GradientButton(
-      {required this.label, required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return PressableScale(
-      onTap: onTap,
-      child: Container(
-        height: 54,
-        width: double.infinity,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppColors.brand(context),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: AppColors.onBrand(context)),
-            const SizedBox(width: 8),
-            Text(label,
-                style: TextStyle(
-                    color: AppColors.onBrand(context),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16)),
-          ],
-        ),
       ),
     );
   }
@@ -918,23 +902,22 @@ class _MemberListState extends State<_MemberList> {
     }
   }
 
-  Color _roleColor(BuildContext context, TeamMemberModel m) => m.isCaptain
-      ? AppColors.gold
-      : (m.isViceCaptain ? AppColors.brand(context) : Colors.transparent);
-
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<TeamMemberModel>>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(child: CircularProgressIndicator()),
-          );
+          return const SkeletonList(count: 3, itemHeight: 60);
         }
         final members = snapshot.data ?? [];
-        if (members.isEmpty) return const Text('No players yet');
+        if (members.isEmpty) {
+          return const EmptyView(
+            icon: Icons.groups_outlined,
+            title: 'No players yet',
+            hint: 'Share the invite code to start building your squad.',
+          );
+        }
         return Column(
           children: members.map((m) {
             final showActions = widget.isCaptain && !m.isCaptain;
@@ -976,9 +959,7 @@ class _MemberListState extends State<_MemberList> {
                         ],
                       ),
                     ),
-                    if (!showActions)
-                      _RoleChip(member: m, color: _roleColor(context, m))
-                    else
+                    if (showActions)
                       PopupMenuButton<String>(
                         icon: const Icon(Icons.more_vert),
                         onSelected: (v) {
@@ -1021,23 +1002,3 @@ class _MemberListState extends State<_MemberList> {
   }
 }
 
-class _RoleChip extends StatelessWidget {
-  final TeamMemberModel member;
-  final Color color;
-  const _RoleChip({required this.member, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    if (member.role == 'player') return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(member.roleLabel,
-          style: TextStyle(
-              color: color, fontWeight: FontWeight.bold, fontSize: 12)),
-    );
-  }
-}

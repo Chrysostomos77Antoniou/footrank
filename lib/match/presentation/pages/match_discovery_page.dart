@@ -1,7 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
+import 'package:footrank/core/widgets/async_views.dart';
+import 'package:footrank/core/widgets/brand_widgets.dart';
+import 'package:footrank/core/widgets/level_badge.dart';
+import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_request_model.dart';
@@ -196,61 +201,62 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Find Opponents')),
-      body: FutureBuilder<List<MatchRequestModel>>(
-        future: _myRequestsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-          final myRequests = snapshot.data ?? [];
-          if (myRequests.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Create an open match request first, then come back to find opponents.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
+      body: AmbientBackground(
+        child: SafeArea(
+          child: FutureBuilder<List<MatchRequestModel>>(
+            future: _myRequestsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const LoadingView();
+              }
+              if (snapshot.hasError) {
+                return ErrorView(message: friendlyError(snapshot.error!));
+              }
+              final myRequests = snapshot.data ?? [];
+              if (myRequests.isEmpty) {
+                return const EmptyView(
+                  icon: Icons.sports_soccer_outlined,
+                  title: 'No open match requests',
+                  hint: 'Create an open match request first, then come back '
+                      'to find opponents.',
+                );
+              }
 
-          // Default to first reference once loaded.
-          _reference ??= myRequests.first;
-          _opponentsFuture ??= _findOpponentsFor(_reference!);
+              // Default to first reference once loaded.
+              _reference ??= myRequests.first;
+              _opponentsFuture ??= _findOpponentsFor(_reference!);
 
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: DropdownButtonFormField<MatchRequestModel>(
-                  value: _reference,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Your match request',
-                    border: OutlineInputBorder(),
-                    isDense: true,
+              return Column(
+                children: [
+                  FadeSlideIn(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: DropdownButtonFormField<MatchRequestModel>(
+                        value: _reference,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Your match request',
+                          isDense: true,
+                        ),
+                        items: myRequests
+                            .map((r) => DropdownMenuItem(
+                                  value: r,
+                                  child: Text(_label(r),
+                                      overflow: TextOverflow.ellipsis),
+                                ))
+                            .toList(),
+                        onChanged: (r) {
+                          if (r != null) _selectReference(r);
+                        },
+                      ),
+                    ),
                   ),
-                  items: myRequests
-                      .map((r) => DropdownMenuItem(
-                            value: r,
-                            child: Text(_label(r),
-                                overflow: TextOverflow.ellipsis),
-                          ))
-                      .toList(),
-                  onChanged: (r) {
-                    if (r != null) _selectReference(r);
-                  },
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(child: _buildOpponents()),
-            ],
-          );
-        },
+                  Expanded(child: _buildOpponents()),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -260,10 +266,10 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
       future: _opponentsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const LoadingView();
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          return ErrorView(message: friendlyError(snapshot.error!));
         }
         final opponents = (snapshot.data ?? [])
             .where((o) => !_dismissed.containsKey(o.id))
@@ -292,81 +298,118 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.search_off,
-                      size: 46, color: onSurface.withValues(alpha: 0.35)),
-                  const SizedBox(height: 12),
-                  Text('No matching opponents found',
-                      style: Theme.of(context).textTheme.titleMedium,
-                      textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Opponents must be in the same city, on the same date '
-                    '(±$mins min), and within ±$band rating points.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: onSurface.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(ratingLine,
+              child: FadeSlideIn(
+                child: GlassCard(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.brand(context).withValues(alpha: 0.10),
+                        ),
+                        child: Icon(Icons.search_off,
+                            size: 36, color: AppColors.brand(context)),
+                      ),
+                      const SizedBox(height: 16),
+                      Text('No matching opponents found',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                          textAlign: TextAlign.center),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Opponents must be in the same city, on the same date '
+                        '(±$mins min), and within ±$band rating points.',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: AppColors.muted(context)),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: onSurface.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(ratingLine,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium),
+                      ),
+                      if (refLine.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(refLine,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: AppColors.muted(context))),
+                      ],
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.share_outlined),
+                          label: const Text('Invite a rival team'),
+                          onPressed: _inviteRival,
+                        ),
+                      ),
+                    ],
                   ),
-                  if (refLine.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(refLine,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall),
-                  ],
-                  const SizedBox(height: 20),
-                  FilledButton.icon(
-                    icon: const Icon(Icons.share_outlined),
-                    label: const Text('Invite a rival team'),
-                    onPressed: _inviteRival,
-                  ),
-                ],
+                ),
               ),
             ),
           );
         }
         return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 6),
           itemCount: opponents.length,
           itemBuilder: (context, i) {
             final o = opponents[i];
             final d = o.scheduledAt.toLocal();
             final time =
                 '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-            return Card(
-              margin:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            return FadeSlideIn(
+              delay: Duration(milliseconds: 50 * i),
               child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        child: Text((o.teamName ?? '?')[0].toUpperCase()),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: GlassCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          GradientAvatar(name: o.teamName ?? '?', radius: 22),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(o.teamName ?? 'Unknown team',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 2),
+                                Text('${o.city} · $time · ${o.matchType}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall),
+                              ],
+                            ),
+                          ),
+                          LevelBadge(value: o.teamRating ?? 0, size: 36),
+                        ],
                       ),
-                      title: Text(o.teamName ?? 'Unknown team'),
-                      subtitle: Text('${o.city} · $time · ${o.matchType}'),
-                      trailing: Text(
-                        'Rating ${o.teamRating ?? '-'}',
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                    ),
                     if (_courtBadge(o.courtCompatibilityScore) != null)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           _courtBadge(o.courtCompatibilityScore)!,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -374,6 +417,7 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
                               color: Theme.of(context).colorScheme.primary),
                         ),
                       ),
+                    const SizedBox(height: 10),
                     // Expanded bounds the buttons; the themed FilledButton uses
                     // an infinite min width that would otherwise overflow the Row.
                     Row(
@@ -394,6 +438,7 @@ class _MatchDiscoveryPageState extends State<MatchDiscoveryPage> {
                       ],
                     ),
                   ],
+                  ),
                 ),
               ),
             );

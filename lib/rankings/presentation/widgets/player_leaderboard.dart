@@ -134,7 +134,10 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                 return const SkeletonList();
               }
               if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
+                return ErrorView(
+                  message: friendlyError(snapshot.error!),
+                  onRetry: _refresh,
+                );
               }
               final all = snapshot.data ?? [];
               final q = _searchCtrl.text.trim().toLowerCase();
@@ -150,14 +153,15 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                   onRefresh: () async => _refresh(),
                   child: ListView(
                     children: [
-                      const SizedBox(height: 120),
-                      Center(
-                        child: Text(
-                          q.isEmpty
-                              ? 'No ranked players yet.\nPlayers appear here after playing 5+ matches.'
-                              : 'No players match "$q".',
-                          textAlign: TextAlign.center,
-                        ),
+                      const SizedBox(height: 80),
+                      EmptyView(
+                        icon: Icons.emoji_events_outlined,
+                        title: q.isEmpty
+                            ? 'No ranked players yet'
+                            : 'No players match "$q"',
+                        hint: q.isEmpty
+                            ? 'Players appear here after playing 5+ matches.'
+                            : null,
                       ),
                     ],
                   ),
@@ -217,7 +221,6 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                               const SizedBox(width: 2),
                               IconButton(
                                 tooltip: 'Invite to a team',
-                                visualDensity: VisualDensity.compact,
                                 icon: Icon(Icons.person_add_alt_1_outlined,
                                     color: AppColors.iconAccent(context)),
                                 onPressed: () => _invite(p),

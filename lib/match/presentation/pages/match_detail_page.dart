@@ -3,7 +3,9 @@ import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/utils/maps_launcher.dart';
+import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
+import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_model.dart';
@@ -447,16 +449,14 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       );
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Captains', style: Theme.of(context).textTheme.titleMedium),
-            ...rows,
-          ],
-        ),
+    return GlassCard(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Captains', style: Theme.of(context).textTheme.titleMedium),
+          ...rows,
+        ],
       ),
     );
   }
@@ -570,13 +570,10 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       );
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: children,
-        ),
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
       ),
     );
   }
@@ -603,13 +600,21 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
             ),
         ],
       ),
-      body: _buildBody(),
+      body: AmbientBackground(child: SafeArea(child: _buildBody())),
     );
   }
 
   Widget _buildBody() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return Center(child: Text('Error: $_error'));
+    if (_loading) return const LoadingView();
+    if (_error != null) {
+      return ErrorView(
+        message: friendlyError(_error!),
+        onRetry: () {
+          setState(() => _loading = true);
+          _load();
+        },
+      );
+    }
 
     final match = _match!;
     final status = MatchStatus.fromString(match.status);
@@ -624,8 +629,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Card(
-          child: Padding(
+        FadeSlideIn(
+          child: GlassCard(
             padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
             child: Row(
               children: [
@@ -657,23 +662,31 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
         ),
         if (_isCaptain && status != MatchStatus.completed) ...[
           const SizedBox(height: 8),
-          _buildScoreSection(),
+          FadeSlideIn(
+              delay: const Duration(milliseconds: 60),
+              child: _buildScoreSection()),
         ],
         const SizedBox(height: 16),
-        GlassTabs(
-          index: _tab,
-          tabs: const ['Information', 'Contact', 'Attendance'],
-          onChanged: (i) => setState(() => _tab = i),
+        FadeSlideIn(
+          delay: const Duration(milliseconds: 120),
+          child: GlassTabs(
+            index: _tab,
+            tabs: const ['Information', 'Contact', 'Attendance'],
+            onChanged: (i) => setState(() => _tab = i),
+          ),
         ),
         const SizedBox(height: 12),
-        IndexedStack(
-          index: _tab,
-          alignment: Alignment.topCenter,
-          children: [
-            _buildInfoTab(match, status),
-            _buildContactTab(),
-            _buildAttendanceTab(match),
-          ],
+        FadeSlideIn(
+          delay: const Duration(milliseconds: 160),
+          child: IndexedStack(
+            index: _tab,
+            alignment: Alignment.topCenter,
+            children: [
+              _buildInfoTab(match, status),
+              _buildContactTab(),
+              _buildAttendanceTab(match),
+            ],
+          ),
         ),
         if (showRateSection) ...[
           const SizedBox(height: 16),
@@ -698,7 +711,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
         ' · ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
     return Column(
       children: [
-        Card(
+        GlassCard(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
           child: Column(
             children: [
               ListTile(
@@ -736,7 +750,10 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     if (_contacts.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: Text('No contacts to show yet.')),
+        child: EmptyView(
+          icon: Icons.contact_phone_outlined,
+          title: 'No contacts to show yet',
+        ),
       );
     }
     return _buildContactCard();
@@ -746,7 +763,10 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     if (_myTeamId == null) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: Text('You are not part of either squad.')),
+        child: EmptyView(
+          icon: Icons.groups_outlined,
+          title: 'You are not part of either squad',
+        ),
       );
     }
     final myTeamName = _myTeamId == match.homeTeamId
@@ -871,13 +891,14 @@ class _TeamRoster extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         if (members.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(8),
-            child: Text('No players listed'),
+          const EmptyView(
+            icon: Icons.person_off_outlined,
+            title: 'No players listed',
           )
         else
           Column(
-            children: members.map((m) {
+            children: members.asMap().entries.map((e) {
+              final m = e.value;
               final att = attendance[m.userId]?.attended;
               final Widget trailing = canMark
                   ? _AttendanceToggle(
@@ -886,19 +907,37 @@ class _TeamRoster extends StatelessWidget {
                       onAbsent: () => onMark(m, false),
                     )
                   : _AttendanceBadge(attended: att);
-              return Card(
-                child: ListTile(
-                  dense: true,
-                  onTap: () => showPlayerSheetById(context, m.userId),
-                  leading: GradientAvatar(name: m.name, radius: 18),
-                  title: Text(m.name),
-                  subtitle: Text(
-                    [
-                      if (m.position != null) m.position,
-                      'PWR ${m.elo}',
-                    ].join(' · '),
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: FadeSlideIn(
+                  delay: Duration(milliseconds: 40 * e.key),
+                  child: GlassCard(
+                    padding: const EdgeInsets.all(14),
+                    onTap: () => showPlayerSheetById(context, m.userId),
+                    child: Row(
+                      children: [
+                        GradientAvatar(name: m.name, radius: 18),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(m.name,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700)),
+                              if (m.position != null)
+                                Text(m.position!,
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        LevelBadge(value: m.elo, size: 36),
+                        trailing,
+                      ],
+                    ),
                   ),
-                  trailing: trailing,
                 ),
               );
             }).toList(),
@@ -938,23 +977,42 @@ class _RateOppositionSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Column(
-          children: members.map((m) {
-            return Card(
-              child: ListTile(
-                dense: true,
-                onTap: () => showPlayerSheetById(context, m.userId),
-                leading: GradientAvatar(name: m.name, radius: 18),
-                title: Text(m.name),
-                subtitle: Text(
-                  [
-                    if (m.position != null) m.position,
-                    'PWR ${m.elo}',
-                  ].join(' · '),
-                ),
-                trailing: _BehaviorControl(
-                  rating: behavior[m.userId],
-                  onGood: () => onRateGood(m),
-                  onBad: () => onRateBad(m),
+          children: members.asMap().entries.map((e) {
+            final m = e.value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: FadeSlideIn(
+                delay: Duration(milliseconds: 40 * e.key),
+                child: GlassCard(
+                  padding: const EdgeInsets.all(14),
+                  onTap: () => showPlayerSheetById(context, m.userId),
+                  child: Row(
+                    children: [
+                      GradientAvatar(name: m.name, radius: 18),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(m.name,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700)),
+                            if (m.position != null)
+                              Text(m.position!,
+                                  style:
+                                      Theme.of(context).textTheme.bodySmall),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      LevelBadge(value: m.elo, size: 36),
+                      _BehaviorControl(
+                        rating: behavior[m.userId],
+                        onGood: () => onRateGood(m),
+                        onBad: () => onRateBad(m),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -984,7 +1042,9 @@ class _AttendanceToggle extends StatelessWidget {
         IconButton(
           icon: Icon(
             Icons.check_circle,
-            color: attended == true ? Colors.green : Colors.grey,
+            color: attended == true
+                ? AppColors.success
+                : AppColors.muted(context),
           ),
           tooltip: 'Attended',
           onPressed: onPresent,
@@ -992,7 +1052,9 @@ class _AttendanceToggle extends StatelessWidget {
         IconButton(
           icon: Icon(
             Icons.cancel,
-            color: attended == false ? Colors.red : Colors.grey,
+            color: attended == false
+                ? AppColors.danger
+                : AppColors.muted(context),
           ),
           tooltip: 'Did not attend',
           onPressed: onAbsent,
@@ -1011,7 +1073,7 @@ class _AttendanceBadge extends StatelessWidget {
     if (attended == null) return const SizedBox.shrink();
     return Icon(
       attended! ? Icons.check_circle : Icons.cancel,
-      color: attended! ? Colors.green : Colors.red,
+      color: attended! ? AppColors.success : AppColors.danger,
     );
   }
 }
@@ -1036,7 +1098,7 @@ class _BehaviorControl extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Icon(
           good ? Icons.thumb_up : Icons.thumb_down,
-          color: good ? Colors.green : Colors.red,
+          color: good ? AppColors.success : AppColors.danger,
         ),
       );
     }
@@ -1224,50 +1286,47 @@ class _SuggestedCourtCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = match.suggestedCourtName ?? 'Court';
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Suggested Court',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          if (match.suggestedCourtImageUrl != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                match.suggestedCourtImageUrl!,
+                height: 140,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          const SizedBox(height: 8),
+          Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+          if (match.suggestedCourtAddress != null)
             Text(
-              'Suggested Court',
-              style: Theme.of(context).textTheme.titleMedium,
+              match.suggestedCourtAddress!,
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-            const SizedBox(height: 8),
-            if (match.suggestedCourtImageUrl != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.network(
-                  match.suggestedCourtImageUrl!,
-                  height: 140,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => openInMaps(
+                name: name,
+                address: match.suggestedCourtAddress,
+                city: match.city,
               ),
-            const SizedBox(height: 8),
-            Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
-            if (match.suggestedCourtAddress != null)
-              Text(
-                match.suggestedCourtAddress!,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => openInMaps(
-                  name: name,
-                  address: match.suggestedCourtAddress,
-                  city: match.city,
-                ),
-                icon: const Icon(Icons.directions),
-                label: const Text('Get Directions'),
-              ),
+              icon: const Icon(Icons.directions),
+              label: const Text('Get Directions'),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

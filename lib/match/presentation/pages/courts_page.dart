@@ -61,20 +61,27 @@ class _CourtsPageState extends State<CourtsPage> {
               }
               final cities = byCity.keys.toList()..sort();
 
+              var delay = 0;
               return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                 children: [
                   for (final city in cities) ...[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 16, 4, 10),
-                      child: Text(
-                        city,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
+                    FadeSlideIn(
+                      delay: Duration(milliseconds: delay += 40),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 16, 4, 10),
+                        child: Text(
+                          city,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
                       ),
                     ),
                     for (final c in byCity[city]!) ...[
-                      _CourtRow(court: c),
+                      FadeSlideIn(
+                        delay: Duration(milliseconds: delay += 40),
+                        child: _CourtRow(court: c),
+                      ),
                       const SizedBox(height: 10),
                     ],
                   ],
@@ -143,8 +150,7 @@ class _CourtRow extends StatelessWidget {
                       horizontal: 12,
                       vertical: 6,
                     ),
-                    minimumSize: const Size(0, 0),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    minimumSize: const Size(0, 44),
                   ),
                   onPressed: () => openInMaps(
                     name: court.name,

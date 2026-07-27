@@ -321,7 +321,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
               label: const Text('Create Match'),
             )
           : null,
-      body: _buildBody(),
+      body: AmbientBackground(child: SafeArea(child: _buildBody())),
     );
   }
 
@@ -342,12 +342,14 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
         padding: const EdgeInsets.only(bottom: 88),
         children: [
           if (_teams.length > 1 && _team != null)
-            _TeamSelector(
-              teams: _teams,
-              selectedId: _team!.id,
-              onSelect: _selectTeam,
+            FadeSlideIn(
+              child: _TeamSelector(
+                teams: _teams,
+                selectedId: _team!.id,
+                onSelect: _selectTeam,
+              ),
             ),
-          _SectionHeader(title: 'Open Requests'),
+          const FadeSlideIn(child: _SectionHeader(title: 'Open Requests')),
           FutureBuilder<List<MatchRequestModel>>(
             future: _future,
             builder: (context, snapshot) {
@@ -357,7 +359,10 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
               if (snapshot.hasError) {
                 return Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Text('Error: ${snapshot.error}'),
+                  child: ErrorView(
+                    message: friendlyError(snapshot.error!),
+                    onRetry: _reloadRequests,
+                  ),
                 );
               }
               final requests = snapshot.data
@@ -378,18 +383,24 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
               final uid = SupabaseService.client.auth.currentUser?.id;
               return Column(
                 children: requests
-                    .map((r) => _RequestCard(
-                          request: r,
-                          onCancel: r.captainId == uid
-                              ? () => _cancelRequest(r)
-                              : null,
+                    .asMap()
+                    .entries
+                    .map((e) => FadeSlideIn(
+                          delay: Duration(milliseconds: 50 * e.key),
+                          child: _RequestCard(
+                            request: e.value,
+                            onCancel: e.value.captainId == uid
+                                ? () => _cancelRequest(e.value)
+                                : null,
+                          ),
                         ))
                     .toList(),
               );
             },
           ),
           if (_team != null) ...[
-            _SectionHeader(title: 'Available Opponents'),
+            const FadeSlideIn(
+                child: _SectionHeader(title: 'Available Opponents')),
             FutureBuilder<List<MatchRequestModel>>(
               future: _opponentsFuture,
               builder: (context, snapshot) {
@@ -399,25 +410,35 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                 if (snapshot.hasError) {
                   return Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Text('Error loading opponents: ${snapshot.error}'),
+                    child: ErrorView(
+                      message: friendlyError(snapshot.error!),
+                      onRetry: _reloadRequests,
+                    ),
                   );
                 }
                 final opponents = snapshot.data ?? [];
                 if (opponents.isEmpty) {
                   return const Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text(
-                        'No matching opponents yet. Opponents appear when '
-                        'another team has an open request in the same city, '
-                        'on the same date (±30 min), with a similar rating.'),
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: EmptyView(
+                      icon: Icons.person_search_outlined,
+                      title: 'No matching opponents yet',
+                      hint: 'Opponents appear when another team has an open '
+                          'request in the same city, on the same date '
+                          '(±30 min), with a similar rating.',
+                    ),
                   );
                 }
                 return Column(
                   children: opponents
-                      .map((o) => _OpponentCard(
-                            opponent: o,
-                            onAccept: () => _accept(o),
+                      .asMap()
+                      .entries
+                      .map((e) => FadeSlideIn(
+                            delay: Duration(milliseconds: 50 * e.key),
+                            child: _OpponentCard(
+                              opponent: e.value,
+                              onAccept: () => _accept(e.value),
+                            ),
                           ))
                       .toList(),
                 );
@@ -441,15 +462,20 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
               return Column(
                 children: [
                   if (pending.isNotEmpty) ...[
-                    _SectionHeader(title: 'Pending Confirmation'),
-                    ...pending.map((m) {
+                    const FadeSlideIn(
+                        child: _SectionHeader(title: 'Pending Confirmation')),
+                    ...pending.asMap().entries.map((e) {
+                      final m = e.value;
                       final iAmHome = m.homeTeamId == myTeamId;
                       final iConfirmed = iAmHome ? m.homeOk : m.awayOk;
-                      return _PendingMatchCard(
-                        match: m,
-                        iConfirmed: iConfirmed,
-                        onConfirm: () => _confirmFixture(m),
-                        onReject: () => _rejectMatch(m),
+                      return FadeSlideIn(
+                        delay: Duration(milliseconds: 50 * e.key),
+                        child: _PendingMatchCard(
+                          match: m,
+                          iConfirmed: iConfirmed,
+                          onConfirm: () => _confirmFixture(m),
+                          onReject: () => _rejectMatch(m),
+                        ),
                       );
                     }),
                   ],
@@ -467,28 +493,42 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                     children: [
                       if (upcoming.isEmpty)
                         const Padding(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          child: Text('No upcoming matches.'),
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: EmptyView(
+                            icon: Icons.event_available_outlined,
+                            title: 'No upcoming matches',
+                          ),
                         )
                       else
                         Column(
                           children: upcoming
-                              .map((m) =>
-                                  _MatchCard(match: m, myTeamId: myTeamId))
+                              .asMap()
+                              .entries
+                              .map((e) => FadeSlideIn(
+                                    delay: Duration(milliseconds: 50 * e.key),
+                                    child: _MatchCard(
+                                        match: e.value, myTeamId: myTeamId),
+                                  ))
                               .toList(),
                         ),
                       if (history.isEmpty)
                         const Padding(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          child: Text('No past matches yet.'),
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: EmptyView(
+                            icon: Icons.history,
+                            title: 'No past matches yet',
+                          ),
                         )
                       else
                         Column(
                           children: history
-                              .map((m) =>
-                                  _MatchCard(match: m, myTeamId: myTeamId))
+                              .asMap()
+                              .entries
+                              .map((e) => FadeSlideIn(
+                                    delay: Duration(milliseconds: 50 * e.key),
+                                    child: _MatchCard(
+                                        match: e.value, myTeamId: myTeamId),
+                                  ))
                               .toList(),
                         ),
                     ],
@@ -599,74 +639,71 @@ class _MatchCard extends StatelessWidget {
       'draw' => (AppColors.silver, 'DRAW'),
       _ => (null, null),
     };
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      color: accent?.withValues(alpha: 0.16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: GlassCard(
+        padding: const EdgeInsets.all(12),
+        tint: accent,
         onTap: () => context.push(AppRoutes.matchDetail, extra: match.id),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _TeamMini(
-                      name: match.homeTeamName ?? 'Home',
-                      logo: match.homeTeamLogo,
-                      rating: match.homeTeamRating,
-                      record: match.homeTeamRecord,
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _TeamMini(
+                    name: match.homeTeamName ?? 'Home',
+                    logo: match.homeTeamLogo,
+                    rating: match.homeTeamRating,
+                    record: match.homeTeamRecord,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(center,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w900)),
+                ),
+                Expanded(
+                  child: _TeamMini(
+                    name: match.awayTeamName ?? 'Away',
+                    logo: match.awayTeamLogo,
+                    rating: match.awayTeamRating,
+                    record: match.awayTeamRecord,
+                    alignEnd: true,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text('${match.city} · $when · ${match.matchType}',
+                      style: Theme.of(context).textTheme.bodySmall),
+                ),
+                if (label != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: accent!.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(center,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w900)),
-                  ),
-                  Expanded(
-                    child: _TeamMini(
-                      name: match.awayTeamName ?? 'Away',
-                      logo: match.awayTeamLogo,
-                      rating: match.awayTeamRating,
-                      record: match.awayTeamRecord,
-                      alignEnd: true,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text('${match.city} · $when · ${match.matchType}',
-                        style: Theme.of(context).textTheme.bodySmall),
-                  ),
-                  if (label != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: accent!.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(label,
-                          style: TextStyle(
-                              color: accent,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 12)),
-                    )
-                  else
-                    Text(MatchStatus.fromString(match.status).label,
-                        style: Theme.of(context).textTheme.labelLarge),
-                ],
-              ),
-            ],
-          ),
+                    child: Text(label,
+                        style: TextStyle(
+                            color: accent,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12)),
+                  )
+                else
+                  Text(MatchStatus.fromString(match.status).label,
+                      style: Theme.of(context).textTheme.labelLarge),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -738,39 +775,52 @@ class _RequestCard extends StatelessWidget {
     // the captain to cancel/recreate (the hourly cleanup also removes it soon).
     final passed = request.scheduledAt.isBefore(DateTime.now());
     final warn = Colors.orange.shade800;
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: ListTile(
-        leading: CircleAvatar(
-          child: Text(request.format.split('v').first),
-        ),
-        title: Text('${request.city} · ${request.format}'),
-        subtitle: passed
-            ? Column(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: GlassCard(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 22,
+              child: Text(request.format.split('v').first),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_when),
-                  const SizedBox(height: 3),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.warning_amber_rounded, size: 14, color: warn),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text('Kick-off passed — cancel or recreate',
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: warn)),
-                      ),
-                    ],
-                  ),
+                  Text('${request.city} · ${request.format}',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  if (passed) ...[
+                    Text(_when, style: Theme.of(context).textTheme.bodySmall),
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.warning_amber_rounded,
+                            size: 14, color: warn),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text('Kick-off passed — cancel or recreate',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: warn)),
+                        ),
+                      ],
+                    ),
+                  ] else
+                    Text(_when, style: Theme.of(context).textTheme.bodySmall),
                 ],
-              )
-            : Text(_when),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+              ),
+            ),
+            const SizedBox(width: 8),
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -818,117 +868,114 @@ class _PendingMatchCard extends StatelessWidget {
     final when =
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
         '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: GlassCard(
+        padding: const EdgeInsets.all(12),
         onTap: () => context.push(AppRoutes.matchDetail, extra: match.id),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _TeamMini(
-                      name: match.homeTeamName ?? 'Home',
-                      logo: match.homeTeamLogo,
-                      rating: match.homeTeamRating,
-                        record: match.homeTeamRecord,
-                    ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _TeamMini(
+                    name: match.homeTeamName ?? 'Home',
+                    logo: match.homeTeamLogo,
+                    rating: match.homeTeamRating,
+                    record: match.homeTeamRecord,
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('vs',
-                        style: TextStyle(fontWeight: FontWeight.w900)),
-                  ),
-                  Expanded(
-                    child: _TeamMini(
-                      name: match.awayTeamName ?? 'Away',
-                      logo: match.awayTeamLogo,
-                      rating: match.awayTeamRating,
-                        record: match.awayTeamRecord,
-                      alignEnd: true,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text('${match.city} · $when · ${match.matchType}',
-                  style: Theme.of(context).textTheme.bodySmall),
-              if (match.suggestedCourtName != null) ...[
-                const SizedBox(height: 6),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.iconAccent(context)
-                          .withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.place,
-                            size: 18, color: AppColors.iconAccent(context)),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(match.suggestedCourtName!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15,
-                                  color: AppColors.iconAccent(context))),
-                        ),
-                      ],
-                    ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('vs',
+                      style: TextStyle(fontWeight: FontWeight.w900)),
+                ),
+                Expanded(
+                  child: _TeamMini(
+                    name: match.awayTeamName ?? 'Away',
+                    logo: match.awayTeamLogo,
+                    rating: match.awayTeamRating,
+                    record: match.awayTeamRecord,
+                    alignEnd: true,
                   ),
                 ),
               ],
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (iConfirmed)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: Text('Waiting…',
-                          style: Theme.of(context).textTheme.bodySmall),
-                    ),
-                  SizedBox(
-                    height: 36,
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 36),
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        foregroundColor: AppColors.danger,
-                        side: BorderSide(color: AppColors.danger),
-                      ),
-                      onPressed: onReject,
-                      child: const Text('Reject'),
-                    ),
+            ),
+            const SizedBox(height: 8),
+            Text('${match.city} · $when · ${match.matchType}',
+                style: Theme.of(context).textTheme.bodySmall),
+            if (match.suggestedCourtName != null) ...[
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.iconAccent(context)
+                        .withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  if (!iConfirmed) ...[
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      height: 36,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 36),
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                        ),
-                        onPressed: onConfirm,
-                        child: const Text('Confirm'),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.place,
+                          size: 18, color: AppColors.iconAccent(context)),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(match.suggestedCourtName!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                color: AppColors.iconAccent(context))),
                       ),
-                    ),
-                  ],
-                ],
+                    ],
+                  ),
+                ),
               ),
             ],
-          ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (iConfirmed)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Text('Waiting…',
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ),
+                SizedBox(
+                  height: 44,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      foregroundColor: AppColors.danger,
+                      side: BorderSide(color: AppColors.danger),
+                    ),
+                    onPressed: onReject,
+                    child: const Text('Reject'),
+                  ),
+                ),
+                if (!iConfirmed) ...[
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 44,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 44),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                      ),
+                      onPressed: onConfirm,
+                      child: const Text('Confirm'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -946,34 +993,40 @@ class _OpponentCard extends StatelessWidget {
     final when =
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
         '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: ListTile(
-        leading: GradientAvatar(
-          name: opponent.teamName ?? '?',
-          imageUrl: opponent.teamLogo,
-          radius: 22,
-        ),
-        title: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: GlassCard(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text(opponent.teamName ?? 'Unknown team',
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
+            Row(
+              children: [
+                GradientAvatar(
+                  name: opponent.teamName ?? '?',
+                  imageUrl: opponent.teamLogo,
+                  radius: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(opponent.teamName ?? 'Unknown team',
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+                LevelBadge(value: opponent.teamRating ?? 0, size: 36),
+              ],
             ),
-            LevelBadge(value: opponent.teamRating ?? 0, size: 36),
+            const SizedBox(height: 6),
+            Text('${opponent.city} · $when · ${opponent.matchType}',
+                style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: onAccept,
+                child: const Text('Confirm'),
+              ),
+            ),
           ],
-        ),
-        subtitle: Text('${opponent.city} · $when · ${opponent.matchType}'),
-        trailing: SizedBox(
-          height: 38,
-          child: FilledButton(
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 38),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-            ),
-            onPressed: onAccept,
-            child: const Text('Confirm'),
-          ),
         ),
       ),
     );

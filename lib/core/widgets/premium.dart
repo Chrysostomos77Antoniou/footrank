@@ -144,17 +144,35 @@ class GlassCard extends StatelessWidget {
   final double radius;
   final VoidCallback? onTap;
 
+  /// Optional semantic wash (e.g. win/loss/draw) blended lightly into the
+  /// card's gradient. Keeps the same fill/border/shadow language instead of
+  /// swapping to a flat tinted background.
+  final Color? tint;
+
   const GlassCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(18),
     this.radius = 16,
     this.onTap,
+    this.tint,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final baseColors = isDark
+        ? [
+            AppColors.darkElevated.withValues(alpha: 0.85),
+            AppColors.darkCard,
+          ]
+        : [Colors.white, const Color(0xFFF7F8FB)];
+    final gradientColors = tint == null
+        ? baseColors
+        : baseColors
+            .map((c) => Color.alphaBlend(tint!.withValues(alpha: 0.16), c))
+            .toList();
 
     Widget content = Container(
       padding: padding,
@@ -163,12 +181,7 @@ class GlassCard extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: isDark
-              ? [
-                  AppColors.darkElevated.withValues(alpha: 0.85),
-                  AppColors.darkCard,
-                ]
-              : [Colors.white, const Color(0xFFF7F8FB)],
+          colors: gradientColors,
         ),
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: AppColors.border(context)),

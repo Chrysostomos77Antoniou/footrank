@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/app_refresh.dart';
+import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
+import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/level_badge.dart';
@@ -47,10 +49,7 @@ class _RankingsPageState extends State<RankingsPage> with ThemeRepaintMixin {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.6),
+                              color: AppColors.muted(context),
                             ),
                           ),
                         ),
@@ -147,6 +146,12 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const SkeletonList();
               }
+              if (snapshot.hasError) {
+                return ErrorView(
+                  message: friendlyError(snapshot.error!),
+                  onRetry: _applyCity,
+                );
+              }
               final all = snapshot.data ?? [];
               final q = _cityCtrl.text.trim().toLowerCase();
               final teams = q.isEmpty
@@ -159,9 +164,14 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
               if (teams.isEmpty) {
                 return RefreshIndicator(
                   onRefresh: () async => _applyCity(),
-                  child: ListView(children: const [
-                    SizedBox(height: 120),
-                    Center(child: Text('No teams found')),
+                  child: ListView(children: [
+                    const SizedBox(height: 80),
+                    EmptyView(
+                      icon: Icons.shield_outlined,
+                      title: q.isEmpty
+                          ? 'No ranked teams yet'
+                          : 'No teams match "$q"',
+                    ),
                   ]),
                 );
               }

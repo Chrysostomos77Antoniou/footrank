@@ -4,6 +4,7 @@ import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/utils/maps_launcher.dart';
+import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/court_image_preview.dart';
 import 'package:footrank/core/widgets/map_pill_button.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -212,10 +213,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
 
   Widget _buildCourtPicker() {
     if (_courtsLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
-        child: Center(child: CircularProgressIndicator()),
-      );
+      return const LoadingView();
     }
     if (_courts.isEmpty) {
       return Container(
@@ -451,108 +449,139 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _PickerField(
-                          label: 'Date',
-                          value: dateLabel,
-                          icon: Icons.calendar_today,
-                          onTap: _pickDate,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _PickerField(
-                          label: 'Kick-off time',
-                          value: timeLabel,
-                          icon: Icons.access_time,
-                          onTap: _pickTime,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _city,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'City',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.place_outlined),
-                    ),
-                    items: kCities
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                        .toList(),
-                    onChanged: (v) {
-                      setState(() => _city = v);
-                      _loadCourts();
-                    },
-                    validator: (v) => v == null ? 'City is required' : null,
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Pick & Rank 3 Courts',
-                    style: Theme.of(context).textTheme.labelLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Tap in order of preference. We\'ll match you with an opponent who wants the same courts, starting from your #1 choice.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 8),
-                  _buildCourtPicker(),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Match Type',
-                    style: Theme.of(context).textTheme.labelLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'casual', label: Text('Casual')),
-                      ButtonSegment(value: 'ranked', label: Text('Ranked')),
-                    ],
-                    selected: {_matchType},
-                    onSelectionChanged: (s) =>
-                        setState(() => _matchType = s.first),
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: _loading ? null : _submit,
-                    child: _loading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Create Match Request'),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.iconAccent(
-                        context,
-                      ).withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                  FadeSlideIn(
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: 20,
-                          color: AppColors.iconAccent(context),
-                        ),
-                        const SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            'After creating, tap "Find Opponents" to match with a '
-                            'nearby team at a similar time and rating.',
-                            style: Theme.of(context).textTheme.bodySmall,
+                          child: _PickerField(
+                            label: 'Date',
+                            value: dateLabel,
+                            icon: Icons.calendar_today,
+                            onTap: _pickDate,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _PickerField(
+                            label: 'Kick-off time',
+                            value: timeLabel,
+                            icon: Icons.access_time,
+                            onTap: _pickTime,
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 60),
+                    child: DropdownButtonFormField<String>(
+                      value: _city,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'City',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.place_outlined),
+                      ),
+                      items: kCities
+                          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                          .toList(),
+                      onChanged: (v) {
+                        setState(() => _city = v);
+                        _loadCourts();
+                      },
+                      validator: (v) => v == null ? 'City is required' : null,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 120),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pick & Rank 3 Courts',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Tap in order of preference. We\'ll match you with an opponent who wants the same courts, starting from your #1 choice.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  FadeSlideIn(
+                      delay: const Duration(milliseconds: 160),
+                      child: _buildCourtPicker()),
+                  const SizedBox(height: 20),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 200),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Match Type',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(
+                                value: 'casual', label: Text('Casual')),
+                            ButtonSegment(
+                                value: 'ranked', label: Text('Ranked')),
+                          ],
+                          selected: {_matchType},
+                          onSelectionChanged: (s) =>
+                              setState(() => _matchType = s.first),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 240),
+                    child: FilledButton(
+                      onPressed: _loading ? null : _submit,
+                      child: _loading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Create Match Request'),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 280),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.iconAccent(
+                          context,
+                        ).withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 20,
+                            color: AppColors.iconAccent(context),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'After creating, tap "Find Opponents" to match with a '
+                              'nearby team at a similar time and rating.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

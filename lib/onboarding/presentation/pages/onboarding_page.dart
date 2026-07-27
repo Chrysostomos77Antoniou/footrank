@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
+import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
+import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
 import 'package:footrank/routing/app_router.dart';
 
@@ -67,104 +71,120 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Widget build(BuildContext context) {
     final last = _page == _slides.length - 1;
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => _finish(),
-                child: const Text('Skip'),
+      body: AuthVideoBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => _finish(),
+                  style: TextButton.styleFrom(foregroundColor: Colors.white70),
+                  child: const Text('Skip'),
+                ),
               ),
-            ),
-            Expanded(
-              child: PageView.builder(
-                controller: _controller,
-                onPageChanged: (i) => setState(() => _page = i),
-                itemCount: _slides.length,
-                itemBuilder: (context, i) {
-                  final s = _slides[i];
-                  return Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (i == 0) const BrandLogo(size: 88),
-                        if (i == 0) const SizedBox(height: 28),
-                        Icon(s.icon,
-                            size: 72, color: AppColors.iconAccent(context)),
-                        const SizedBox(height: 28),
-                        Text(s.title,
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w900)),
-                        const SizedBox(height: 12),
-                        Text(s.body,
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyLarge),
-                      ],
+              Expanded(
+                child: PageView.builder(
+                  controller: _controller,
+                  onPageChanged: (i) => setState(() => _page = i),
+                  itemCount: _slides.length,
+                  itemBuilder: (context, i) {
+                    final s = _slides[i];
+                    return Padding(
+                      padding: const EdgeInsets.all(AppSpacing.xxl),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (i == 0) ...[
+                            const FadeSlideIn(child: BrandLogo(size: 88)),
+                            const SizedBox(height: AppSpacing.xl),
+                          ],
+                          FadeSlideIn(
+                            delay: const Duration(milliseconds: 80),
+                            child: Icon(s.icon,
+                                size: 72, color: AppColors.lime),
+                          ),
+                          const SizedBox(height: AppSpacing.xl),
+                          FadeSlideIn(
+                            delay: const Duration(milliseconds: 140),
+                            child: Text(s.title,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontFamily: 'Sora',
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.3,
+                                )),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          FadeSlideIn(
+                            delay: const Duration(milliseconds: 200),
+                            child: Text(s.body,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                  fontSize: 15,
+                                  height: 1.5,
+                                )),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(_slides.length, (i) {
+                  final active = i == _page;
+                  return AnimatedContainer(
+                    duration: AppMotion.quick,
+                    margin: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xxs),
+                    width: active ? 22 : 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: active
+                          ? AppColors.lime
+                          : Colors.white.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   );
-                },
+                }),
               ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(_slides.length, (i) {
-                final active = i == _page;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: active ? 22 : 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: active
-                        ? AppColors.brand(context)
-                        : Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                );
-              }),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: last
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton(
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: last
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AuthPrimaryButton(
+                            loading: false,
+                            label: 'Create Your Team →',
                             onPressed: () =>
                                 _finish(intent: OnboardingIntent.createTeam),
-                            child: const Text('Create Your Team →'),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: TextButton(
-                            onPressed: () =>
-                                _finish(intent: OnboardingIntent.freeAgent),
-                            child: const Text('Register as a Free Agent'),
+                          SizedBox(
+                            width: double.infinity,
+                            child: TextButton(
+                              onPressed: () =>
+                                  _finish(intent: OnboardingIntent.freeAgent),
+                              style: TextButton.styleFrom(
+                                  foregroundColor: Colors.white),
+                              child: const Text('Register as a Free Agent'),
+                            ),
                           ),
-                        ),
-                      ],
-                    )
-                  : SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
+                        ],
+                      )
+                    : AuthPrimaryButton(
+                        loading: false,
+                        label: 'Next',
                         onPressed: _next,
-                        child: const Text('Next'),
                       ),
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );

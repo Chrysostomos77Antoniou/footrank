@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/emojis.dart';
+import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
+import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/team_member_model.dart';
 import 'package:footrank/models/team_model.dart';
@@ -89,14 +91,34 @@ class _PlayerSheet extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.brand(context), width: 3),
-            ),
-            child: GradientAvatar(
-                name: user.name, imageUrl: user.avatarUrl, radius: 40),
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.brand(context), width: 3),
+                ),
+                child: GradientAvatar(
+                    name: user.name, imageUrl: user.avatarUrl, radius: 40),
+              ),
+              // Hero level badge — same Playtomic-style focal rating used on
+              // the user's own profile page, for a consistent identity.
+              Positioned(
+                bottom: -6,
+                right: -6,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: LevelBadge(value: user.elo, size: 36, showLabel: true),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Text(user.name,
@@ -136,19 +158,10 @@ class _PlayerSheet extends StatelessWidget {
           Row(
             children: [
               _Stat(
-                  icon: Icons.trending_up,
-                  value: '${user.elo}',
-                  label: 'PWR'),
-              const SizedBox(width: 10),
-              _Stat(
                   icon: Icons.sports_soccer,
                   value: '${user.matchesPlayed}',
                   label: 'Matches'),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
+              const SizedBox(width: 10),
               _Stat(
                   icon: Icons.verified_user_outlined,
                   value: '${user.reliability}%',
@@ -181,18 +194,39 @@ class _TeamSheet extends StatelessWidget {
           Center(
             child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border:
-                        Border.all(color: AppColors.brand(context), width: 3),
-                  ),
-                  child: team.logoUrl != null
-                      ? CircleAvatar(
-                          radius: 40,
-                          backgroundImage: CachedNetworkImageProvider(team.logoUrl!))
-                      : GradientAvatar(name: team.name, radius: 40),
+                Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: AppColors.brand(context), width: 3),
+                      ),
+                      child: team.logoUrl != null
+                          ? CircleAvatar(
+                              radius: 40,
+                              backgroundImage:
+                                  CachedNetworkImageProvider(team.logoUrl!))
+                          : GradientAvatar(name: team.name, radius: 40),
+                    ),
+                    // Hero level badge — same focal-rating treatment used for
+                    // team rating everywhere else (rankings list, team detail).
+                    Positioned(
+                      bottom: -6,
+                      right: -6,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        padding: const EdgeInsets.all(3),
+                        child: LevelBadge(value: team.rating, size: 36),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 Text(team.name,
@@ -212,17 +246,8 @@ class _TeamSheet extends StatelessWidget {
                     ],
                   ),
                 const SizedBox(height: 10),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    GradientPill(
-                        text: 'PWR ${team.rating}', icon: Icons.star),
-                    GradientPill(
-                        text: team.record, icon: Icons.emoji_events_outlined),
-                  ],
-                ),
+                GradientPill(
+                    text: team.record, icon: Icons.emoji_events_outlined),
               ],
             ),
           ),
@@ -237,13 +262,15 @@ class _TeamSheet extends StatelessWidget {
             future: teamRepo.fetchMembers(team.id),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                );
+                return const SkeletonList(count: 3, itemHeight: 52);
               }
               final members = snap.data ?? [];
-              if (members.isEmpty) return const Text('No players yet');
+              if (members.isEmpty) {
+                return const EmptyView(
+                  icon: Icons.groups_outlined,
+                  title: 'No players yet',
+                );
+              }
               return Column(
                 children: members
                     .map((m) => Padding(

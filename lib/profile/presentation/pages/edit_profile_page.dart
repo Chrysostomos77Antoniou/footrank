@@ -141,105 +141,112 @@ class _EditProfilePageState extends State<EditProfilePage> {
               key: _formKey,
               child: Column(
                 children: [
-                  _AvatarPicker(
-                    name: _nameCtrl.text.isEmpty ? '?' : _nameCtrl.text,
-                    pickedBytes: _pickedBytes,
-                    currentUrl: _currentAvatar,
-                    onTap: _pickImage,
+                  FadeSlideIn(
+                    child: _AvatarPicker(
+                      name: _nameCtrl.text.isEmpty ? '?' : _nameCtrl.text,
+                      pickedBytes: _pickedBytes,
+                      currentUrl: _currentAvatar,
+                      onTap: _pickImage,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: _pickImage,
-                    icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('Change photo'),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 60),
+                    child: TextButton.icon(
+                      onPressed: _pickImage,
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text('Change photo'),
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _nameCtrl,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name',
-                      prefixIcon: Icon(Icons.person_outline),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 100),
+                    child: TextFormField(
+                      controller: _nameCtrl,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'Full Name',
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Name is required'
+                          : null,
                     ),
-                    validator: (v) =>
-                        v == null || v.trim().isEmpty ? 'Name is required' : null,
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _usernameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Username',
-                      prefixText: '@',
-                      prefixIcon: Icon(Icons.alternate_email),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 140),
+                    child: TextFormField(
+                      controller: _usernameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Username',
+                        prefixText: '@',
+                        prefixIcon: Icon(Icons.alternate_email),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Username is required';
+                        }
+                        if (v.trim().length < 3) return 'At least 3 characters';
+                        return null;
+                      },
                     ),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) {
-                        return 'Username is required';
-                      }
-                      if (v.trim().length < 3) return 'At least 3 characters';
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _city,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'City',
-                      prefixIcon: Icon(Icons.place_outlined),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 180),
+                    child: DropdownButtonFormField<String>(
+                      value: _city,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'City',
+                        prefixIcon: Icon(Icons.place_outlined),
+                      ),
+                      items: kCities
+                          .map((c) =>
+                              DropdownMenuItem(value: c, child: Text(c)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _city = v),
                     ),
-                    items: kCities
-                        .map((c) =>
-                            DropdownMenuItem(value: c, child: Text(c)))
-                        .toList(),
-                    onChanged: (v) => setState(() => _city = v),
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _position,
-                    decoration: const InputDecoration(
-                      labelText: 'Preferred Position',
-                      prefixIcon: Icon(Icons.sports_soccer_outlined),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 220),
+                    child: DropdownButtonFormField<String>(
+                      value: _position,
+                      decoration: const InputDecoration(
+                        labelText: 'Preferred Position',
+                        prefixIcon: Icon(Icons.sports_soccer_outlined),
+                      ),
+                      items: _positions
+                          .map((p) =>
+                              DropdownMenuItem(value: p, child: Text(p)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _position = v),
                     ),
-                    items: _positions
-                        .map((p) =>
-                            DropdownMenuItem(value: p, child: Text(p)))
-                        .toList(),
-                    onChanged: (v) => setState(() => _position = v),
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                      labelText: 'Contact phone',
-                      prefixIcon: Icon(Icons.phone_outlined),
-                      helperText: 'Shared with opponents for confirmed matches',
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 260),
+                    child: TextFormField(
+                      controller: _phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Contact phone',
+                        prefixIcon: Icon(Icons.phone_outlined),
+                        helperText:
+                            'Shared with opponents for confirmed matches',
+                      ),
+                      validator: _validatePhone,
                     ),
-                    validator: _validatePhone,
                   ),
                   const SizedBox(height: 28),
-                  PressableScale(
-                    onTap: _saving ? () {} : _save,
-                    child: Container(
-                      height: 54,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: AppColors.brand(context),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: _saving
-                          ? SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: AppColors.onBrand(context)),
-                            )
-                          : Text('Save Changes',
-                              style: TextStyle(
-                                  color: AppColors.onBrand(context),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800)),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 300),
+                    child: BrandButton(
+                      label: 'Save Changes',
+                      loading: _saving,
+                      onPressed: _save,
                     ),
                   ),
                 ],

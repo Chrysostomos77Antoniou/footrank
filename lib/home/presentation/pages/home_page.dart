@@ -215,7 +215,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                           },
                           child: GlassCard(
                             padding: const EdgeInsets.all(12),
-                            radius: 16,
+                            radius: AppRadius.lg,
                             child: Badge(
                               isLabelVisible: count > 0,
                               label: Text('$count'),
@@ -645,50 +645,20 @@ class _ActionCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Row(
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(AppRadius.lg - 2),
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, color: accent),
+          Badge(
+            isLabelVisible: badgeCount > 0,
+            label: Text('$badgeCount'),
+            backgroundColor: AppColors.danger,
+            child: Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(AppRadius.lg - 2),
               ),
-              if (badgeCount > 0)
-                Positioned(
-                  right: -5,
-                  top: -5,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5),
-                    constraints: const BoxConstraints(
-                      minWidth: 22,
-                      minHeight: 22,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.danger,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Theme.of(context).scaffoldBackgroundColor,
-                        width: 2,
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '$badgeCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        height: 1,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+              alignment: Alignment.center,
+              child: Icon(icon, color: accent),
+            ),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(

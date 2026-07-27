@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
+import 'package:footrank/core/widgets/premium.dart';
 
 /// A gradient hero header used at the top of primary screens.
 class GradientHeader extends StatelessWidget {
@@ -89,6 +91,62 @@ class BrandLogo extends StatelessWidget {
       ),
       child: Icon(Icons.sports_soccer,
           color: AppColors.onBrand(context), size: size * 0.55),
+    );
+  }
+}
+
+/// Full-width, brand-colored primary CTA button with the app's press motion
+/// (scale + haptic) rather than Material's default ripple. Use for flows that
+/// want the branded pill look instead of the themed [FilledButton].
+class BrandButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+  final bool loading;
+  final IconData? icon;
+
+  const BrandButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.loading = false,
+    this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final onBrand = AppColors.onBrand(context);
+    return PressableScale(
+      onTap: loading ? () {} : onPressed,
+      child: Container(
+        height: 52,
+        width: double.infinity,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.brand(context),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        child: loading
+            ? SizedBox(
+                height: 22,
+                width: 22,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: onBrand),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, color: onBrand),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(label,
+                      style: TextStyle(
+                          color: onBrand,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16)),
+                ],
+              ),
+      ),
     );
   }
 }
