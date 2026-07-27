@@ -18,7 +18,7 @@ String friendlyError(Object error) {
 
   final lower = msg.toLowerCase();
   if (lower.contains('attendance_required')) {
-    return 'Mark exactly 5 attended players for your team before submitting a score.';
+    return 'Mark at least 5 attended players for your team before submitting a score.';
   }
   if (lower.contains('teams_name_lower_unique')) {
     return 'A team with that name already exists. Please pick another name.';

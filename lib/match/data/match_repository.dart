@@ -411,7 +411,8 @@ class MatchRepository {
   }
 
   /// Captain marks one of their own players attended / not attended (upsert).
-  /// At most 5 attended players per team per match (enforced in the DB too).
+  /// No upper bound (rolling substitutes are fine); submitScore enforces a
+  /// floor of at least 5 attended per team (enforced in the DB too).
   Future<void> markAttendance({
     required String matchId,
     required String userId,

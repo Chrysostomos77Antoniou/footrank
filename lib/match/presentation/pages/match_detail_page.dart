@@ -100,26 +100,9 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
   Future<void> _mark(TeamMemberModel player, bool attended) async {
     final match = _match!;
-    if (attended) {
-      final alreadyAttended = _attendance.values
-          .where(
-            (p) =>
-                p.teamId == player.teamId &&
-                p.attended == true &&
-                p.userId != player.userId,
-          )
-          .length;
-      if (alreadyAttended >= 5) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You can mark at most 5 players as attended.'),
-            ),
-          );
-        }
-        return;
-      }
-    }
+    // No upper bound: a squad can field more than 5 across a match (rolling
+    // subs), so any number can be marked attended. submitScore enforces the
+    // floor of 5 -- a side must show at least a full team actually played.
     try {
       await _matchRepo.markAttendance(
         matchId: match.id,
@@ -202,15 +185,16 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     }
     // Squads of 5 or fewer are auto-marked attended on confirmation, so this
     // only ever blocks a captain with a bench (6+ squad) who hasn't picked
-    // their 5 yet -- the server enforces the same rule either way.
+    // at least 5 yet -- the server enforces the same floor either way. No
+    // upper bound: more than 5 is fine (rolling substitutes).
     final attendedCount = _attendance.values
         .where((p) => p.teamId == _myTeamId && p.attended == true)
         .length;
-    if (attendedCount != 5) {
+    if (attendedCount < 5) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Mark exactly 5 attended players for your team before submitting a score.',
+            'Mark at least 5 attended players for your team before submitting a score.',
           ),
         ),
       );
@@ -688,7 +672,8 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Text(
               'Squads of exactly 5 are counted automatically. With a bigger '
-              'squad, mark as captain which 5 actually played.',
+              'squad, mark as captain who actually played (at least 5 -- '
+              'more if you used substitutes).',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
