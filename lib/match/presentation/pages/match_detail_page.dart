@@ -200,6 +200,22 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       );
       return;
     }
+    // Squads of 5 or fewer are auto-marked attended on confirmation, so this
+    // only ever blocks a captain with a bench (6+ squad) who hasn't picked
+    // their 5 yet -- the server enforces the same rule either way.
+    final attendedCount = _attendance.values
+        .where((p) => p.teamId == _myTeamId && p.attended == true)
+        .length;
+    if (attendedCount != 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Mark exactly 5 attended players for your team before submitting a score.',
+          ),
+        ),
+      );
+      return;
+    }
     final result = await showDialog<({int home, int away})>(
       context: context,
       builder: (ctx) => _ScoreDialog(
@@ -234,9 +250,9 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     }
   }
