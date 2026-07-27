@@ -33,6 +33,16 @@ class TeamRepository {
   Future<void> disbandTeam(String teamId) =>
       SupabaseService.client.rpc('disband_team', params: {'p_team_id': teamId});
 
+  /// The captain hands off leadership to an existing team member.
+  Future<void> transferCaptaincy({
+    required String teamId,
+    required String newCaptainId,
+  }) =>
+      SupabaseService.client.rpc('transfer_captaincy', params: {
+        'p_team_id': teamId,
+        'p_new_captain_id': newCaptainId,
+      });
+
   /// The team captain's name + phone, for a teammate to reach out. Only
   /// callable by members of the team (enforced server-side).
   Future<Map<String, dynamic>?> fetchCaptainContact(String teamId) async {
@@ -46,6 +56,7 @@ class TeamRepository {
     final data = await SupabaseService.client
         .from(_teams)
         .select()
+        .isFilter('disbanded_at', null)
         .order('rating', ascending: false);
     return (data as List)
         .map((e) => TeamModel.fromJson(e as Map<String, dynamic>))
@@ -141,27 +152,14 @@ class TeamRepository {
       throw const TeamLimitException();
     }
 
-    final inserted = await SupabaseService.client
-        .from(_teams)
-        .insert({
-          'name': name,
-          'city': city,
-          'logo_url': logoUrl,
-          'captain_id': uid,
-          'invite_code': _generateInviteCode(),
-        })
-        .select()
-        .single();
-
-    final team = TeamModel.fromJson(inserted);
-
-    await SupabaseService.client.from(_members).insert({
-      'team_id': team.id,
-      'user_id': uid,
-      'role': 'captain',
+    final created = await SupabaseService.client.rpc('create_team_atomic', params: {
+      'p_name': name,
+      'p_city': city,
+      'p_logo_url': logoUrl,
+      'p_invite_code': _generateInviteCode(),
     });
 
-    return team;
+    return TeamModel.fromJson(created as Map<String, dynamic>);
   }
 
   /// Captain updates team details (name, city, logo).
@@ -212,6 +210,7 @@ class TeamRepository {
         .from(_teams)
         .select('id, name')
         .eq('invite_code', inviteCode.trim().toUpperCase())
+        .isFilter('disbanded_at', null)
         .maybeSingle();
 
     if (team == null) {
@@ -329,8 +328,9 @@ class TeamRepository {
         .toList();
   }
 
-  /// Invitee accepts: joins the team (while invite still pending), then
-  /// marks the invitation accepted.
+  /// Invitee accepts: joins the team and marks the invitation accepted in a
+  /// single atomic RPC, so a dropped connection can't leave one step done
+  /// without the other.
   Future<void> acceptInvitation(InvitationModel invitation) async {
     final uid = _uid;
     if (uid == null) throw StateError('No authenticated user');
@@ -341,15 +341,8 @@ class TeamRepository {
       throw const TeamLimitException();
     }
 
-    await SupabaseService.client.from(_members).insert({
-      'team_id': invitation.teamId,
-      'user_id': uid,
-      'role': 'player',
-    });
-
-    await SupabaseService.client
-        .from(_invitations)
-        .update({'status': 'accepted'}).eq('id', invitation.id);
+    await SupabaseService.client.rpc('accept_invitation_atomic',
+        params: {'p_invitation_id': invitation.id});
   }
 
   Future<void> declineInvitation(InvitationModel invitation) async {

@@ -24,7 +24,8 @@ class RankingRepository {
 
   /// Teams ordered by rating (desc), optionally filtered by city.
   Future<List<TeamModel>> fetchTeams({String? city}) async {
-    var query = SupabaseService.client.from('teams').select();
+    var query =
+        SupabaseService.client.from('teams').select().isFilter('disbanded_at', null);
     if (city != null && city.trim().isNotEmpty) {
       query = query.ilike('city', city.trim());
     }

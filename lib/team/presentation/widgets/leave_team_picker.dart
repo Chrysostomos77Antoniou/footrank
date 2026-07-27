@@ -91,12 +91,14 @@ class _LeaveSheetState extends State<_LeaveSheet> {
             child: Text('Leave one to make room for the new team.'),
           ),
           ...widget.teams.map((t) {
-            final isCaptain = t.captainId == widget.uid;
+            final isCaptain = t.captainId == widget.uid && !t.isDisbanded;
             return ListTile(
               leading: const Icon(Icons.groups_outlined),
               title: Text(t.name,
                   style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text(isCaptain ? 'You are captain' : 'Member'),
+              subtitle: Text(t.isDisbanded
+                  ? 'Disbanded'
+                  : (isCaptain ? 'You are captain' : 'Member')),
               trailing: _busyId == t.id
                   ? const SizedBox(
                       width: 20,

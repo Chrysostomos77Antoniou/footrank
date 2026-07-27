@@ -3,13 +3,16 @@ class TeamModel {
   final String name;
   final String? city;
   final String? logoUrl;
-  final String captainId;
+  // Null once the captain has deleted their account -- the team is always
+  // soft-disbanded first, so this only happens on an already-disbanded team.
+  final String? captainId;
   final int rating;
   final String? inviteCode;
   final int wins;
   final int losses;
   final int draws;
   final DateTime createdAt;
+  final DateTime? disbandedAt;
 
   const TeamModel({
     required this.id,
@@ -23,7 +26,10 @@ class TeamModel {
     this.losses = 0,
     this.draws = 0,
     required this.createdAt,
+    this.disbandedAt,
   });
+
+  bool get isDisbanded => disbandedAt != null;
 
   /// Short W–L (–D) record, e.g. "5W · 2L" or "5W · 2L · 1D".
   String get record {
@@ -38,12 +44,15 @@ class TeamModel {
         name: json['name'] as String,
         city: json['city'] as String?,
         logoUrl: json['logo_url'] as String?,
-        captainId: json['captain_id'] as String,
+        captainId: json['captain_id'] as String?,
         rating: (json['rating'] as int?) ?? 1500,
         inviteCode: json['invite_code'] as String?,
         wins: (json['wins'] as int?) ?? 0,
         losses: (json['losses'] as int?) ?? 0,
         draws: (json['draws'] as int?) ?? 0,
         createdAt: DateTime.parse(json['created_at'] as String),
+        disbandedAt: json['disbanded_at'] != null
+            ? DateTime.parse(json['disbanded_at'] as String)
+            : null,
       );
 }

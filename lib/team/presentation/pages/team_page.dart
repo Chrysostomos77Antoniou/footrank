@@ -208,9 +208,10 @@ class _TeamListCard extends StatelessWidget {
                 Text(
                   [
                     if (team.city != null && team.city!.isNotEmpty) team.city!,
-                    isCaptain ? 'Captain' : 'Player',
+                    if (team.isDisbanded) 'Disbanded' else (isCaptain ? 'Captain' : 'Player'),
                   ].join('  ·  '),
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: team.isDisbanded ? AppColors.danger : null),
                 ),
               ],
             ),
@@ -343,7 +344,7 @@ class _TeamView extends StatelessWidget {
           FadeSlideIn(
             child: _TeamHeaderCard(
               team: team,
-              onEdit: _isCaptain
+              onEdit: (_isCaptain && !team.isDisbanded)
                   ? () async {
                       final updated = await context.push<bool>(
                           AppRoutes.editTeam,
@@ -353,6 +354,10 @@ class _TeamView extends StatelessWidget {
                   : null,
             ),
           ),
+          if (team.isDisbanded) ...[
+            const SizedBox(height: 14),
+            FadeSlideIn(child: _DisbandedBanner(team: team)),
+          ],
           const SizedBox(height: 14),
           FadeSlideIn(
             delay: const Duration(milliseconds: 100),
@@ -389,14 +394,14 @@ class _TeamView extends StatelessWidget {
               ],
             ),
           ),
-          if (team.inviteCode != null) ...[
+          if (team.inviteCode != null && !team.isDisbanded) ...[
             const SizedBox(height: 14),
             FadeSlideIn(
               delay: const Duration(milliseconds: 160),
               child: _InviteCodeCard(code: team.inviteCode!),
             ),
           ],
-          if (_isCaptain)
+          if (_isCaptain && !team.isDisbanded)
             _PendingRequests(team: team, repo: repo, onChanged: onChanged),
           const SizedBox(height: 18),
           Padding(
@@ -411,14 +416,14 @@ class _TeamView extends StatelessWidget {
           _MemberList(
             teamId: team.id,
             repo: repo,
-            isCaptain: _isCaptain,
+            isCaptain: _isCaptain && !team.isDisbanded,
             onChanged: onChanged,
           ),
           const SizedBox(height: 24),
           _LeaveDisbandButton(
             team: team,
             repo: repo,
-            isCaptain: _isCaptain,
+            isCaptain: _isCaptain && !team.isDisbanded,
             onChanged: onChanged,
           ),
         ],
@@ -489,6 +494,34 @@ class _LeaveDisbandButton extends StatelessWidget {
       ),
       icon: Icon(isCaptain ? Icons.delete_outline : Icons.logout),
       label: Text(isCaptain ? 'Disband team' : 'Leave team'),
+    );
+  }
+}
+
+class _DisbandedBanner extends StatelessWidget {
+  final TeamModel team;
+  const _DisbandedBanner({required this.team});
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: AppColors.danger),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'This team has been disbanded. Its match history and record '
+              'are kept, but it can no longer play new matches or add members.',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: AppColors.danger),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -853,6 +886,38 @@ class _MemberListState extends State<_MemberList> {
     }
   }
 
+  Future<void> _transferCaptaincy(TeamMemberModel m) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Make captain?'),
+        content: Text(
+            '${m.name} will become captain of this team. You will become a '
+            'regular player and can leave the team afterwards if you want.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Make Captain')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await widget.repo
+          .transferCaptaincy(teamId: m.teamId, newCaptainId: m.userId);
+      _reload();
+      widget.onChanged();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    }
+  }
+
   Color _roleColor(BuildContext context, TeamMemberModel m) => m.isCaptain
       ? AppColors.gold
       : (m.isViceCaptain ? AppColors.brand(context) : Colors.transparent);
@@ -918,6 +983,8 @@ class _MemberListState extends State<_MemberList> {
                         icon: const Icon(Icons.more_vert),
                         onSelected: (v) {
                           switch (v) {
+                            case 'make_captain':
+                              _transferCaptaincy(m);
                             case 'make_vice':
                               _setRole(m, 'vice_captain');
                             case 'make_player':
@@ -927,6 +994,9 @@ class _MemberListState extends State<_MemberList> {
                           }
                         },
                         itemBuilder: (ctx) => [
+                          const PopupMenuItem(
+                              value: 'make_captain',
+                              child: Text('Make Captain')),
                           if (!m.isViceCaptain)
                             const PopupMenuItem(
                                 value: 'make_vice',
