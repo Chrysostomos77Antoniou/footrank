@@ -43,8 +43,19 @@ Future<void> main() async {
       return true;
     };
     await NotificationService.initialize();
-  } catch (e) {
+  } catch (e, st) {
     debugPrint('Firebase/notifications init failed: $e');
+    // Best-effort: only reports if Firebase.initializeApp() itself succeeded
+    // (Crashlytics needs that to be ready). Without this, push-registration
+    // failures were invisible in production -- just a local debugPrint.
+    try {
+      await FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        fatal: false,
+        reason: 'push notification init failed',
+      );
+    } catch (_) {}
   }
 
   // Keep the user's FCM device token in sync so the server can push to them.
