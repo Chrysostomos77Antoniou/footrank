@@ -217,14 +217,14 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       );
       return;
     }
-    // Squads of 5 or fewer are auto-marked attended on confirmation, so this
-    // only ever blocks a captain with a bench (6+ squad) who hasn't picked
-    // at least 5 yet -- the server enforces the same floor either way. No
+    // Attendance is never auto-marked -- every captain must explicitly
+    // confirm at least 5 of their own players before a score can go in. No
     // upper bound: more than 5 is fine (rolling substitutes).
     final attendedCount = _attendance.values
         .where((p) => p.teamId == _myTeamId && p.attended == true)
         .length;
     if (attendedCount < 5) {
+      setState(() => _tab = 2); // Attendance tab -- unmarked players get a "!"
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -678,7 +678,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           delay: const Duration(milliseconds: 120),
           child: GlassTabs(
             index: _tab,
-            tabs: const ['Information', 'Contact', 'Attendance', 'Behave'],
+            tabs: const ['Information', 'Contact', 'Attendance', 'Behaviour'],
             onChanged: (i) => setState(() => _tab = i),
           ),
         ),
@@ -967,6 +967,7 @@ class _TeamRoster extends StatelessWidget {
             children: members.asMap().entries.map((e) {
               final m = e.value;
               final att = attendance[m.userId]?.attended;
+              final needsAttention = att == null;
               final Widget trailing = canMark
                   ? _AttendanceToggle(
                       attended: att,
@@ -999,7 +1000,30 @@ class _TeamRoster extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        if (needsAttention) ...[
+                          Tooltip(
+                            message: 'Not marked yet',
+                            child: Container(
+                              width: 18,
+                              height: 18,
+                              alignment: Alignment.center,
+                              decoration: const BoxDecoration(
+                                color: AppColors.danger,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Text(
+                                '!',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         LevelBadge(value: m.elo, size: 36),
                         trailing,
                       ],
