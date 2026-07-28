@@ -38,6 +38,8 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
 
   // Upcoming Matches / Match History.
   int _matchesTab = 0;
+  // Open Requests / Available Opponents.
+  int _requestsTab = 0;
 
   @override
   void initState() {
@@ -349,102 +351,113 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                 onSelect: _selectTeam,
               ),
             ),
-          const FadeSlideIn(child: _SectionHeader(title: 'Open Requests')),
-          FutureBuilder<List<MatchRequestModel>>(
-            future: _future,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SkeletonList(count: 2);
-              }
-              if (snapshot.hasError) {
-                return Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: ErrorView(
-                    message: friendlyError(snapshot.error!),
-                    onRetry: _reloadRequests,
-                  ),
-                );
-              }
-              final requests = snapshot.data
-                      ?.where((r) =>
-                          MatchStatus.fromString(r.status).isOpen)
-                      .toList() ??
-                  [];
-              if (requests.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: EmptyView(
-                    icon: Icons.sports_soccer_outlined,
-                    title: 'No matches scheduled yet',
-                    hint: 'Tap "Create Match" to start.',
-                  ),
-                );
-              }
-              final uid = SupabaseService.client.auth.currentUser?.id;
-              return Column(
-                children: requests
-                    .asMap()
-                    .entries
-                    .map((e) => FadeSlideIn(
-                          delay: Duration(milliseconds: 50 * e.key),
-                          child: _RequestCard(
-                            request: e.value,
-                            onCancel: e.value.captainId == uid
-                                ? () => _cancelRequest(e.value)
-                                : null,
-                          ),
-                        ))
-                    .toList(),
-              );
-            },
-          ),
-          if (_team != null) ...[
-            const FadeSlideIn(
-                child: _SectionHeader(title: 'Available Opponents')),
-            FutureBuilder<List<MatchRequestModel>>(
-              future: _opponentsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const SkeletonList(count: 2);
-                }
-                if (snapshot.hasError) {
-                  return Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: ErrorView(
-                      message: friendlyError(snapshot.error!),
-                      onRetry: _reloadRequests,
-                    ),
-                  );
-                }
-                final opponents = snapshot.data ?? [];
-                if (opponents.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: EmptyView(
-                      icon: Icons.person_search_outlined,
-                      title: 'No matching opponents yet',
-                      hint: 'Opponents appear when another team has an open '
-                          'request in the same city, on the same date '
-                          '(±30 min), with a similar rating.',
-                    ),
-                  );
-                }
-                return Column(
-                  children: opponents
-                      .asMap()
-                      .entries
-                      .map((e) => FadeSlideIn(
-                            delay: Duration(milliseconds: 50 * e.key),
-                            child: _OpponentCard(
-                              opponent: e.value,
-                              onAccept: () => _accept(e.value),
-                            ),
-                          ))
-                      .toList(),
-                );
-              },
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: FadeSlideIn(
+              child: GlassTabs(
+                index: _requestsTab,
+                tabs: const ['Open Requests', 'Available Opponents'],
+                onChanged: (i) => setState(() => _requestsTab = i),
+              ),
             ),
-          ],
+          ),
+          IndexedStack(
+            index: _requestsTab,
+            alignment: Alignment.topCenter,
+            children: [
+              FutureBuilder<List<MatchRequestModel>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SkeletonList(count: 2);
+                  }
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: ErrorView(
+                        message: friendlyError(snapshot.error!),
+                        onRetry: _reloadRequests,
+                      ),
+                    );
+                  }
+                  final requests = snapshot.data
+                          ?.where((r) =>
+                              MatchStatus.fromString(r.status).isOpen)
+                          .toList() ??
+                      [];
+                  if (requests.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: EmptyView(
+                        icon: Icons.sports_soccer_outlined,
+                        title: 'No matches scheduled yet',
+                        hint: 'Tap "Create Match" to start.',
+                      ),
+                    );
+                  }
+                  final uid = SupabaseService.client.auth.currentUser?.id;
+                  return Column(
+                    children: requests
+                        .asMap()
+                        .entries
+                        .map((e) => FadeSlideIn(
+                              delay: Duration(milliseconds: 50 * e.key),
+                              child: _RequestCard(
+                                request: e.value,
+                                onCancel: e.value.captainId == uid
+                                    ? () => _cancelRequest(e.value)
+                                    : null,
+                              ),
+                            ))
+                        .toList(),
+                  );
+                },
+              ),
+              FutureBuilder<List<MatchRequestModel>>(
+                future: _opponentsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SkeletonList(count: 2);
+                  }
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: ErrorView(
+                        message: friendlyError(snapshot.error!),
+                        onRetry: _reloadRequests,
+                      ),
+                    );
+                  }
+                  final opponents = snapshot.data ?? [];
+                  if (opponents.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: EmptyView(
+                        icon: Icons.person_search_outlined,
+                        title: 'No matching opponents yet',
+                        hint: 'Opponents appear when another team has an open '
+                            'request in the same city, on the same date '
+                            '(±30 min), with a similar rating.',
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: opponents
+                        .asMap()
+                        .entries
+                        .map((e) => FadeSlideIn(
+                              delay: Duration(milliseconds: 50 * e.key),
+                              child: _OpponentCard(
+                                opponent: e.value,
+                                onAccept: () => _accept(e.value),
+                              ),
+                            ))
+                        .toList(),
+                  );
+                },
+              ),
+            ],
+          ),
           FutureBuilder<List<MatchModel>>(
             future: _matchesFuture,
             builder: (context, snapshot) {

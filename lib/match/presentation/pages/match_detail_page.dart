@@ -620,12 +620,6 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     final status = MatchStatus.fromString(match.status);
     final hasScore = match.homeScore != null && match.awayScore != null;
 
-    final opponentMembers = _opponentTeamId == null
-        ? const <TeamMemberModel>[]
-        : (_opponentTeamId == match.homeTeamId ? _homeMembers : _awayMembers);
-    final showRateSection =
-        _isCaptain && _matchStarted && _opponentTeamId != null;
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -671,7 +665,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           delay: const Duration(milliseconds: 120),
           child: GlassTabs(
             index: _tab,
-            tabs: const ['Information', 'Contact', 'Attendance'],
+            tabs: const ['Information', 'Contact', 'Attendance', 'Rate Behaviour'],
             onChanged: (i) => setState(() => _tab = i),
           ),
         ),
@@ -685,22 +679,46 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
               _buildInfoTab(match, status),
               _buildContactTab(),
               _buildAttendanceTab(match),
+              _buildRateTab(match),
             ],
           ),
         ),
-        if (showRateSection) ...[
-          const SizedBox(height: 16),
-          _RateOppositionSection(
-            title: _opponentTeamId == match.homeTeamId
-                ? (match.homeTeamName ?? 'Home')
-                : (match.awayTeamName ?? 'Away'),
-            members: opponentMembers,
-            behavior: _myBehavior,
-            onRateGood: _rateGood,
-            onRateBad: _rateBad,
-          ),
-        ],
       ],
+    );
+  }
+
+  Widget _buildRateTab(MatchModel match) {
+    if (!_isCaptain || _opponentTeamId == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: EmptyView(
+          icon: Icons.thumbs_up_down_outlined,
+          title: 'Only captains can rate the opposition',
+        ),
+      );
+    }
+    if (!_matchStarted) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        child: Text(
+          'You can rate the opposition\'s behavior 90 minutes after '
+          'kick-off (from ${_kickoffLabel()}).',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      );
+    }
+    final opponentMembers =
+        _opponentTeamId == match.homeTeamId ? _homeMembers : _awayMembers;
+    final title = _opponentTeamId == match.homeTeamId
+        ? (match.homeTeamName ?? 'Home')
+        : (match.awayTeamName ?? 'Away');
+    return _RateOppositionSection(
+      title: title,
+      members: opponentMembers,
+      behavior: _myBehavior,
+      onRateGood: _rateGood,
+      onRateBad: _rateBad,
     );
   }
 
@@ -985,27 +1003,15 @@ class _RateOppositionSection extends StatelessWidget {
                 delay: Duration(milliseconds: 40 * e.key),
                 child: GlassCard(
                   padding: const EdgeInsets.all(14),
-                  onTap: () => showPlayerSheetById(context, m.userId),
                   child: Row(
                     children: [
                       GradientAvatar(name: m.name, radius: 18),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(m.name,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700)),
-                            if (m.position != null)
-                              Text(m.position!,
-                                  style:
-                                      Theme.of(context).textTheme.bodySmall),
-                          ],
-                        ),
+                        child: Text(m.name,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w700)),
                       ),
-                      const SizedBox(width: 8),
-                      LevelBadge(value: m.elo, size: 36),
                       _BehaviorControl(
                         rating: behavior[m.userId],
                         onGood: () => onRateGood(m),

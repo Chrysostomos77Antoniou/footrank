@@ -43,8 +43,8 @@ class _AmbientBackgroundState extends State<AmbientBackground>
         ? const Color(0xFF05060E).withValues(alpha: 0.9)
         : const Color(0xFFD7DBE6).withValues(alpha: 0.85);
     final dot = isDark
-        ? Colors.white.withValues(alpha: 0.028)
-        : Colors.black.withValues(alpha: 0.028);
+        ? Colors.white.withValues(alpha: 0.09)
+        : Colors.black.withValues(alpha: 0.07);
 
     return AnimatedBuilder(
       animation: _c,
@@ -109,7 +109,7 @@ class _AmbientBlobs extends CustomPainter {
     const gap = 28.0;
     for (double y = gap; y < h; y += gap) {
       for (double x = gap; x < w; x += gap) {
-        c.drawCircle(Offset(x, y), 1.1, dotPaint);
+        c.drawCircle(Offset(x, y), 1.4, dotPaint);
       }
     }
 
