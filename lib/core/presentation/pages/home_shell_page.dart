@@ -4,11 +4,17 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 
-class HomeShellPage extends StatelessWidget {
+class HomeShellPage extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   const HomeShellPage({super.key, required this.navigationShell});
 
+  @override
+  State<HomeShellPage> createState() => _HomeShellPageState();
+}
+
+class _HomeShellPageState extends State<HomeShellPage>
+    with SingleTickerProviderStateMixin {
   static const _items = [
     (Icons.home_rounded, 'Home'),
     (Icons.groups_rounded, 'Team'),
@@ -17,20 +23,53 @@ class HomeShellPage extends StatelessWidget {
     (Icons.person_rounded, 'Profile'),
   ];
 
+  // Purely a paint-time fade+slide overlay on the *same* navigationShell
+  // instance -- it never rebuilds or re-keys that widget, so every branch
+  // stays alive exactly as before (a full crossfade here was tried once and
+  // felt laggy because it rebuilt the branch on every switch; this doesn't).
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 260),
+  )..value = 1;
+  late final Animation<double> _fade = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOut,
+  );
+  Animation<Offset> _slide = const AlwaysStoppedAnimation(Offset.zero);
+
+  @override
+  void didUpdateWidget(covariant HomeShellPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldIndex = oldWidget.navigationShell.currentIndex;
+    final newIndex = widget.navigationShell.currentIndex;
+    if (oldIndex != newIndex) {
+      final forward = newIndex > oldIndex;
+      _slide = Tween<Offset>(
+        begin: Offset(forward ? 0.05 : -0.05, 0),
+        end: Offset.zero,
+      ).animate(_fade);
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   void _goToTab(int index) {
     HapticFeedback.selectionClick();
-    navigationShell.goBranch(index);
+    widget.navigationShell.goBranch(index);
     triggerUiRepaint();
   }
 
   @override
   Widget build(BuildContext context) {
+    final navigationShell = widget.navigationShell;
     // Fixed brand green in both themes (not the lime-in-dark-mode accent
     // used elsewhere) -- this bar is meant to read as solid green always.
     return Scaffold(
-      // Render the shell directly — StatefulShellRoute keeps each branch alive,
-      // so switching tabs is instant. (A crossfade here rebuilt the whole
-      // branch every switch and felt laggy.)
       // A horizontal swipe here moves to the adjacent tab -- separate from
       // (and never conflicting with) the swipe-to-go-back gesture on pushed
       // pages, since a pushed page fully covers this shell while it's open.
@@ -45,7 +84,13 @@ class HomeShellPage extends StatelessWidget {
             _goToTab(current - 1);
           }
         },
-        child: navigationShell,
+        child: FadeTransition(
+          opacity: _fade,
+          child: SlideTransition(
+            position: _slide,
+            child: navigationShell,
+          ),
+        ),
       ),
       bottomNavigationBar: ClipRRect(
         borderRadius: const BorderRadius.only(

@@ -68,9 +68,13 @@ CustomTransitionPage<T> _animatedPage<T>(Widget child, GoRouterState state) {
     transitionDuration: const Duration(milliseconds: 280),
     reverseTransitionDuration: const Duration(milliseconds: 220),
     transitionsBuilder: (context, animation, secondary, child) {
+      // Distinct forward/reverse curves so a swipe-back pop eases out on
+      // its own terms instead of just running the entry curve backwards
+      // (which reads as a slow start, since easeOut reversed becomes easeIn).
       final curved = CurvedAnimation(
         parent: animation,
         curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
       );
       return FadeTransition(
         opacity: curved,
