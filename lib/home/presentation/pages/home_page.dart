@@ -259,16 +259,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                 ),
                 const SizedBox(height: AppSpacing.sm),
               ],
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 180),
-                child: _ActionCard(
-                  icon: Icons.leaderboard,
-                  title: 'Leaderboard',
-                  subtitle: 'See where you rank',
-                  onTap: () => context.push(AppRoutes.teamRankings),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xxl),
+              const SizedBox(height: AppSpacing.md),
               // ---- Secondary actions ----
               FadeSlideIn(
                 delay: const Duration(milliseconds: 240),
@@ -276,48 +267,46 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
               ),
               FadeSlideIn(
                 delay: const Duration(milliseconds: 280),
-                child: _ActionCard(
-                  icon: Icons.notifications_active_outlined,
-                  title: 'Notifications',
-                  subtitle: 'Match & team updates',
-                  onTap: () async {
-                    await context.push(AppRoutes.notifications);
-                    _refreshUnread();
-                  },
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 320),
-                child: _ActionCard(
-                  icon: Icons.sports_soccer,
-                  title: 'Courts',
-                  subtitle: 'Browse every court you can play at',
-                  onTap: () => context.push(AppRoutes.courts),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 360),
-                child: _ActionCard(
-                  icon: Icons.person_search_outlined,
-                  title: 'Free Agents',
-                  subtitle: 'Find players without a team',
-                  onTap: () => context.push(AppRoutes.freeAgents),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 400),
-                child: _ActionCard(
-                  icon: Icons.mail_outline,
-                  title: 'Team Invitations',
-                  subtitle: 'Invitations from team captains',
-                  badgeCount: _inviteCount,
-                  onTap: () async {
-                    await context.push(AppRoutes.invitations);
-                    _loadInvites();
-                  },
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: AppSpacing.sm,
+                  crossAxisSpacing: AppSpacing.sm,
+                  childAspectRatio: 1.05,
+                  children: [
+                    _ActionGridCard(
+                      icon: Icons.notifications_active_outlined,
+                      title: 'Notifications',
+                      subtitle: 'Match & team updates',
+                      onTap: () async {
+                        await context.push(AppRoutes.notifications);
+                        _refreshUnread();
+                      },
+                    ),
+                    _ActionGridCard(
+                      icon: Icons.sports_soccer,
+                      title: 'Courts',
+                      subtitle: 'Places to play',
+                      onTap: () => context.push(AppRoutes.courts),
+                    ),
+                    _ActionGridCard(
+                      icon: Icons.person_search_outlined,
+                      title: 'Free Agents',
+                      subtitle: 'Players without a team',
+                      onTap: () => context.push(AppRoutes.freeAgents),
+                    ),
+                    _ActionGridCard(
+                      icon: Icons.mail_outline,
+                      title: 'Invitations',
+                      subtitle: 'From team captains',
+                      badgeCount: _inviteCount,
+                      onTap: () async {
+                        await context.push(AppRoutes.invitations);
+                        _loadInvites();
+                      },
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -622,14 +611,16 @@ class _PrimaryCta extends StatelessWidget {
   }
 }
 
-class _ActionCard extends StatelessWidget {
+/// A compact tile for the 2-per-row "MANAGE" grid on Home — smaller than the
+/// old full-width row so four actions fit in the same space two used to.
+class _ActionGridCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
   final int badgeCount;
 
-  const _ActionCard({
+  const _ActionGridCard({
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -642,53 +633,40 @@ class _ActionCard extends StatelessWidget {
     final accent = AppColors.iconAccent(context);
     return GlassCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Row(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Badge(
             isLabelVisible: badgeCount > 0,
             label: Text('$badgeCount'),
             backgroundColor: AppColors.danger,
             child: Container(
-              width: 52,
-              height: 52,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(AppRadius.lg - 2),
+                borderRadius: BorderRadius.circular(AppRadius.lg - 4),
               ),
               alignment: Alignment.center,
-              child: Icon(icon, color: accent),
+              child: Icon(icon, color: accent, size: 20),
             ),
           ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                // bodyMedium + muted: readable 14px secondary text instead of
-                // 12px that was straining against the card background.
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.muted(context),
-                      ),
-                ),
-              ],
+          const Spacer(),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
             ),
           ),
-          Icon(
-            Icons.arrow_forward_ios,
-            size: 16,
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.55),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.muted(context),
+                ),
           ),
         ],
       ),

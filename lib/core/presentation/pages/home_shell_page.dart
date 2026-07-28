@@ -214,7 +214,10 @@ class _NavItem extends StatelessWidget {
     // White on the fixed green bar, not the theme-flipping accent color —
     // this bar is solid green in both themes now, so its content needs to
     // contrast against green specifically, not the page's own accent.
-    final color = selected ? Colors.white : Colors.white.withValues(alpha: 0.65);
+    // Selection is shown by the icon alone now (no indicator line, and the
+    // label stays the same muted tone whether selected or not).
+    const mutedWhite = Colors.white70;
+    final iconColor = selected ? Colors.white : mutedWhite;
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -222,22 +225,12 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Thin top indicator marks the active tab — restrained, no fill.
-            Container(
-              width: 22,
-              height: 2.5,
-              decoration: BoxDecoration(
-                color: selected ? Colors.white : Colors.transparent,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 9),
-            Icon(icon, color: color, size: 23),
+            Icon(icon, color: iconColor, size: 23),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                color: color,
+                color: mutedWhite,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 fontSize: 11,
               ),
