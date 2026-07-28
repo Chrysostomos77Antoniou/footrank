@@ -64,7 +64,7 @@ final _profileRepo = ProfileRepository();
 CustomTransitionPage<T> _animatedPage<T>(Widget child, GoRouterState state) {
   return CustomTransitionPage<T>(
     key: state.pageKey,
-    child: child,
+    child: _SwipeBackWrapper(child: child),
     transitionDuration: const Duration(milliseconds: 280),
     reverseTransitionDuration: const Duration(milliseconds: 220),
     transitionsBuilder: (context, animation, secondary, child) {
@@ -84,6 +84,30 @@ CustomTransitionPage<T> _animatedPage<T>(Widget child, GoRouterState state) {
       );
     },
   );
+}
+
+/// Lets a horizontal swipe anywhere on a pushed page go back, like iOS's
+/// edge-swipe gesture but not restricted to a narrow edge strip. A velocity
+/// threshold (rather than tracking the drag live) keeps it from firing on
+/// ordinary vertical scrolling, and it only ever wraps *pushed* pages (see
+/// `_animatedPage`) -- the 5 bottom-tab root pages have nothing to pop back
+/// to, so the gesture harmlessly does nothing there.
+class _SwipeBackWrapper extends StatelessWidget {
+  final Widget child;
+  const _SwipeBackWrapper({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragEnd: (details) {
+        if (details.velocity.pixelsPerSecond.dx < -300) {
+          Navigator.of(context).maybePop();
+        }
+      },
+      child: child,
+    );
+  }
 }
 
 GoRouter buildRouter() => GoRouter(

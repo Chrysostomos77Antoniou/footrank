@@ -21,18 +21,13 @@ class HomeShellPage extends StatelessWidget {
   Widget build(BuildContext context) {
     // Fixed brand green in both themes (not the lime-in-dark-mode accent
     // used elsewhere) -- this bar is meant to read as solid green always.
-    const topRadius = Radius.circular(28);
-
     return Scaffold(
       // Render the shell directly — StatefulShellRoute keeps each branch alive,
       // so switching tabs is instant. (A crossfade here rebuilt the whole
       // branch every switch and felt laggy.)
       body: navigationShell,
-      bottomNavigationBar: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: topRadius,
-          topRight: topRadius,
-        ),
+      bottomNavigationBar: ClipPath(
+        clipper: const _FlaredTopClipper(),
         child: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -78,6 +73,34 @@ class HomeShellPage extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The reverse of a standard rounded-top-corners bar: the top corners stay
+/// square (full height, "flared" out to fill the corner) and the top edge
+/// dips into a shallow concave curve at the center instead -- opposite of
+/// a normal rounded rectangle, where the center is flat/tallest and the
+/// corners recede.
+class _FlaredTopClipper extends CustomClipper<Path> {
+  const _FlaredTopClipper();
+
+  @override
+  Path getClip(Size size) {
+    const dipControlDepth = 44.0; // ~22px visible dip at the center
+    return Path()
+      ..moveTo(0, 0)
+      ..quadraticBezierTo(
+        size.width / 2,
+        dipControlDepth,
+        size.width,
+        0,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
 class _NavItem extends StatelessWidget {

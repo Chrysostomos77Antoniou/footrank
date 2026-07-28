@@ -533,7 +533,18 @@ class _StatCard extends StatelessWidget {
             if (animateTo != null)
               AnimatedCount(animateTo!, suffix: suffix, style: numStyle)
             else
-              Text(value, style: numStyle),
+              // A text label (e.g. "Excellent") is wider than a short number,
+              // so it gets its own smaller size and shrinks to fit on one
+              // line instead of wrapping and breaking mid-word.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: numStyle.copyWith(fontSize: 18),
+                ),
+              ),
             const SizedBox(height: 2),
             Text(
               label,

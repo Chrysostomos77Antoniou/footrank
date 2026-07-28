@@ -744,8 +744,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Rate how $title behaved as a team -- this applies to every '
-          'player on their side, not each one separately.',
+          'Rate how "$title" behaved as a team',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 10),
