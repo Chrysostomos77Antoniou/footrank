@@ -927,7 +927,7 @@ class _MemberListState extends State<_MemberList> {
                 padding: const EdgeInsets.all(14),
                 child: Row(
                   children: [
-                    GradientAvatar(name: m.name, radius: 20),
+                    GradientAvatar(name: m.name, imageUrl: m.avatarUrl, radius: 20),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(

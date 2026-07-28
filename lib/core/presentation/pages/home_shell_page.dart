@@ -17,6 +17,12 @@ class HomeShellPage extends StatelessWidget {
     (Icons.person_rounded, 'Profile'),
   ];
 
+  void _goToTab(int index) {
+    HapticFeedback.selectionClick();
+    navigationShell.goBranch(index);
+    triggerUiRepaint();
+  }
+
   @override
   Widget build(BuildContext context) {
     // Fixed brand green in both themes (not the lime-in-dark-mode accent
@@ -25,7 +31,22 @@ class HomeShellPage extends StatelessWidget {
       // Render the shell directly — StatefulShellRoute keeps each branch alive,
       // so switching tabs is instant. (A crossfade here rebuilt the whole
       // branch every switch and felt laggy.)
-      body: navigationShell,
+      // A horizontal swipe here moves to the adjacent tab -- separate from
+      // (and never conflicting with) the swipe-to-go-back gesture on pushed
+      // pages, since a pushed page fully covers this shell while it's open.
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragEnd: (details) {
+          final v = details.velocity.pixelsPerSecond.dx;
+          final current = navigationShell.currentIndex;
+          if (v < -300 && current < _items.length - 1) {
+            _goToTab(current + 1);
+          } else if (v > 300 && current > 0) {
+            _goToTab(current - 1);
+          }
+        },
+        child: navigationShell,
+      ),
       bottomNavigationBar: ClipPath(
         clipper: const _FlaredTopClipper(),
         child: Container(
@@ -76,26 +97,32 @@ class HomeShellPage extends StatelessWidget {
 }
 
 /// The reverse of a standard rounded-top-corners bar: the top corners stay
-/// square (full height, "flared" out to fill the corner) and the top edge
-/// dips into a shallow concave curve at the center instead -- opposite of
-/// a normal rounded rectangle, where the center is flat/tallest and the
-/// corners recede.
+/// (near) full height, "flared" out instead of receding, and the top edge
+/// dips into a shallow concave curve at the center -- opposite of a normal
+/// rounded rectangle, where the center is flat/tallest and the corners
+/// recede. A tiny radius softens the very corner tip (instead of a razor
+/// 90°), and the dip itself is a cubic S-curve rather than a single
+/// quadratic peak, so the whole transition reads as gradual, not abrupt.
 class _FlaredTopClipper extends CustomClipper<Path> {
   const _FlaredTopClipper();
 
   @override
   Path getClip(Size size) {
-    const dipControlDepth = 44.0; // ~22px visible dip at the center
+    const cornerRadius = 10.0;
+    const dipDepth = 26.0;
+    final w = size.width;
+    final h = size.height;
     return Path()
-      ..moveTo(0, 0)
-      ..quadraticBezierTo(
-        size.width / 2,
-        dipControlDepth,
-        size.width,
-        0,
+      ..moveTo(0, cornerRadius)
+      ..quadraticBezierTo(0, 0, cornerRadius, 0)
+      ..cubicTo(
+        w * 0.32, dipDepth,
+        w * 0.68, dipDepth,
+        w - cornerRadius, 0,
       )
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
+      ..quadraticBezierTo(w, 0, w, cornerRadius)
+      ..lineTo(w, h)
+      ..lineTo(0, h)
       ..close();
   }
 

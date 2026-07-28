@@ -8,6 +8,7 @@ class TeamMemberModel {
   final String name;
   final String username;
   final String? position;
+  final String? avatarUrl;
   final int elo;
   final int reliability;
   final int behaviorPositive;
@@ -21,6 +22,7 @@ class TeamMemberModel {
     required this.name,
     required this.username,
     this.position,
+    this.avatarUrl,
     required this.elo,
     this.reliability = 100,
     this.behaviorPositive = 0,
@@ -63,6 +65,7 @@ class TeamMemberModel {
       name: (user['name'] as String?) ?? 'Unknown',
       username: (user['username'] as String?) ?? '',
       position: user['position'] as String?,
+      avatarUrl: user['avatar_url'] as String?,
       elo: (user['elo'] as int?) ?? 1500,
       reliability: (user['reliability'] as int?) ?? 100,
       behaviorPositive: (user['behavior_positive'] as int?) ?? 0,

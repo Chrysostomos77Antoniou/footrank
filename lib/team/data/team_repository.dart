@@ -116,7 +116,7 @@ class TeamRepository {
     final data = await SupabaseService.client
         .from(_members)
         .select(
-            '*, users(name, username, position, elo, reliability, behavior_positive, behavior_negative)')
+            '*, users(name, username, position, avatar_url, elo, reliability, behavior_positive, behavior_negative)')
         .eq('team_id', teamId);
 
     final members = (data as List)

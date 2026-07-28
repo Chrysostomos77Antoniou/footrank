@@ -280,7 +280,7 @@ class _TeamSheet extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                             child: Row(
                             children: [
-                              GradientAvatar(name: m.name, radius: 18),
+                              GradientAvatar(name: m.name, imageUrl: m.avatarUrl, radius: 18),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(

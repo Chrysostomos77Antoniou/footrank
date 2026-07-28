@@ -275,46 +275,6 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     }
   }
 
-  Future<void> _reschedule() async {
-    final match = _match!;
-    final current = match.scheduledAt.toLocal();
-    final now = DateTime.now();
-    final date = await showDatePicker(
-      context: context,
-      initialDate: current.isBefore(now) ? now : current,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365)),
-    );
-    if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(current),
-      initialEntryMode: TimePickerEntryMode.input,
-    );
-    if (time == null) return;
-    final newDt = DateTime(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
-    );
-    try {
-      await _matchRepo.rescheduleMatch(match.id, newDt);
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Match rescheduled')));
-      await _load();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-        );
-      }
-    }
-  }
-
   /// Confirmed matches can be cancelled any time, but a captain who cancels
   /// from the 2-hour mark before kick-off onward (including after kick-off,
   /// if it was never scored) costs their team 200 Pitch Power. Matches that
@@ -436,6 +396,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       final tid = c['team_id'] as String?;
       final name = (c['captain_name'] as String?) ?? 'Captain';
       final phone = c['captain_phone'] as String?;
+      final avatarUrl = c['captain_avatar_url'] as String?;
       final teamName = tid == _match?.homeTeamId
           ? (_homeTeam?.name ?? 'Home')
           : (_awayTeam?.name ?? 'Away');
@@ -443,7 +404,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
         ListTile(
           contentPadding: EdgeInsets.zero,
           dense: true,
-          leading: GradientAvatar(name: name, radius: 18),
+          leading: GradientAvatar(name: name, imageUrl: avatarUrl, radius: 18),
           title: Text(
             name,
             style: const TextStyle(fontWeight: FontWeight.w700),
@@ -593,19 +554,13 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final canReschedule =
+    final canCancel =
         _isCaptain && _match != null && _match!.status != 'completed';
     return Scaffold(
       appBar: AppBar(
         title: const Text('Match'),
         actions: [
-          if (canReschedule)
-            IconButton(
-              tooltip: 'Reschedule',
-              icon: const Icon(Icons.edit_calendar_outlined),
-              onPressed: _reschedule,
-            ),
-          if (canReschedule)
+          if (canCancel)
             IconButton(
               tooltip: 'Cancel match',
               icon: const Icon(Icons.cancel_outlined),
@@ -644,6 +599,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
                 Expanded(
                   child: _TeamHeader(
                     name: match.homeTeamName ?? 'Home',
+                    logoUrl: match.homeTeamLogo,
                     onTap: _homeTeam == null
                         ? null
                         : () => showTeamSheet(context, _homeTeam!),
@@ -658,6 +614,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
                 Expanded(
                   child: _TeamHeader(
                     name: match.awayTeamName ?? 'Away',
+                    logoUrl: match.awayTeamLogo,
                     onTap: _awayTeam == null
                         ? null
                         : () => showTeamSheet(context, _awayTeam!),
@@ -726,6 +683,9 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     final title = _opponentTeamId == match.homeTeamId
         ? (match.homeTeamName ?? 'Home')
         : (match.awayTeamName ?? 'Away');
+    final logoUrl = _opponentTeamId == match.homeTeamId
+        ? match.homeTeamLogo
+        : match.awayTeamLogo;
     if (opponentMembers.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 24),
@@ -752,7 +712,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              GradientAvatar(name: title, radius: 18),
+              GradientAvatar(name: title, imageUrl: logoUrl, radius: 18),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(title,
@@ -866,8 +826,9 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
 
 class _TeamHeader extends StatelessWidget {
   final String name;
+  final String? logoUrl;
   final VoidCallback? onTap;
-  const _TeamHeader({required this.name, this.onTap});
+  const _TeamHeader({required this.name, this.logoUrl, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -882,7 +843,7 @@ class _TeamHeader extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.brand(context), width: 2.5),
             ),
-            child: GradientAvatar(name: name, radius: 28),
+            child: GradientAvatar(name: name, imageUrl: logoUrl, radius: 28),
           ),
           const SizedBox(height: 8),
           Text(
@@ -983,7 +944,8 @@ class _TeamRoster extends StatelessWidget {
                     onTap: () => showPlayerSheetById(context, m.userId),
                     child: Row(
                       children: [
-                        GradientAvatar(name: m.name, radius: 18),
+                        GradientAvatar(
+                            name: m.name, imageUrl: m.avatarUrl, radius: 18),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
