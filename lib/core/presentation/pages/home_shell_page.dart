@@ -19,54 +19,59 @@ class HomeShellPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final navColor = isDark ? AppColors.darkCard : AppColors.lightCard;
-    final border = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : Colors.black.withValues(alpha: 0.10);
+    // Fixed brand green in both themes (not the lime-in-dark-mode accent
+    // used elsewhere) -- this bar is meant to read as solid green always.
+    const topRadius = Radius.circular(28);
 
     return Scaffold(
       // Render the shell directly — StatefulShellRoute keeps each branch alive,
       // so switching tabs is instant. (A crossfade here rebuilt the whole
       // branch every switch and felt laggy.)
       body: navigationShell,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: navColor,
-          border: Border(top: BorderSide(color: border)),
-          boxShadow: isDark
-              ? null
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 12,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
+      bottomNavigationBar: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: topRadius,
+          topRight: topRadius,
         ),
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            height: 64,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                for (var i = 0; i < _items.length; i++)
-                  _NavItem(
-                    icon: _items[i].$1,
-                    label: _items[i].$2,
-                    selected: navigationShell.currentIndex == i,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      navigationShell.goBranch(
-                        i,
-                        initialLocation: i == navigationShell.currentIndex,
-                      );
-                      // Repaint the now-visible tab's UI (no data re-fetch).
-                      triggerUiRepaint();
-                    },
-                  ),
-              ],
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [AppColors.limeDeep, AppColors.limeDeeper],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 16,
+                offset: Offset(0, -4),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: 64,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  for (var i = 0; i < _items.length; i++)
+                    _NavItem(
+                      icon: _items[i].$1,
+                      label: _items[i].$2,
+                      selected: navigationShell.currentIndex == i,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        navigationShell.goBranch(
+                          i,
+                          initialLocation: i == navigationShell.currentIndex,
+                        );
+                        // Repaint the now-visible tab's UI (no data re-fetch).
+                        triggerUiRepaint();
+                      },
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -90,9 +95,10 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final accent = AppColors.iconAccent(context);
-    final color = selected ? accent : onSurface.withValues(alpha: 0.6);
+    // White on the fixed green bar, not the theme-flipping accent color —
+    // this bar is solid green in both themes now, so its content needs to
+    // contrast against green specifically, not the page's own accent.
+    final color = selected ? Colors.white : Colors.white.withValues(alpha: 0.65);
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -105,7 +111,7 @@ class _NavItem extends StatelessWidget {
               width: 22,
               height: 2.5,
               decoration: BoxDecoration(
-                color: selected ? accent : Colors.transparent,
+                color: selected ? Colors.white : Colors.transparent,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
