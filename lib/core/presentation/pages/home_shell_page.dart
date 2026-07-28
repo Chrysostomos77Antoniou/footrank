@@ -47,8 +47,11 @@ class HomeShellPage extends StatelessWidget {
         },
         child: navigationShell,
       ),
-      bottomNavigationBar: ClipPath(
-        clipper: const _FlaredTopClipper(),
+      bottomNavigationBar: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(28),
+          topRight: Radius.circular(28),
+        ),
         child: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -94,40 +97,6 @@ class HomeShellPage extends StatelessWidget {
       ),
     );
   }
-}
-
-/// The reverse of a standard rounded-top-corners bar: the top corners stay
-/// (near) full height, "flared" out instead of receding, and the top edge
-/// dips into a shallow concave curve at the center -- opposite of a normal
-/// rounded rectangle, where the center is flat/tallest and the corners
-/// recede. A tiny radius softens the very corner tip (instead of a razor
-/// 90°), and the dip itself is a cubic S-curve rather than a single
-/// quadratic peak, so the whole transition reads as gradual, not abrupt.
-class _FlaredTopClipper extends CustomClipper<Path> {
-  const _FlaredTopClipper();
-
-  @override
-  Path getClip(Size size) {
-    const cornerRadius = 10.0;
-    const dipDepth = 26.0;
-    final w = size.width;
-    final h = size.height;
-    return Path()
-      ..moveTo(0, cornerRadius)
-      ..quadraticBezierTo(0, 0, cornerRadius, 0)
-      ..cubicTo(
-        w * 0.32, dipDepth,
-        w * 0.68, dipDepth,
-        w - cornerRadius, 0,
-      )
-      ..quadraticBezierTo(w, 0, w, cornerRadius)
-      ..lineTo(w, h)
-      ..lineTo(0, h)
-      ..close();
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
 class _NavItem extends StatelessWidget {

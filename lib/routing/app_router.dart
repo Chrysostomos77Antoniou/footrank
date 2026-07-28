@@ -101,7 +101,7 @@ class _SwipeBackWrapper extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onHorizontalDragEnd: (details) {
-        if (details.velocity.pixelsPerSecond.dx < -300) {
+        if (details.velocity.pixelsPerSecond.dx > 300) {
           Navigator.of(context).maybePop();
         }
       },
