@@ -1,4 +1,7 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/app_refresh.dart';
@@ -23,50 +26,81 @@ class _HomeShellPageState extends State<HomeShellPage>
     (Icons.person_rounded, 'Profile'),
   ];
 
-  // Purely a paint-time fade+slide overlay on the *same* navigationShell
-  // instance -- it never rebuilds or re-keys that widget, so every branch
-  // stays alive exactly as before (a full crossfade here was tried once and
-  // felt laggy because it rebuilt the branch on every switch; this doesn't).
+  final _boundaryKey = GlobalKey();
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 260),
-  )..value = 1;
-  late final Animation<double> _fade = CurvedAnimation(
+    duration: const Duration(milliseconds: 280),
+  );
+  late final Animation<double> _t = CurvedAnimation(
     parent: _controller,
     curve: Curves.easeOut,
   );
-  Animation<Offset> _slide = const AlwaysStoppedAnimation(Offset.zero);
 
-  @override
-  void didUpdateWidget(covariant HomeShellPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final oldIndex = oldWidget.navigationShell.currentIndex;
-    final newIndex = widget.navigationShell.currentIndex;
-    if (oldIndex != newIndex) {
-      final forward = newIndex > oldIndex;
-      _slide = Tween<Offset>(
-        begin: Offset(forward ? 0.05 : -0.05, 0),
-        end: Offset.zero,
-      ).animate(_fade);
-      _controller.forward(from: 0);
-    }
-  }
+  // A snapshot of whichever tab was on screen right before this switch, so
+  // it can slide fully away while the new tab (already live underneath)
+  // slides in from the other side -- both visible at once, like Instagram's
+  // own tab switch, instead of just fading the destination in alone.
+  ui.Image? _outgoingSnapshot;
+  bool _forward = true;
+  int _generation = 0;
 
   @override
   void dispose() {
     _controller.dispose();
+    _outgoingSnapshot?.dispose();
     super.dispose();
   }
 
-  void _goToTab(int index) {
+  Future<void> _switchTab(int newIndex, {bool tapSameTab = false}) async {
+    final oldIndex = widget.navigationShell.currentIndex;
+    if (newIndex == oldIndex) {
+      if (tapSameTab) {
+        HapticFeedback.selectionClick();
+        widget.navigationShell.goBranch(newIndex, initialLocation: true);
+        triggerUiRepaint();
+      }
+      return;
+    }
+
+    final myGeneration = ++_generation;
+    ui.Image? snapshot;
+    try {
+      final boundary = _boundaryKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      snapshot = await boundary?.toImage(
+        pixelRatio: MediaQuery.of(context).devicePixelRatio,
+      );
+    } catch (_) {
+      snapshot = null; // fall back to a plain cut if capture fails
+    }
+    if (!mounted || myGeneration != _generation) {
+      snapshot?.dispose();
+      return;
+    }
+
     HapticFeedback.selectionClick();
-    widget.navigationShell.goBranch(index);
+    widget.navigationShell.goBranch(newIndex);
     triggerUiRepaint();
+
+    final oldSnapshot = _outgoingSnapshot;
+    setState(() {
+      _outgoingSnapshot = snapshot;
+      _forward = newIndex > oldIndex;
+    });
+    oldSnapshot?.dispose();
+
+    await _controller.forward(from: 0);
+    if (!mounted || myGeneration != _generation) return;
+    setState(() {
+      _outgoingSnapshot?.dispose();
+      _outgoingSnapshot = null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final navigationShell = widget.navigationShell;
+    final width = MediaQuery.of(context).size.width;
     // Fixed brand green in both themes (not the lime-in-dark-mode accent
     // used elsewhere) -- this bar is meant to read as solid green always.
     return Scaffold(
@@ -79,17 +113,43 @@ class _HomeShellPageState extends State<HomeShellPage>
           final v = details.velocity.pixelsPerSecond.dx;
           final current = navigationShell.currentIndex;
           if (v < -300 && current < _items.length - 1) {
-            _goToTab(current + 1);
+            _switchTab(current + 1);
           } else if (v > 300 && current > 0) {
-            _goToTab(current - 1);
+            _switchTab(current - 1);
           }
         },
-        child: FadeTransition(
-          opacity: _fade,
-          child: SlideTransition(
-            position: _slide,
-            child: navigationShell,
-          ),
+        child: AnimatedBuilder(
+          animation: _t,
+          builder: (context, child) {
+            final incomingX =
+                _outgoingSnapshot == null ? 0.0 : (_forward ? 1 - _t.value : -(1 - _t.value)) * width;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                RepaintBoundary(
+                  key: _boundaryKey,
+                  child: Transform.translate(
+                    offset: Offset(incomingX, 0),
+                    child: navigationShell,
+                  ),
+                ),
+                if (_outgoingSnapshot != null)
+                  Transform.translate(
+                    offset: Offset(
+                      (_forward ? -_t.value : _t.value) * width,
+                      0,
+                    ),
+                    child: SizedBox.expand(
+                      child: RawImage(
+                        image: _outgoingSnapshot,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topLeft,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ),
       bottomNavigationBar: ClipRRect(
@@ -124,15 +184,7 @@ class _HomeShellPageState extends State<HomeShellPage>
                       icon: _items[i].$1,
                       label: _items[i].$2,
                       selected: navigationShell.currentIndex == i,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        navigationShell.goBranch(
-                          i,
-                          initialLocation: i == navigationShell.currentIndex,
-                        );
-                        // Repaint the now-visible tab's UI (no data re-fetch).
-                        triggerUiRepaint();
-                      },
+                      onTap: () => _switchTab(i, tapSameTab: true),
                     ),
                 ],
               ),
