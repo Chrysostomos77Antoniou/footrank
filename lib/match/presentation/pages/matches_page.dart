@@ -36,10 +36,8 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   Future<List<MatchModel>>? _matchesFuture;
   Future<List<MatchRequestModel>>? _opponentsFuture;
 
-  // Upcoming Matches / Match History.
-  int _matchesTab = 0;
-  // Open Requests / Available Opponents.
-  int _requestsTab = 0;
+  // Upcoming Matches / Match History / Available Opponents / Open Requests.
+  int _tab = 0;
 
   @override
   void initState() {
@@ -351,63 +349,117 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                 onSelect: _selectTeam,
               ),
             ),
+          // Pending Confirmation stays above the tabs (it needs action, it's
+          // not something to browse) -- it shares _matchesFuture with the
+          // Upcoming/History tabs below without triggering a second fetch.
+          FutureBuilder<List<MatchModel>>(
+            future: _matchesFuture,
+            builder: (context, snapshot) {
+              final pending = (snapshot.data ?? [])
+                  .where((m) => m.status == 'pending')
+                  .toList();
+              if (pending.isEmpty) return const SizedBox.shrink();
+              final myTeamId = _team?.id;
+              return Column(
+                children: [
+                  const FadeSlideIn(
+                      child: _SectionHeader(title: 'Pending Confirmation')),
+                  ...pending.asMap().entries.map((e) {
+                    final m = e.value;
+                    final iAmHome = m.homeTeamId == myTeamId;
+                    final iConfirmed = iAmHome ? m.homeOk : m.awayOk;
+                    return FadeSlideIn(
+                      delay: Duration(milliseconds: 50 * e.key),
+                      child: _PendingMatchCard(
+                        match: m,
+                        iConfirmed: iConfirmed,
+                        onConfirm: () => _confirmFixture(m),
+                        onReject: () => _rejectMatch(m),
+                      ),
+                    );
+                  }),
+                ],
+              );
+            },
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: FadeSlideIn(
               child: GlassTabs(
-                index: _requestsTab,
-                tabs: const ['Open Requests', 'Available Opponents'],
-                onChanged: (i) => setState(() => _requestsTab = i),
+                index: _tab,
+                tabs: const [
+                  'Upcoming Matches',
+                  'Match History',
+                  'Available Opponents',
+                  'Open Requests',
+                ],
+                onChanged: (i) => setState(() => _tab = i),
               ),
             ),
           ),
           IndexedStack(
-            index: _requestsTab,
+            index: _tab,
             alignment: Alignment.topCenter,
             children: [
-              FutureBuilder<List<MatchRequestModel>>(
-                future: _future,
+              FutureBuilder<List<MatchModel>>(
+                future: _matchesFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const SkeletonList(count: 2);
                   }
-                  if (snapshot.hasError) {
-                    return Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: ErrorView(
-                        message: friendlyError(snapshot.error!),
-                        onRetry: _reloadRequests,
-                      ),
-                    );
-                  }
-                  final requests = snapshot.data
-                          ?.where((r) =>
-                              MatchStatus.fromString(r.status).isOpen)
-                          .toList() ??
-                      [];
-                  if (requests.isEmpty) {
+                  final upcoming = (snapshot.data ?? [])
+                      .where((m) => m.status == 'confirmed')
+                      .toList();
+                  final myTeamId = _team?.id;
+                  if (upcoming.isEmpty) {
                     return const Padding(
                       padding: EdgeInsets.symmetric(vertical: 8),
                       child: EmptyView(
-                        icon: Icons.sports_soccer_outlined,
-                        title: 'No matches scheduled yet',
-                        hint: 'Tap "Create Match" to start.',
+                        icon: Icons.event_available_outlined,
+                        title: 'No upcoming matches',
                       ),
                     );
                   }
-                  final uid = SupabaseService.client.auth.currentUser?.id;
                   return Column(
-                    children: requests
+                    children: upcoming
                         .asMap()
                         .entries
                         .map((e) => FadeSlideIn(
                               delay: Duration(milliseconds: 50 * e.key),
-                              child: _RequestCard(
-                                request: e.value,
-                                onCancel: e.value.captainId == uid
-                                    ? () => _cancelRequest(e.value)
-                                    : null,
-                              ),
+                              child: _MatchCard(
+                                  match: e.value, myTeamId: myTeamId),
+                            ))
+                        .toList(),
+                  );
+                },
+              ),
+              FutureBuilder<List<MatchModel>>(
+                future: _matchesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SkeletonList(count: 2);
+                  }
+                  final history = (snapshot.data ?? [])
+                      .where((m) => m.status == 'completed')
+                      .toList();
+                  final myTeamId = _team?.id;
+                  if (history.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: EmptyView(
+                        icon: Icons.history,
+                        title: 'No past matches yet',
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: history
+                        .asMap()
+                        .entries
+                        .map((e) => FadeSlideIn(
+                              delay: Duration(milliseconds: 50 * e.key),
+                              child: _MatchCard(
+                                  match: e.value, myTeamId: myTeamId),
                             ))
                         .toList(),
                   );
@@ -456,99 +508,55 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                   );
                 },
               ),
+              FutureBuilder<List<MatchRequestModel>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SkeletonList(count: 2);
+                  }
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: ErrorView(
+                        message: friendlyError(snapshot.error!),
+                        onRetry: _reloadRequests,
+                      ),
+                    );
+                  }
+                  final requests = snapshot.data
+                          ?.where((r) =>
+                              MatchStatus.fromString(r.status).isOpen)
+                          .toList() ??
+                      [];
+                  if (requests.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: EmptyView(
+                        icon: Icons.sports_soccer_outlined,
+                        title: 'No matches scheduled yet',
+                        hint: 'Tap "Create Match" to start.',
+                      ),
+                    );
+                  }
+                  final uid = SupabaseService.client.auth.currentUser?.id;
+                  return Column(
+                    children: requests
+                        .asMap()
+                        .entries
+                        .map((e) => FadeSlideIn(
+                              delay: Duration(milliseconds: 50 * e.key),
+                              child: _RequestCard(
+                                request: e.value,
+                                onCancel: e.value.captainId == uid
+                                    ? () => _cancelRequest(e.value)
+                                    : null,
+                              ),
+                            ))
+                        .toList(),
+                  );
+                },
+              ),
             ],
-          ),
-          FutureBuilder<List<MatchModel>>(
-            future: _matchesFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SkeletonList(count: 2);
-              }
-              final all = snapshot.data ?? [];
-              final myTeamId = _team?.id;
-              final pending =
-                  all.where((m) => m.status == 'pending').toList();
-              final upcoming =
-                  all.where((m) => m.status == 'confirmed').toList();
-              final history =
-                  all.where((m) => m.status == 'completed').toList();
-              return Column(
-                children: [
-                  if (pending.isNotEmpty) ...[
-                    const FadeSlideIn(
-                        child: _SectionHeader(title: 'Pending Confirmation')),
-                    ...pending.asMap().entries.map((e) {
-                      final m = e.value;
-                      final iAmHome = m.homeTeamId == myTeamId;
-                      final iConfirmed = iAmHome ? m.homeOk : m.awayOk;
-                      return FadeSlideIn(
-                        delay: Duration(milliseconds: 50 * e.key),
-                        child: _PendingMatchCard(
-                          match: m,
-                          iConfirmed: iConfirmed,
-                          onConfirm: () => _confirmFixture(m),
-                          onReject: () => _rejectMatch(m),
-                        ),
-                      );
-                    }),
-                  ],
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: GlassTabs(
-                      index: _matchesTab,
-                      tabs: const ['Upcoming Matches', 'Match History'],
-                      onChanged: (i) => setState(() => _matchesTab = i),
-                    ),
-                  ),
-                  IndexedStack(
-                    index: _matchesTab,
-                    alignment: Alignment.topCenter,
-                    children: [
-                      if (upcoming.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: EmptyView(
-                            icon: Icons.event_available_outlined,
-                            title: 'No upcoming matches',
-                          ),
-                        )
-                      else
-                        Column(
-                          children: upcoming
-                              .asMap()
-                              .entries
-                              .map((e) => FadeSlideIn(
-                                    delay: Duration(milliseconds: 50 * e.key),
-                                    child: _MatchCard(
-                                        match: e.value, myTeamId: myTeamId),
-                                  ))
-                              .toList(),
-                        ),
-                      if (history.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: EmptyView(
-                            icon: Icons.history,
-                            title: 'No past matches yet',
-                          ),
-                        )
-                      else
-                        Column(
-                          children: history
-                              .asMap()
-                              .entries
-                              .map((e) => FadeSlideIn(
-                                    delay: Duration(milliseconds: 50 * e.key),
-                                    child: _MatchCard(
-                                        match: e.value, myTeamId: myTeamId),
-                                  ))
-                              .toList(),
-                        ),
-                    ],
-                  ),
-                ],
-              );
-            },
           ),
         ],
       ),

@@ -220,6 +220,10 @@ class GlassTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Segments stay equal-width (same clean look as before for 2-3 short
+    // tabs), but the label is wrapped in a FittedBox that scales the text
+    // down to fit its segment instead of wrapping onto a second line --
+    // that's what broke with 4 longer tabs.
     return GlassCard(
       padding: const EdgeInsets.all(6),
       radius: 20,
@@ -232,7 +236,8 @@ class GlassTabs extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 160),
                   curve: Curves.easeOut,
-                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 11, horizontal: 4),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: index == i
@@ -240,16 +245,21 @@ class GlassTabs extends StatelessWidget {
                         : null,
                     borderRadius: BorderRadius.circular(11),
                   ),
-                  child: Text(
-                    tabs[i],
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: index == i
-                          ? AppColors.iconAccent(context)
-                          : Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.6),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      tabs[i],
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: index == i
+                            ? AppColors.iconAccent(context)
+                            : Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.6),
+                      ),
                     ),
                   ),
                 ),

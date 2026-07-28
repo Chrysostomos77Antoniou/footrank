@@ -181,15 +181,28 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     }
   }
 
-  Future<void> _rateGood(TeamMemberModel player) => _rate(player, 'good');
+  /// One rating applies to the whole opposing squad at once -- the captain
+  /// judges the team's conduct as a unit rather than assessing each player
+  /// individually, but under the hood it's still recorded per player so
+  /// each opponent's own reliability/behavior stats stay accurate.
+  Future<void> _rateTeamGood(List<TeamMemberModel> members) async {
+    for (final m in members) {
+      await _rate(m, 'good');
+    }
+  }
 
-  Future<void> _rateBad(TeamMemberModel player) async {
+  Future<void> _rateTeamBad(
+    List<TeamMemberModel> members,
+    String teamName,
+  ) async {
     final reason = await showDialog<String>(
       context: context,
-      builder: (ctx) => _ReasonDialog(playerName: player.name),
+      builder: (ctx) => _ReasonDialog(playerName: teamName),
     );
     if (reason == null) return; // cancelled
-    await _rate(player, 'bad', reason: reason);
+    for (final m in members) {
+      await _rate(m, 'bad', reason: reason);
+    }
   }
 
   Future<void> _submitScore() async {
@@ -665,7 +678,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
           delay: const Duration(milliseconds: 120),
           child: GlassTabs(
             index: _tab,
-            tabs: const ['Information', 'Contact', 'Attendance', 'Rate Behaviour'],
+            tabs: const ['Information', 'Contact', 'Attendance', 'Behave'],
             onChanged: (i) => setState(() => _tab = i),
           ),
         ),
@@ -713,12 +726,48 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     final title = _opponentTeamId == match.homeTeamId
         ? (match.homeTeamName ?? 'Home')
         : (match.awayTeamName ?? 'Away');
-    return _RateOppositionSection(
-      title: title,
-      members: opponentMembers,
-      behavior: _myBehavior,
-      onRateGood: _rateGood,
-      onRateBad: _rateBad,
+    if (opponentMembers.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: EmptyView(
+          icon: Icons.groups_outlined,
+          title: 'No opposition roster to rate yet',
+        ),
+      );
+    }
+    // "Rated" only once every opponent has the SAME rating recorded, since
+    // team rating is always applied to the whole squad in one action.
+    final ratedValues = opponentMembers.map((m) => _myBehavior[m.userId]).toSet();
+    final currentRating =
+        ratedValues.length == 1 ? ratedValues.first : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Rate how $title behaved as a team -- this applies to every '
+          'player on their side, not each one separately.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 10),
+        GlassCard(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              GradientAvatar(name: title, radius: 18),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(title,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+              _BehaviorControl(
+                rating: currentRating,
+                onGood: () => _rateTeamGood(opponentMembers),
+                onBad: () => _rateTeamBad(opponentMembers, title),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -960,70 +1009,6 @@ class _TeamRoster extends StatelessWidget {
               );
             }).toList(),
           ),
-      ],
-    );
-  }
-}
-
-/// The opponent squad, shown only for rating post-match behavior -- no
-/// attendance data, matching the captain's own squad being the only roster
-/// visible in the Attendance tab.
-class _RateOppositionSection extends StatelessWidget {
-  final String title;
-  final List<TeamMemberModel> members;
-  final Map<String, String> behavior;
-  final void Function(TeamMemberModel player) onRateGood;
-  final void Function(TeamMemberModel player) onRateBad;
-
-  const _RateOppositionSection({
-    required this.title,
-    required this.members,
-    required this.behavior,
-    required this.onRateGood,
-    required this.onRateBad,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (members.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Rate $title',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        Column(
-          children: members.asMap().entries.map((e) {
-            final m = e.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: FadeSlideIn(
-                delay: Duration(milliseconds: 40 * e.key),
-                child: GlassCard(
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    children: [
-                      GradientAvatar(name: m.name, radius: 18),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(m.name,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w700)),
-                      ),
-                      _BehaviorControl(
-                        rating: behavior[m.userId],
-                        onGood: () => onRateGood(m),
-                        onBad: () => onRateBad(m),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
       ],
     );
   }
