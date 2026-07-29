@@ -1,3 +1,5 @@
+import 'package:footrank/models/court_model.dart';
+
 class MatchRequestModel {
   final String id;
   final String teamId;
@@ -23,6 +25,11 @@ class MatchRequestModel {
   // whose court picks to resolve against.
   final String? matchedFromRequestId;
 
+  // Set by MatchRepository.fetchCityRequests — this request's ranked (1..3)
+  // court picks, so captains can see where a match would be played before
+  // accepting it.
+  final List<CourtModel>? courtPicks;
+
   const MatchRequestModel({
     required this.id,
     required this.teamId,
@@ -38,6 +45,7 @@ class MatchRequestModel {
     this.teamLogo,
     this.courtCompatibilityScore,
     this.matchedFromRequestId,
+    this.courtPicks,
   });
 
   bool get isRanked => matchType == 'ranked';
@@ -45,6 +53,7 @@ class MatchRequestModel {
   MatchRequestModel copyWith({
     int? courtCompatibilityScore,
     String? matchedFromRequestId,
+    List<CourtModel>? courtPicks,
   }) =>
       MatchRequestModel(
         id: id,
@@ -62,6 +71,7 @@ class MatchRequestModel {
         courtCompatibilityScore:
             courtCompatibilityScore ?? this.courtCompatibilityScore,
         matchedFromRequestId: matchedFromRequestId ?? this.matchedFromRequestId,
+        courtPicks: courtPicks ?? this.courtPicks,
       );
 
   factory MatchRequestModel.fromJson(Map<String, dynamic> json) {

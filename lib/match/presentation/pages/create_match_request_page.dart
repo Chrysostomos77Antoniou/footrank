@@ -38,7 +38,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
 
   List<CourtModel> _courts = [];
   bool _courtsLoading = false;
-  final List<String> _selectedCourtIds = []; // ordered, up to 3
+  String? _selectedCourtId;
   final _courtPageController = PageController(viewportFraction: 0.86);
   int _courtPage = 0;
 
@@ -78,7 +78,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
       if (!mounted) return;
       setState(() {
         _courts = courts;
-        _selectedCourtIds.clear();
+        _selectedCourtId = null;
         _courtsLoading = false;
         _courtPage = 0;
       });
@@ -90,13 +90,9 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
     }
   }
 
-  void _toggleCourt(String courtId) {
+  void _selectCourt(String courtId) {
     setState(() {
-      if (_selectedCourtIds.contains(courtId)) {
-        _selectedCourtIds.remove(courtId);
-      } else if (_selectedCourtIds.length < 3) {
-        _selectedCourtIds.add(courtId);
-      }
+      _selectedCourtId = _selectedCourtId == courtId ? null : courtId;
     });
   }
 
@@ -139,11 +135,9 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
       );
       return;
     }
-    if (_selectedCourtIds.length != 3) {
+    if (_selectedCourtId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pick & rank 3 courts, in order of preference'),
-        ),
+        const SnackBar(content: Text('Pick a court')),
       );
       return;
     }
@@ -191,7 +185,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
         city: _city!,
         scheduledAt: scheduledAt,
         matchType: _matchType,
-        courtIds: _selectedCourtIds,
+        courtId: _selectedCourtId!,
         format: _format,
       );
       if (mounted) {
@@ -260,17 +254,12 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
             );
           }),
         ),
-        if (_selectedCourtIds.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          _buildSelectedSummary(),
-        ],
       ],
     );
   }
 
   Widget _buildCourtCard(CourtModel c) {
-    final rank = _selectedCourtIds.indexOf(c.id);
-    final picked = rank != -1;
+    final picked = c.id == _selectedCourtId;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Card(
@@ -328,14 +317,8 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
                               child: CircleAvatar(
                                 radius: 15,
                                 backgroundColor: AppColors.brand(context),
-                                child: Text(
-                                  '${rank + 1}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                child: const Icon(Icons.check,
+                                    color: Colors.white, size: 18),
                               ),
                             ),
                         ],
@@ -370,18 +353,14 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
                     width: double.infinity,
                     child: picked
                         ? OutlinedButton.icon(
-                            onPressed: () => _toggleCourt(c.id),
+                            onPressed: () => _selectCourt(c.id),
                             icon: const Icon(Icons.close, size: 18),
-                            label: Text('Remove (#${rank + 1} choice)'),
+                            label: const Text('Remove'),
                           )
                         : FilledButton.icon(
-                            onPressed: _selectedCourtIds.length < 3
-                                ? () => _toggleCourt(c.id)
-                                : null,
+                            onPressed: () => _selectCourt(c.id),
                             icon: const Icon(Icons.add, size: 18),
-                            label: Text(
-                              'Add as #${_selectedCourtIds.length + 1} choice',
-                            ),
+                            label: const Text('Select this court'),
                           ),
                   ),
                 ],
@@ -401,35 +380,6 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
       color: AppColors.iconAccent(context).withValues(alpha: 0.5),
     ),
   );
-
-  /// Compact recap of the current ranking — the carousel only shows one court
-  /// at a time, so without this the earlier picks scroll out of view.
-  Widget _buildSelectedSummary() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: _selectedCourtIds.asMap().entries.map((entry) {
-        final i = entry.key;
-        final court = _courts.firstWhere((c) => c.id == entry.value);
-        return InputChip(
-          avatar: CircleAvatar(
-            radius: 10,
-            backgroundColor: AppColors.brand(context),
-            child: Text(
-              '${i + 1}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          label: Text(court.name, overflow: TextOverflow.ellipsis),
-          onDeleted: () => _toggleCourt(court.id),
-        );
-      }).toList(),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -500,12 +450,12 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Pick & Rank 3 Courts',
+                          'Pick a Court',
                           style: Theme.of(context).textTheme.labelLarge,
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Tap in order of preference. We\'ll match you with an opponent who wants the same courts, starting from your #1 choice.',
+                          'This is the court captains will see on your open request.',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],

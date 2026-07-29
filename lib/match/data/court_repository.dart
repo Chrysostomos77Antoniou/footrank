@@ -74,4 +74,28 @@ class CourtRepository {
     }
     return map;
   }
+
+  /// Batch fetch: request id -> its ranked court picks (rank 1..3 order),
+  /// with full court details -- used to show captains which courts each
+  /// open request picked, not just score compatibility.
+  Future<Map<String, List<CourtModel>>> fetchPicksWithCourtsForRequests(
+    List<String> requestIds,
+  ) async {
+    if (requestIds.isEmpty) return {};
+    final data = await SupabaseService.client
+        .from(_requestPicks)
+        .select('request_id, rank, courts(id, name, city, address, image_url)')
+        .inFilter('request_id', requestIds)
+        .order('rank');
+
+    final map = <String, List<CourtModel>>{};
+    for (final e in data as List) {
+      final row = e as Map<String, dynamic>;
+      final court = row['courts'] as Map<String, dynamic>?;
+      if (court == null) continue;
+      final reqId = row['request_id'] as String;
+      (map[reqId] ??= []).add(CourtModel.fromJson(court));
+    }
+    return map;
+  }
 }

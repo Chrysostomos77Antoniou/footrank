@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/app_refresh.dart';
+import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/async_views.dart';
@@ -8,8 +9,11 @@ import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/core/utils/error_text.dart';
+import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
+import 'package:footrank/models/court_model.dart';
 import 'package:footrank/models/match_model.dart';
+import 'package:footrank/models/match_proposal_model.dart';
 import 'package:footrank/models/match_request_model.dart';
 import 'package:footrank/models/match_status.dart';
 import 'package:footrank/models/team_model.dart';
@@ -28,6 +32,7 @@ class MatchesPage extends StatefulWidget {
 class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   final _matchRepo = MatchRepository();
   final _teamRepo = TeamRepository();
+  final _courtRepo = CourtRepository();
 
   TeamModel? _team; // the currently-selected team (when in several)
   List<TeamModel> _teams = [];
@@ -35,6 +40,21 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   Future<List<MatchRequestModel>>? _future;
   Future<List<MatchModel>>? _matchesFuture;
   Future<List<MatchRequestModel>>? _opponentsFuture;
+  Future<Map<String, List<MatchProposalModel>>>? _proposalsFuture;
+  Future<List<MatchProposalModel>>? _sentProposalsFuture;
+
+  // Available Opponents filters -- city is mandatory (defaults to the acting
+  // team's own registered city); everything else is optional narrowing.
+  String? _filterCity;
+  String? _filterCourtId;
+  DateTime? _filterDate;
+  TimeOfDay? _filterTime;
+  String? _filterMatchType; // null = any, else 'casual' | 'ranked'
+  List<CourtModel> _filterCourts = [];
+
+  bool get _isCaptain =>
+      _team != null &&
+      _team!.captainId == SupabaseService.client.auth.currentUser?.id;
 
   // Upcoming Matches / Match History.
   int _matchesTab = 0;
@@ -58,6 +78,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     final teams = await _teamRepo.fetchMyTeams();
     if (!mounted) return;
     // Keep the current selection if it still exists, else default to the first.
+    final previousTeamId = _team?.id;
     TeamModel? selected;
     if (_team != null) {
       final existing = teams.where((t) => t.id == _team!.id).toList();
@@ -69,19 +90,108 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       _teams = teams;
       _team = sel;
       _loadingTeam = false;
+      if (sel != null && sel.id != previousTeamId) {
+        _filterCity = canonicalCity(sel.city) ?? kCities.first;
+        _filterCourtId = null;
+        _filterDate = null;
+        _filterTime = null;
+        _filterMatchType = null;
+        _filterCourts = [];
+      }
       _future = sel == null ? null : _matchRepo.fetchMyTeamRequests(sel.id);
       _matchesFuture = sel == null ? null : _matchRepo.fetchTeamMatches(sel.id);
-      _opponentsFuture = sel == null ? null : _matchRepo.findAllOpponents(sel.id);
+      _opponentsFuture = sel == null ? null : _fetchOpponents(sel.id);
+      _proposalsFuture = sel == null || !_isCaptain
+          ? null
+          : _matchRepo.fetchProposalsForTeamRequests(sel.id);
+      _sentProposalsFuture =
+          sel == null ? null : _matchRepo.fetchSentProposals(sel.id);
     });
+    if (sel != null && sel.id != previousTeamId) _loadFilterCourts();
   }
 
   void _selectTeam(TeamModel team) {
     if (team.id == _team?.id) return;
     setState(() {
       _team = team;
+      _filterCity = canonicalCity(team.city) ?? kCities.first;
+      _filterCourtId = null;
+      _filterDate = null;
+      _filterTime = null;
+      _filterMatchType = null;
+      _filterCourts = [];
       _future = _matchRepo.fetchMyTeamRequests(team.id);
       _matchesFuture = _matchRepo.fetchTeamMatches(team.id);
-      _opponentsFuture = _matchRepo.findAllOpponents(team.id);
+      _opponentsFuture = _fetchOpponents(team.id);
+      _proposalsFuture = _isCaptain
+          ? _matchRepo.fetchProposalsForTeamRequests(team.id)
+          : null;
+      _sentProposalsFuture = _matchRepo.fetchSentProposals(team.id);
+    });
+    _loadFilterCourts();
+  }
+
+  Future<List<MatchRequestModel>> _fetchOpponents(String teamId) {
+    return _matchRepo.fetchCityRequests(
+      city: _filterCity ?? kCities.first,
+      excludeTeamId: teamId,
+      courtId: _filterCourtId,
+      date: _filterDate,
+      timeOfDayMinutes:
+          _filterTime == null ? null : _filterTime!.hour * 60 + _filterTime!.minute,
+      matchType: _filterMatchType,
+    );
+  }
+
+  Future<void> _loadFilterCourts() async {
+    final city = _filterCity;
+    if (city == null) return;
+    final courts = await _courtRepo.fetchCourtsForCity(city);
+    if (!mounted || city != _filterCity) return;
+    setState(() => _filterCourts = courts);
+  }
+
+  void _setFilterCity(String city) {
+    if (city == _filterCity) return;
+    setState(() {
+      _filterCity = city;
+      _filterCourtId = null; // a court from the old city no longer applies
+      _filterCourts = [];
+      final team = _team;
+      _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
+    });
+    _loadFilterCourts();
+  }
+
+  void _setFilterCourt(String? courtId) {
+    setState(() {
+      _filterCourtId = courtId;
+      final team = _team;
+      _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
+    });
+  }
+
+  void _setFilterDate(DateTime? date) {
+    setState(() {
+      _filterDate = date;
+      final team = _team;
+      _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
+    });
+  }
+
+  void _setFilterTime(TimeOfDay? time) {
+    setState(() {
+      _filterTime = time;
+      final team = _team;
+      _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
+    });
+  }
+
+  void _setFilterMatchType(String? matchType) {
+    setState(() {
+      _filterMatchType = matchType;
+      final team = _team;
+      _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
     });
   }
 
@@ -91,34 +201,40 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     setState(() {
       _future = _matchRepo.fetchMyTeamRequests(team.id);
       _matchesFuture = _matchRepo.fetchTeamMatches(team.id);
-      _opponentsFuture = _matchRepo.findAllOpponents(team.id);
+      _opponentsFuture = _fetchOpponents(team.id);
+      _proposalsFuture = _isCaptain
+          ? _matchRepo.fetchProposalsForTeamRequests(team.id)
+          : null;
+      _sentProposalsFuture = _matchRepo.fetchSentProposals(team.id);
     });
   }
 
-  Future<void> _accept(MatchRequestModel opponent) async {
+  /// Any team member can propose the acting team against an open request
+  /// (only accepting/rejecting is captain-only). Does not lock that request
+  /// -- its own captain reviews all proposals and picks one, so more than
+  /// one team may propose before that happens.
+  Future<void> _propose(MatchRequestModel opponent) async {
     final team = _team;
     if (team == null) return;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Request this match?'),
+        title: const Text('Propose this match?'),
         content: Text(
             'Propose a match against ${opponent.teamName ?? 'this team'} in '
-            '${opponent.city}. It becomes confirmed once their captain also '
-            'confirms.'),
+            '${opponent.city}. Their captain reviews proposals and picks '
+            'one — you\'ll be notified either way.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancel')),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Send Request')),
+              child: const Text('Send Proposal')),
         ],
       ),
     );
     if (confirm != true) return;
-    final myRequestId = opponent.matchedFromRequestId;
-    if (myRequestId == null) return; // shouldn't happen — surfaced via findAllOpponents
 
     // Matches are 5-a-side -- fail fast with a clear message instead of
     // letting the request hit the server's "at least 5 players" check.
@@ -128,7 +244,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${team.name} needs at least 5 players before you can accept a '
+            '${team.name} needs at least 5 players before you can propose a '
             'match (currently ${members.length}).',
           ),
         ),
@@ -137,16 +253,68 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     }
 
     try {
-      await _matchRepo.acceptMatchRequest(
-          requestId: opponent.id,
-          awayTeamId: team.id,
-          myRequestId: myRequestId);
+      await _matchRepo.proposeMatch(requestId: opponent.id, teamId: team.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(
-                'Match requested vs ${opponent.teamName}. Waiting for their '
-                'captain to confirm.')),
+                'Proposal sent vs ${opponent.teamName}. Waiting for their '
+                'captain to pick.')),
+      );
+      _reloadRequests();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    }
+  }
+
+  Future<void> _acceptProposal(MatchProposalModel proposal) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Accept this proposal?'),
+        content: Text(
+            '${proposal.teamName ?? 'This team'} wants to play your match. '
+            'Accepting confirms the match now and declines every other '
+            'pending proposal on this request.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Accept')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await _matchRepo.acceptProposal(proposal.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text('Match confirmed vs ${proposal.teamName ?? 'them'}!')),
+      );
+      _reloadRequests();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    }
+  }
+
+  Future<void> _rejectProposal(MatchProposalModel proposal) async {
+    try {
+      await _matchRepo.rejectProposal(proposal.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Proposal declined')),
       );
       _reloadRequests();
     } catch (e) {
@@ -354,10 +522,42 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: FadeSlideIn(
-              child: GlassTabs(
-                index: _requestsTab,
-                tabs: const ['Open Requests', 'Available Opponents'],
-                onChanged: (i) => setState(() => _requestsTab = i),
+              child: FutureBuilder<Map<String, List<MatchProposalModel>>>(
+                future: _proposalsFuture,
+                builder: (context, incomingSnap) {
+                  final incomingCount = (incomingSnap.data ?? const {})
+                      .values
+                      .fold<int>(0, (sum, list) => sum + list.length);
+                  return FutureBuilder<List<MatchProposalModel>>(
+                    future: _sentProposalsFuture,
+                    builder: (context, sentSnap) {
+                      final sentCount = (sentSnap.data ?? const []).length;
+                      return FutureBuilder<List<MatchModel>>(
+                        future: _matchesFuture,
+                        builder: (context, matchesSnap) {
+                          final pendingCount = (matchesSnap.data ?? const [])
+                              .where((m) => m.status == 'pending')
+                              .length;
+                          return _SectionTabs(
+                            index: _requestsTab,
+                            items: [
+                              _TabItem(Icons.list_alt_outlined, 'Requests',
+                                  badgeCount: incomingCount),
+                              const _TabItem(
+                                  Icons.person_search_outlined, 'Opponents'),
+                              _TabItem(Icons.send_outlined, 'Propose',
+                                  badgeCount: sentCount),
+                              _TabItem(
+                                  Icons.pending_actions_outlined, 'Pending',
+                                  badgeCount: pendingCount),
+                            ],
+                            onChanged: (i) => setState(() => _requestsTab = i),
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ),
@@ -396,25 +596,100 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                     );
                   }
                   final uid = SupabaseService.client.auth.currentUser?.id;
-                  return Column(
-                    children: requests
-                        .asMap()
-                        .entries
-                        .map((e) => FadeSlideIn(
-                              delay: Duration(milliseconds: 50 * e.key),
-                              child: _RequestCard(
-                                request: e.value,
-                                onCancel: e.value.captainId == uid
-                                    ? () => _cancelRequest(e.value)
-                                    : null,
-                              ),
-                            ))
-                        .toList(),
+                  return FutureBuilder<Map<String, List<MatchProposalModel>>>(
+                    future: _proposalsFuture ??
+                        Future.value(const <String, List<MatchProposalModel>>{}),
+                    builder: (context, proposalsSnapshot) {
+                      final proposalsByRequest = proposalsSnapshot.data ?? {};
+                      return Column(
+                        children: requests
+                            .asMap()
+                            .entries
+                            .map((e) => FadeSlideIn(
+                                  delay: Duration(milliseconds: 50 * e.key),
+                                  child: _RequestCard(
+                                    request: e.value,
+                                    onCancel: e.value.captainId == uid
+                                        ? () => _cancelRequest(e.value)
+                                        : null,
+                                    proposals: _isCaptain
+                                        ? proposalsByRequest[e.value.id] ??
+                                            const []
+                                        : const [],
+                                    onAcceptProposal: _acceptProposal,
+                                    onRejectProposal: _rejectProposal,
+                                  ),
+                                ))
+                            .toList(),
+                      );
+                    },
                   );
                 },
               ),
-              FutureBuilder<List<MatchRequestModel>>(
-                future: _opponentsFuture,
+              Column(
+                children: [
+                  FadeSlideIn(
+                    child: _OpponentFilters(
+                      city: _filterCity ?? kCities.first,
+                      courtId: _filterCourtId,
+                      date: _filterDate,
+                      time: _filterTime,
+                      matchType: _filterMatchType,
+                      courts: _filterCourts,
+                      onCityChanged: _setFilterCity,
+                      onCourtChanged: _setFilterCourt,
+                      onDateChanged: _setFilterDate,
+                      onTimeChanged: _setFilterTime,
+                      onMatchTypeChanged: _setFilterMatchType,
+                    ),
+                  ),
+                  FutureBuilder<List<MatchRequestModel>>(
+                    future: _opponentsFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        return const SkeletonList(count: 2);
+                      }
+                      if (snapshot.hasError) {
+                        return Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: ErrorView(
+                            message: friendlyError(snapshot.error!),
+                            onRetry: _reloadRequests,
+                          ),
+                        );
+                      }
+                      final opponents = snapshot.data ?? [];
+                      if (opponents.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: EmptyView(
+                            icon: Icons.person_search_outlined,
+                            title: 'No open requests match your filters',
+                            hint: 'Try a different court or date, or check '
+                                'back later.',
+                          ),
+                        );
+                      }
+                      return Column(
+                        children: opponents
+                            .asMap()
+                            .entries
+                            .map((e) => FadeSlideIn(
+                                  delay: Duration(milliseconds: 50 * e.key),
+                                  child: _OpponentCard(
+                                    opponent: e.value,
+                                    onPropose: () => _propose(e.value),
+                                  ),
+                                ))
+                            .toList(),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              FutureBuilder<List<MatchProposalModel>>(
+                future: _sentProposalsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const SkeletonList(count: 2);
@@ -428,31 +703,65 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                       ),
                     );
                   }
-                  final opponents = snapshot.data ?? [];
-                  if (opponents.isEmpty) {
+                  final sent = snapshot.data ?? [];
+                  if (sent.isEmpty) {
                     return const Padding(
                       padding: EdgeInsets.symmetric(vertical: 8),
                       child: EmptyView(
-                        icon: Icons.person_search_outlined,
-                        title: 'No matching opponents yet',
-                        hint: 'Opponents appear when another team has an open '
-                            'request in the same city, on the same date '
-                            '(±30 min), with a similar rating.',
+                        icon: Icons.outgoing_mail,
+                        title: 'No open proposals',
+                        hint: 'Proposals your team sends to other teams\' '
+                            'requests show up here while they\'re pending.',
                       ),
                     );
                   }
                   return Column(
-                    children: opponents
+                    children: sent
                         .asMap()
                         .entries
                         .map((e) => FadeSlideIn(
                               delay: Duration(milliseconds: 50 * e.key),
-                              child: _OpponentCard(
-                                opponent: e.value,
-                                onAccept: () => _accept(e.value),
-                              ),
+                              child: _SentProposalCard(proposal: e.value),
                             ))
                         .toList(),
+                  );
+                },
+              ),
+              FutureBuilder<List<MatchModel>>(
+                future: _matchesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SkeletonList(count: 2);
+                  }
+                  final myTeamId = _team?.id;
+                  final pending = (snapshot.data ?? [])
+                      .where((m) => m.status == 'pending')
+                      .toList();
+                  if (pending.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: EmptyView(
+                        icon: Icons.pending_actions_outlined,
+                        title: 'Nothing waiting on confirmation',
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: pending.asMap().entries.map((e) {
+                      final m = e.value;
+                      final iAmHome = m.homeTeamId == myTeamId;
+                      final iConfirmed = iAmHome ? m.homeOk : m.awayOk;
+                      return FadeSlideIn(
+                        delay: Duration(milliseconds: 50 * e.key),
+                        child: _PendingMatchCard(
+                          match: m,
+                          iConfirmed: iConfirmed,
+                          canAct: _isCaptain,
+                          onConfirm: () => _confirmFixture(m),
+                          onReject: () => _rejectMatch(m),
+                        ),
+                      );
+                    }).toList(),
                   );
                 },
               ),
@@ -466,37 +775,21 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
               }
               final all = snapshot.data ?? [];
               final myTeamId = _team?.id;
-              final pending =
-                  all.where((m) => m.status == 'pending').toList();
               final upcoming =
                   all.where((m) => m.status == 'confirmed').toList();
               final history =
                   all.where((m) => m.status == 'completed').toList();
               return Column(
                 children: [
-                  if (pending.isNotEmpty) ...[
-                    const FadeSlideIn(
-                        child: _SectionHeader(title: 'Pending Confirmation')),
-                    ...pending.asMap().entries.map((e) {
-                      final m = e.value;
-                      final iAmHome = m.homeTeamId == myTeamId;
-                      final iConfirmed = iAmHome ? m.homeOk : m.awayOk;
-                      return FadeSlideIn(
-                        delay: Duration(milliseconds: 50 * e.key),
-                        child: _PendingMatchCard(
-                          match: m,
-                          iConfirmed: iConfirmed,
-                          onConfirm: () => _confirmFixture(m),
-                          onReject: () => _rejectMatch(m),
-                        ),
-                      );
-                    }),
-                  ],
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: GlassTabs(
+                    child: _SectionTabs(
                       index: _matchesTab,
-                      tabs: const ['Upcoming Matches', 'Match History'],
+                      items: [
+                        _TabItem(Icons.event_available_outlined, 'Upcoming',
+                            badgeCount: upcoming.length),
+                        const _TabItem(Icons.history, 'History'),
+                      ],
                       onChanged: (i) => setState(() => _matchesTab = i),
                     ),
                   ),
@@ -556,6 +849,87 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   }
 }
 
+class _TabItem {
+  final IconData icon;
+  final String label;
+  final int badgeCount;
+  const _TabItem(this.icon, this.label, {this.badgeCount = 0});
+}
+
+/// Icon + short-label tab bar for this page's two tab groups -- a plain
+/// text GlassTabs row got unreadably cramped once "Open Requests" grew to
+/// four segments, so each segment is now an icon over a one-word label
+/// (scanned at a glance) with an optional badge for counts worth noticing
+/// (incoming proposals on your requests, what you've sent, what's waiting
+/// on a confirm).
+class _SectionTabs extends StatelessWidget {
+  final int index;
+  final List<_TabItem> items;
+  final ValueChanged<int> onChanged;
+
+  const _SectionTabs({
+    required this.index,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppColors.iconAccent(context);
+    final muted =
+        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
+    return GlassCard(
+      padding: const EdgeInsets.all(6),
+      radius: 20,
+      child: Row(
+        children: [
+          for (var i = 0; i < items.length; i++)
+            Expanded(
+              child: PressableScale(
+                onTap: () => onChanged(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: index == i ? accent.withValues(alpha: 0.14) : null,
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Badge(
+                        isLabelVisible: items[i].badgeCount > 0,
+                        label: Text('${items[i].badgeCount}'),
+                        backgroundColor: AppColors.danger,
+                        child: Icon(items[i].icon,
+                            size: 20, color: index == i ? accent : muted),
+                      ),
+                      const SizedBox(height: 4),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          items[i].label,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: index == i ? accent : muted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Lets a multi-team user pick which team the Matches tab is acting as. The
 /// selected team drives every section + Create Match, so the active team is
 /// always explicit and nothing is created for the wrong team by accident.
@@ -598,19 +972,6 @@ class _TeamSelector extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Text(title, style: Theme.of(context).textTheme.titleMedium),
     );
   }
 }
@@ -771,7 +1132,16 @@ class _TeamMini extends StatelessWidget {
 class _RequestCard extends StatelessWidget {
   final MatchRequestModel request;
   final VoidCallback? onCancel;
-  const _RequestCard({required this.request, this.onCancel});
+  final List<MatchProposalModel> proposals;
+  final ValueChanged<MatchProposalModel>? onAcceptProposal;
+  final ValueChanged<MatchProposalModel>? onRejectProposal;
+  const _RequestCard({
+    required this.request,
+    this.onCancel,
+    this.proposals = const [],
+    this.onAcceptProposal,
+    this.onRejectProposal,
+  });
 
   String get _when {
     final d = request.scheduledAt.toLocal();
@@ -792,70 +1162,111 @@ class _RequestCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: GlassCard(
         padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 22,
-              child: Text(request.format.split('v').first),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  child: Text(request.format.split('v').first),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${request.city} · ${request.format}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 2),
+                      if (passed) ...[
+                        Text(_when,
+                            style: Theme.of(context).textTheme.bodySmall),
+                        const SizedBox(height: 3),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.warning_amber_rounded,
+                                size: 14, color: warn),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                  'Kick-off passed — cancel or recreate',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: warn)),
+                            ),
+                          ],
+                        ),
+                      ] else
+                        Text(_when,
+                            style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _Chip(
+                      label: request.matchType,
+                      color: request.isRanked
+                          ? Theme.of(context).colorScheme.tertiary
+                          : Theme.of(context).colorScheme.secondary,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(MatchStatus.fromString(request.status).label,
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+                if (onCancel != null)
+                  IconButton(
+                    tooltip: 'Cancel request',
+                    icon: const Icon(Icons.delete_outline),
+                    color: Theme.of(context).colorScheme.error,
+                    onPressed: onCancel,
+                  ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${request.city} · ${request.format}',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 2),
-                  if (passed) ...[
-                    Text(_when, style: Theme.of(context).textTheme.bodySmall),
-                    const SizedBox(height: 3),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+            if (proposals.isNotEmpty) ...[
+              const Divider(height: 20),
+              Text('Proposals',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              ...proposals.map((p) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
                       children: [
-                        Icon(Icons.warning_amber_rounded,
-                            size: 14, color: warn),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text('Kick-off passed — cancel or recreate',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: warn)),
+                        GradientAvatar(name: p.teamName ?? '?', radius: 16),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(p.teamName ?? 'Unknown team',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                        TextButton(
+                          onPressed: onRejectProposal == null
+                              ? null
+                              : () => onRejectProposal!(p),
+                          child: const Text('Reject'),
+                        ),
+                        FilledButton(
+                          onPressed: onAcceptProposal == null
+                              ? null
+                              : () => onAcceptProposal!(p),
+                          child: const Text('Accept'),
                         ),
                       ],
                     ),
-                  ] else
-                    Text(_when, style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _Chip(
-                  label: request.matchType,
-                  color: request.isRanked
-                      ? Theme.of(context).colorScheme.tertiary
-                      : Theme.of(context).colorScheme.secondary,
-                ),
-                const SizedBox(height: 4),
-                Text(MatchStatus.fromString(request.status).label,
-                    style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-            if (onCancel != null)
-              IconButton(
-                tooltip: 'Cancel request',
-                icon: const Icon(Icons.delete_outline),
-                color: Theme.of(context).colorScheme.error,
-                onPressed: onCancel,
-              ),
+                  )),
+            ],
           ],
         ),
       ),
@@ -866,11 +1277,13 @@ class _RequestCard extends StatelessWidget {
 class _PendingMatchCard extends StatelessWidget {
   final MatchModel match;
   final bool iConfirmed;
+  final bool canAct;
   final VoidCallback onConfirm;
   final VoidCallback onReject;
   const _PendingMatchCard({
     required this.match,
     required this.iConfirmed,
+    required this.canAct,
     required this.onConfirm,
     required this.onReject,
   });
@@ -953,7 +1366,13 @@ class _PendingMatchCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                if (iConfirmed)
+                if (!canAct)
+                  Expanded(
+                    child: Text('Only your captain can confirm or reject',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.muted(context))),
+                  )
+                else if (iConfirmed)
                   Padding(
                     padding: const EdgeInsets.only(right: 12),
                     child: Text('Waiting…',
@@ -968,7 +1387,7 @@ class _PendingMatchCard extends StatelessWidget {
                       foregroundColor: AppColors.danger,
                       side: BorderSide(color: AppColors.danger),
                     ),
-                    onPressed: onReject,
+                    onPressed: canAct ? onReject : null,
                     child: const Text('Reject'),
                   ),
                 ),
@@ -981,7 +1400,7 @@ class _PendingMatchCard extends StatelessWidget {
                         minimumSize: const Size(0, 44),
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                       ),
-                      onPressed: onConfirm,
+                      onPressed: canAct ? onConfirm : null,
                       child: const Text('Confirm'),
                     ),
                   ),
@@ -997,8 +1416,11 @@ class _PendingMatchCard extends StatelessWidget {
 
 class _OpponentCard extends StatelessWidget {
   final MatchRequestModel opponent;
-  final VoidCallback onAccept;
-  const _OpponentCard({required this.opponent, required this.onAccept});
+  final VoidCallback onPropose;
+  const _OpponentCard({
+    required this.opponent,
+    required this.onPropose,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1031,16 +1453,267 @@ class _OpponentCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text('${opponent.city} · $when · ${opponent.matchType}',
                 style: Theme.of(context).textTheme.bodySmall),
+            if (opponent.courtPicks != null &&
+                opponent.courtPicks!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.place_outlined,
+                      size: 15, color: AppColors.iconAccent(context)),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      opponent.courtPicks!.map((c) => c.name).join(' · '),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.muted(context)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: onAccept,
-                child: const Text('Confirm'),
+                onPressed: onPropose,
+                child: const Text('Propose Match'),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// One proposal the acting team has sent, shown on the "Propose" tab so any
+/// team member can see what's outstanding -- not just the person who sent
+/// it. Read-only: only the target request's own captain can act on it.
+class _SentProposalCard extends StatelessWidget {
+  final MatchProposalModel proposal;
+  const _SentProposalCard({required this.proposal});
+
+  @override
+  Widget build(BuildContext context) {
+    final d = proposal.requestScheduledAt?.toLocal();
+    final when = d == null
+        ? null
+        : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
+            '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: GlassCard(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            GradientAvatar(
+              name: proposal.targetTeamName ?? '?',
+              imageUrl: proposal.targetTeamLogo,
+              radius: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(proposal.targetTeamName ?? 'Unknown team',
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (proposal.requestCity != null) proposal.requestCity,
+                      if (when != null) when,
+                      if (proposal.requestMatchType != null)
+                        proposal.requestMatchType,
+                    ].join(' · '),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            if (proposal.targetTeamRating != null)
+              LevelBadge(value: proposal.targetTeamRating!, size: 36),
+            const SizedBox(width: 8),
+            _Chip(label: 'Pending', color: Theme.of(context).colorScheme.secondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// City (mandatory) + court/date/time/match-type filters for the Available
+/// Opponents list.
+/// City defaults to the acting team's own registered city but can be
+/// switched to browse other cities; court and date are optional narrowing —
+/// clearing them is the only way to see "every open request in the city".
+class _OpponentFilters extends StatelessWidget {
+  final String city;
+  final String? courtId;
+  final DateTime? date;
+  final TimeOfDay? time;
+  final String? matchType;
+  final List<CourtModel> courts;
+  final ValueChanged<String> onCityChanged;
+  final ValueChanged<String?> onCourtChanged;
+  final ValueChanged<DateTime?> onDateChanged;
+  final ValueChanged<TimeOfDay?> onTimeChanged;
+  final ValueChanged<String?> onMatchTypeChanged;
+
+  const _OpponentFilters({
+    required this.city,
+    required this.courtId,
+    required this.date,
+    required this.time,
+    required this.matchType,
+    required this.courts,
+    required this.onCityChanged,
+    required this.onCourtChanged,
+    required this.onDateChanged,
+    required this.onTimeChanged,
+    required this.onMatchTypeChanged,
+  });
+
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  Future<void> _pickDate(BuildContext context) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: date ?? now,
+      firstDate: now.subtract(const Duration(days: 1)),
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (picked != null) onDateChanged(picked);
+  }
+
+  Future<void> _pickTime(BuildContext context) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: time ?? TimeOfDay.now(),
+    );
+    if (picked != null) onTimeChanged(picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonFormField<String>(
+            value: city,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'City',
+              isDense: true,
+              prefixIcon: Icon(Icons.location_city_outlined),
+            ),
+            items: kCities
+                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .toList(),
+            onChanged: (c) {
+              if (c != null) onCityChanged(c);
+            },
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: courtId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Court',
+                    isDense: true,
+                    prefixIcon: Icon(Icons.sports_soccer_outlined),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String>(
+                        value: null, child: Text('Any court')),
+                    ...courts.map((c) =>
+                        DropdownMenuItem(value: c.id, child: Text(c.name))),
+                  ],
+                  onChanged: onCourtChanged,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: matchType,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Type',
+                    isDense: true,
+                    prefixIcon: Icon(Icons.emoji_events_outlined),
+                  ),
+                  items: const [
+                    DropdownMenuItem<String>(
+                        value: null, child: Text('Any type')),
+                    DropdownMenuItem(value: 'casual', child: Text('Casual')),
+                    DropdownMenuItem(value: 'ranked', child: Text('Ranked')),
+                  ],
+                  onChanged: onMatchTypeChanged,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _pickDate(context),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Date',
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.event_outlined),
+                      suffixIcon: date == null
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () => onDateChanged(null),
+                            ),
+                    ),
+                    child: Text(
+                      date == null ? 'Any date' : _formatDate(date!),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _pickTime(context),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Time',
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.access_time),
+                      suffixIcon: time == null
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () => onTimeChanged(null),
+                            ),
+                    ),
+                    child: Text(
+                      time == null ? 'Any time' : time!.format(context),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

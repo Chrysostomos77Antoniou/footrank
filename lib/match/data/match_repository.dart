@@ -1,12 +1,14 @@
 import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_player_model.dart';
+import 'package:footrank/models/match_proposal_model.dart';
 import 'package:footrank/models/match_request_model.dart';
 import 'package:footrank/services/elo_engine.dart';
 import 'package:footrank/services/supabase_service.dart';
 
 class MatchRepository {
   static const _requests = 'match_requests';
+  static const _requestProposals = 'match_request_proposals';
   static const _matches = 'matches';
   static const _matchPlayers = 'match_players';
   static const _behavior = 'behavior_reports';
@@ -36,23 +38,21 @@ class MatchRepository {
 
   String? get _uid => SupabaseService.client.auth.currentUser?.id;
 
-  /// Creates a match request for the captain's team, with exactly 3 ranked
-  /// court choices (index 0 = 1st choice) in [city]. Those picks drive both
-  /// opponent matching ([findOpponents]) and, once accepted, the automatic
-  /// suggested-court resolution.
+  /// Creates a match request for the captain's team, with a single chosen
+  /// court in [city]. That court is exactly the one shown to browsing
+  /// captains and the one used as the match's court once a proposal is
+  /// accepted -- no ranked-choice comparison, since there's nothing to
+  /// compare a single pick against.
   Future<MatchRequestModel> createMatchRequest({
     required String teamId,
     required String city,
     required DateTime scheduledAt,
     required String matchType,
-    required List<String> courtIds,
+    required String courtId,
     String format = '5v5',
   }) async {
     final uid = _uid;
     if (uid == null) throw StateError('No authenticated user');
-    if (courtIds.length != 3 || courtIds.toSet().length != 3) {
-      throw ArgumentError('Pick exactly 3 different courts, ranked in order of preference');
-    }
 
     final inserted = await SupabaseService.client
         .from(_requests)
@@ -68,7 +68,7 @@ class MatchRepository {
         .single();
 
     final request = MatchRequestModel.fromJson(inserted);
-    await _courtRepo.insertRequestCourtPicks(request.id, courtIds);
+    await _courtRepo.insertRequestCourtPicks(request.id, [courtId]);
     return request;
   }
 
@@ -217,31 +217,6 @@ class MatchRepository {
     return scored;
   }
 
-  /// True when [opponent] matches [ref] under the same city/time/ELO windows
-  /// used by [findOpponents]. Shared so server-side and client-side discovery
-  /// agree on what counts as a match.
-  bool _matchesReference(
-    MatchRequestModel ref,
-    MatchRequestModel opponent, {
-    int withinMinutes = defaultWithinMinutes,
-    int eloThreshold = defaultEloThreshold,
-  }) {
-    // Same city (case-insensitive, trimmed) — mirrors ilike(city.trim()).
-    if (opponent.city.trim().toLowerCase() != ref.city.trim().toLowerCase()) {
-      return false;
-    }
-
-    // Scheduled time within +/- withinMinutes of the reference.
-    final diff = opponent.scheduledAt.difference(ref.scheduledAt).inMinutes.abs();
-    if (diff > withinMinutes) return false;
-
-    // ELO proximity against the reference team's rating.
-    final myRating = ref.teamRating ?? 1500;
-    final oppRating = opponent.teamRating;
-    if (oppRating == null) return false;
-    return (oppRating - myRating).abs() <= eloThreshold;
-  }
-
   /// Captain cancels/deletes one of their own open match requests.
   /// Only allowed while still 'searching' (no opponent matched yet).
   Future<void> deleteRequest(String requestId) async {
@@ -252,74 +227,182 @@ class MatchRepository {
         .eq('status', 'searching');
   }
 
-  /// Open ('searching') requests from OTHER teams whose match time hasn't
-  /// already passed — a simple, always-visible list of opponents to confirm a
-  /// match against. Stale past requests are dropped server-side; no upper bound,
-  /// so legitimately far-future matches still appear.
-  Future<List<MatchRequestModel>> fetchOpenOpponentRequests(
-      String myTeamId) async {
-    final data = await SupabaseService.client
+  /// Browse every open ('searching') request from OTHER teams in [city] --
+  /// no requirement that the viewing team has an open request of its own.
+  /// [courtId] narrows to requests that picked that court; [date] narrows to
+  /// requests scheduled on that calendar day; [timeOfDay] (minutes since
+  /// midnight, local) narrows to requests within an hour of that time on any
+  /// day; [matchType] narrows to 'casual' or 'ranked'. All are optional
+  /// except [city]. Each result carries its court pick (see
+  /// [MatchRequestModel.courtPicks]) so captains can see where a match would
+  /// be played before proposing.
+  Future<List<MatchRequestModel>> fetchCityRequests({
+    required String city,
+    required String excludeTeamId,
+    String? courtId,
+    DateTime? date,
+    int? timeOfDayMinutes,
+    String? matchType,
+  }) async {
+    var query = SupabaseService.client
         .from(_requests)
         .select('*, teams(name, rating, logo_url)')
         .eq('status', 'searching')
-        .neq('team_id', myTeamId)
-        // A match can't be played retroactively, so skip requests already in the
-        // past (the stale records that pile up without a cleanup job).
+        .neq('team_id', excludeTeamId)
+        .ilike('city', city.trim())
+        // A match can't be played retroactively, so skip requests already in
+        // the past (the stale records that pile up without a cleanup job).
         .gte(
           'scheduled_at',
           DateTime.now()
               .toUtc()
               .subtract(const Duration(hours: 2))
               .toIso8601String(),
-        )
-        .order('scheduled_at');
+        );
 
-    return (data as List)
+    if (date != null) {
+      final dayStart = DateTime(date.year, date.month, date.day);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+      query = query
+          .gte('scheduled_at', dayStart.toUtc().toIso8601String())
+          .lt('scheduled_at', dayEnd.toUtc().toIso8601String());
+    }
+    if (matchType != null) {
+      query = query.eq('match_type', matchType);
+    }
+
+    final data = await query.order('scheduled_at');
+    var requests = (data as List)
         .map((e) => MatchRequestModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    if (timeOfDayMinutes != null) {
+      requests = requests.where((r) {
+        final local = r.scheduledAt.toLocal();
+        final minutes = local.hour * 60 + local.minute;
+        return (minutes - timeOfDayMinutes).abs() <= 60;
+      }).toList();
+    }
+
+    // Hide any request the viewing team already has a pending proposal on --
+    // once a teammate proposes, the whole team stops seeing it in the browse
+    // list. It reappears (and can be proposed to again) once that proposal
+    // is no longer pending (rejected, or cancelled by the same-date cascade).
+    if (requests.isNotEmpty) {
+      final pending = await SupabaseService.client
+          .from(_requestProposals)
+          .select('request_id')
+          .eq('proposing_team_id', excludeTeamId)
+          .eq('status', 'pending');
+      final pendingRequestIds = (pending as List)
+          .map((e) => (e as Map<String, dynamic>)['request_id'] as String)
+          .toSet();
+      requests =
+          requests.where((r) => !pendingRequestIds.contains(r.id)).toList();
+    }
+    if (requests.isEmpty) return requests;
+
+    final picksById = await _courtRepo
+        .fetchPicksWithCourtsForRequests(requests.map((r) => r.id).toList());
+
+    final withPicks =
+        requests.map((r) => r.copyWith(courtPicks: picksById[r.id] ?? const []))
+            .toList();
+
+    if (courtId == null) return withPicks;
+    return withPicks
+        .where((r) => r.courtPicks!.any((c) => c.id == courtId))
         .toList();
   }
 
-  /// Aggregates matchable opponents across ALL of the team's open requests,
-  /// de-duplicated by request id. Used to surface opponents directly on the
-  /// Matches screen (no manual "Find Opponents" step needed).
-  ///
-  /// Uses exactly TWO queries regardless of how many open requests the team has
-  /// (one for the team's own 'searching' requests, one for all open opponent
-  /// requests) and applies the same city/time/ELO windows as [findOpponents]
-  /// client-side. This replaces the previous 1 + N serialized query pattern.
-  Future<List<MatchRequestModel>> findAllOpponents(String teamId) async {
+  // ---- Propose / Accept / Reject (browse-and-propose flow) ----
+
+  /// Any member of [teamId] can propose against an open [requestId] --
+  /// proposing isn't captain-restricted, only accepting/rejecting is. Does
+  /// NOT lock the request -- it stays 'searching' (and other teams can
+  /// still propose) until the request's own captain accepts one proposal.
+  Future<String> proposeMatch({
+    required String requestId,
+    required String teamId,
+  }) async {
+    final result = await SupabaseService.client.rpc(
+      'propose_match',
+      params: {'p_request_id': requestId, 'p_team_id': teamId},
+    );
+    return result as String;
+  }
+
+  /// Captain-only (the request's own captain): accepts one pending proposal.
+  /// Creates the confirmed match immediately and auto-cancels every other
+  /// pending proposal on the same request. Returns the new match id.
+  Future<String> acceptProposal(String proposalId) async {
+    final result = await SupabaseService.client.rpc(
+      'accept_match_proposal',
+      params: {'p_proposal_id': proposalId},
+    );
+    return result as String;
+  }
+
+  /// Captain-only (the request's own captain): declines one pending
+  /// proposal. The request stays open for other proposals.
+  Future<void> rejectProposal(String proposalId) => SupabaseService.client
+      .rpc('reject_match_proposal', params: {'p_proposal_id': proposalId});
+
+  /// Pending proposals against every open request [teamId] has posted --
+  /// shown to the captain so they can accept/reject each one.
+  Future<Map<String, List<MatchProposalModel>>> fetchProposalsForTeamRequests(
+    String teamId,
+  ) async {
     final myRequests = await fetchSearchingRequests(teamId);
-    if (myRequests.isEmpty) return <MatchRequestModel>[];
+    if (myRequests.isEmpty) return {};
 
-    final opponentRequests = await fetchOpenOpponentRequests(teamId);
+    final data = await SupabaseService.client
+        .from(_requestProposals)
+        .select('*, teams(name, rating, logo_url)')
+        .inFilter('request_id', myRequests.map((r) => r.id).toList())
+        .eq('status', 'pending')
+        .order('created_at');
 
-    final seen = <String>{};
-    final all = <MatchRequestModel>[];
-    for (final opponent in opponentRequests) {
-      // An opponent qualifies if it matches ANY of the team's open requests —
-      // tag it with the FIRST one that matched, so acceptMatchRequest() knows
-      // whose court picks to resolve the suggested court against.
-      final ref = myRequests
-          .cast<MatchRequestModel?>()
-          .firstWhere((r) => _matchesReference(r!, opponent), orElse: () => null);
-      if (ref != null && seen.add(opponent.id)) {
-        all.add(opponent.copyWith(matchedFromRequestId: ref.id));
-      }
+    final map = <String, List<MatchProposalModel>>{};
+    for (final e in data as List) {
+      final row = e as Map<String, dynamic>;
+      final proposal = MatchProposalModel.fromJson(row);
+      (map[proposal.requestId] ??= []).add(proposal);
     }
-    return all;
+    return map;
+  }
+
+  /// Every OPEN (pending) proposal [teamId] has sent to other teams'
+  /// requests -- visible to every team member, not just the captain, so
+  /// anyone can see what the team has already proposed (these are exactly
+  /// the requests hidden from [fetchCityRequests] while pending).
+  Future<List<MatchProposalModel>> fetchSentProposals(String teamId) async {
+    final data = await SupabaseService.client
+        .from(_requestProposals)
+        .select(
+            '*, match_requests(city, scheduled_at, match_type, format, teams(name, rating, logo_url))')
+        .eq('proposing_team_id', teamId)
+        .eq('status', 'pending')
+        .order('created_at', ascending: false);
+
+    return (data as List)
+        .map((e) => MatchProposalModel.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   // ---- Accept / Reject (Task 5.3) ----
 
   /// Opponent captain accepts [requestId]; creates a match and confirms the
   /// request atomically (via DB function). [myRequestId] is the accepting
-  /// captain's own reference request — its ranked court picks are compared
-  /// against the accepted request's to resolve a suggested court immediately.
-  /// Returns the new match id.
+  /// captain's own reference request, if they have one — its ranked court
+  /// picks are compared against the accepted request's to resolve a
+  /// suggested court immediately. When null (accepting directly from the
+  /// city browse list, with no request of your own), the suggested court
+  /// falls back to the requesting team's #1 choice. Returns the new match id.
   Future<String> acceptMatchRequest({
     required String requestId,
     required String awayTeamId,
-    required String myRequestId,
+    String? myRequestId,
   }) async {
     final result = await SupabaseService.client.rpc(
       'accept_match_request',
