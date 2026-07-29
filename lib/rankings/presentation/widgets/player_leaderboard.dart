@@ -217,13 +217,22 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                               ),
                             ),
                             LevelBadge(value: p.elo, size: 46, showLabel: true),
-                            if (_captainTeams.isNotEmpty && p.id != _uid) ...[
+                            if (_captainTeams.isNotEmpty) ...[
                               const SizedBox(width: 2),
-                              IconButton(
-                                tooltip: 'Invite to a team',
-                                icon: Icon(Icons.person_add_alt_1_outlined,
-                                    color: AppColors.iconAccent(context)),
-                                onPressed: () => _invite(p),
+                              // Reserve the button's footprint even when it's
+                              // hidden (viewer's own row) so the PWR badge
+                              // lands at the same x-position on every row.
+                              Visibility(
+                                visible: p.id != _uid,
+                                maintainSize: true,
+                                maintainAnimation: true,
+                                maintainState: true,
+                                child: IconButton(
+                                  tooltip: 'Invite to a team',
+                                  icon: Icon(Icons.person_add_alt_1_outlined,
+                                      color: AppColors.iconAccent(context)),
+                                  onPressed: () => _invite(p),
+                                ),
                               ),
                             ],
                           ],

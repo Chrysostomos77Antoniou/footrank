@@ -344,9 +344,12 @@ class _Stat extends StatelessWidget {
               child: Icon(icon, color: AppColors.iconAccent(context), size: 22),
             ),
             const SizedBox(height: 8),
-            GradientText(value,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w900)),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: GradientText(value,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w900)),
+            ),
             const SizedBox(height: 2),
             Text(label, style: Theme.of(context).textTheme.bodySmall),
           ],
