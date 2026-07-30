@@ -4,6 +4,7 @@ import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/notification_model.dart';
 import 'package:footrank/notifications/data/notification_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -15,12 +16,21 @@ class NotificationsPage extends StatefulWidget {
 class _NotificationsPageState extends State<NotificationsPage> {
   final _repo = NotificationRepository();
   late Future<List<NotificationModel>> _future;
+  RealtimeChannel? _notifChannel;
 
   @override
   void initState() {
     super.initState();
     _future = _repo.fetchAll();
     _repo.markAllRead();
+    // Live-append anything that arrives while this page is open.
+    _notifChannel = _repo.subscribeToNew(_reload);
+  }
+
+  @override
+  void dispose() {
+    _repo.unsubscribe(_notifChannel);
+    super.dispose();
   }
 
   void _reload() {

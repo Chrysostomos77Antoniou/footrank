@@ -15,6 +15,7 @@ import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/team/presentation/widgets/team_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -31,6 +32,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   List<TeamModel> _teams = [];
   bool _teamLoaded = false;
   int _inviteCount = 0;
+  RealtimeChannel? _notifChannel;
 
   @override
   void initState() {
@@ -40,12 +42,17 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
     _loadInvites();
     appRefresh.addListener(_loadTeam);
     appRefresh.addListener(_loadInvites);
+    // Live badge updates -- the moment a new notification lands server-side
+    // (a proposal, a confirm, etc.), the bell count refreshes on its own
+    // instead of only updating after a manual sync or a trip to the page.
+    _notifChannel = _notifRepo.subscribeToNew(_refreshUnread);
   }
 
   @override
   void dispose() {
     appRefresh.removeListener(_loadTeam);
     appRefresh.removeListener(_loadInvites);
+    _notifRepo.unsubscribe(_notifChannel);
     super.dispose();
   }
 
