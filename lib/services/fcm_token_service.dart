@@ -22,8 +22,11 @@ class FcmTokenService {
         'token': token,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       });
-    } catch (_) {
-      // Best-effort — never block the app on token sync.
+    } catch (e) {
+      // Best-effort — never block the app on token sync, but a token that
+      // was obtained and then failed to save is just as invisible as one
+      // that was never obtained, so it still needs to be logged.
+      await NotificationService.logTokenIssue('fcm_tokens upsert failed: $e');
     }
   }
 
