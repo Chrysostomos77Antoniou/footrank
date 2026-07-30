@@ -16,7 +16,6 @@ import 'package:footrank/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:footrank/match/presentation/pages/courts_page.dart';
 import 'package:footrank/match/presentation/pages/create_match_request_page.dart';
 import 'package:footrank/match/presentation/pages/match_detail_page.dart';
-import 'package:footrank/match/presentation/pages/match_discovery_page.dart';
 import 'package:footrank/match/presentation/pages/matches_page.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/profile/presentation/pages/edit_profile_page.dart';
@@ -46,7 +45,6 @@ class AppRoutes {
   static const teamRankings = '/rankings';
   static const matches = '/matches';
   static const createMatch = '/matches/create';
-  static const discoverMatches = '/matches/discover';
   static const matchDetail = '/matches/detail';
   static const courts = '/courts';
   static const profile = '/profile';
@@ -232,13 +230,6 @@ GoRouter buildRouter() => GoRouter(
       path: AppRoutes.createMatch,
       pageBuilder: (context, state) => _animatedPage(
         CreateMatchRequestPage(teamId: state.extra! as String),
-        state,
-      ),
-    ),
-    GoRoute(
-      path: AppRoutes.discoverMatches,
-      pageBuilder: (context, state) => _animatedPage(
-        MatchDiscoveryPage(teamId: state.extra! as String),
         state,
       ),
     ),

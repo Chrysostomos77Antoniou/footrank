@@ -16,15 +16,6 @@ class MatchRequestModel {
   final int? teamRating;
   final String? teamLogo;
 
-  // Set by MatchRepository.findOpponents — how well this opponent's ranked
-  // court picks overlap with yours (higher = better; null = not computed).
-  final int? courtCompatibilityScore;
-
-  // Set by MatchRepository.findAllOpponents — which of YOUR OWN open
-  // requests this opponent matched against, so acceptMatchRequest() knows
-  // whose court picks to resolve against.
-  final String? matchedFromRequestId;
-
   // Set by MatchRepository.fetchCityRequests — this request's ranked (1..3)
   // court picks, so captains can see where a match would be played before
   // accepting it.
@@ -43,16 +34,12 @@ class MatchRequestModel {
     this.teamName,
     this.teamRating,
     this.teamLogo,
-    this.courtCompatibilityScore,
-    this.matchedFromRequestId,
     this.courtPicks,
   });
 
   bool get isRanked => matchType == 'ranked';
 
   MatchRequestModel copyWith({
-    int? courtCompatibilityScore,
-    String? matchedFromRequestId,
     List<CourtModel>? courtPicks,
   }) =>
       MatchRequestModel(
@@ -68,9 +55,6 @@ class MatchRequestModel {
         teamName: teamName,
         teamRating: teamRating,
         teamLogo: teamLogo,
-        courtCompatibilityScore:
-            courtCompatibilityScore ?? this.courtCompatibilityScore,
-        matchedFromRequestId: matchedFromRequestId ?? this.matchedFromRequestId,
         courtPicks: courtPicks ?? this.courtPicks,
       );
 

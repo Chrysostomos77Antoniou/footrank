@@ -182,7 +182,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
         return;
       }
 
-      await _repo.createMatchRequest(
+      final request = await _repo.createMatchRequest(
         teamId: widget.teamId,
         city: _city!,
         scheduledAt: scheduledAt,
@@ -194,7 +194,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Match request created')));
-        context.pop(true);
+        context.pop(request);
       }
     } catch (e) {
       if (mounted) {

@@ -14,28 +14,6 @@ class MatchRepository {
   static const _behavior = 'behavior_reports';
   final _courtRepo = CourtRepository();
 
-  /// Combined ranked-choice score between two teams' 3 court picks (mirrors
-  /// the DB's accept_match_request resolution): 1st choice = 3pts, 2nd =
-  /// 2pts, 3rd = 1pt: highest SUM for a court on both lists wins. A court on
-  /// only one list, or no overlap at all, scores 0.
-  static int _courtCompatibility(List<String> mine, List<String> theirs) {
-    var best = 0;
-    for (var i = 0; i < mine.length; i++) {
-      final j = theirs.indexOf(mine[i]);
-      if (j == -1) continue;
-      final score = (3 - i) + (3 - j);
-      if (score > best) best = score;
-    }
-    return best;
-  }
-
-  /// Default discovery windows, shared by findOpponents and findAllOpponents so
-  /// both code paths use identical matching rules.
-  // Loosened for a thin team pool: a wider time window and ELO band surface
-  // more potential opponents (tighten again as the network grows).
-  static const int defaultWithinMinutes = 60;
-  static const int defaultEloThreshold = 250;
-
   String? get _uid => SupabaseService.client.auth.currentUser?.id;
 
   /// Creates a match request for the captain's team, with a single chosen
@@ -138,83 +116,6 @@ class MatchRepository {
     return (data as List)
         .map((e) => MatchRequestModel.fromJson(e as Map<String, dynamic>))
         .toList();
-  }
-
-  /// Finds opponent requests matching a reference request:
-  ///  - same city (case-insensitive)
-  ///  - scheduled time within [withinMinutes] of the reference
-  ///  - opponent team rating within [eloThreshold] of [myTeamRating]
-  ///  - still 'searching' and not the requesting team
-  ///
-  /// Results are RANKED (not just filtered), in priority order: how well the
-  /// opponent's 3 ranked court picks overlap with [myCourtIds] first, then
-  /// closeness in kick-off time, then closeness in rating.
-  Future<List<MatchRequestModel>> findOpponents({
-    required String myTeamId,
-    required int myTeamRating,
-    required String city,
-    required DateTime scheduledAt,
-    required List<String> myCourtIds,
-    int withinMinutes = defaultWithinMinutes,
-    int eloThreshold = defaultEloThreshold,
-  }) async {
-    // scheduled_at is stored in UTC (see createMatchRequest / rescheduleMatch),
-    // so the window bounds MUST be UTC too. Building them from a local DateTime
-    // shifted the gte/lte range by the user's UTC offset and silently dropped
-    // otherwise-valid opponents for anyone not on UTC.
-    final anchor = scheduledAt.toUtc();
-    final from =
-        anchor.subtract(Duration(minutes: withinMinutes)).toIso8601String();
-    final to = anchor.add(Duration(minutes: withinMinutes)).toIso8601String();
-
-    final data = await SupabaseService.client
-        .from(_requests)
-        .select('*, teams(name, rating, logo_url)')
-        .eq('status', 'searching')
-        .neq('team_id', myTeamId)
-        .ilike('city', city.trim())
-        .gte('scheduled_at', from)
-        .lte('scheduled_at', to)
-        .order('scheduled_at');
-
-    final candidates = (data as List)
-        .map((e) => MatchRequestModel.fromJson(e as Map<String, dynamic>))
-        .toList();
-
-    // ELO proximity is filtered client-side (needs abs of joined rating).
-    final withinElo = candidates.where((r) {
-      final rating = r.teamRating;
-      if (rating == null) return false;
-      return (rating - myTeamRating).abs() <= eloThreshold;
-    }).toList();
-
-    if (withinElo.isEmpty) return withinElo;
-
-    final picksById = await _courtRepo
-        .fetchPicksForRequests(withinElo.map((r) => r.id).toList());
-
-    final scored = withinElo
-        .map((r) => r.copyWith(
-            courtCompatibilityScore:
-                _courtCompatibility(myCourtIds, picksById[r.id] ?? const [])))
-        .toList();
-
-    scored.sort((a, b) {
-      final byCourt = (b.courtCompatibilityScore ?? 0)
-          .compareTo(a.courtCompatibilityScore ?? 0);
-      if (byCourt != 0) return byCourt;
-      final aTimeDiff =
-          a.scheduledAt.difference(scheduledAt).inMinutes.abs();
-      final bTimeDiff =
-          b.scheduledAt.difference(scheduledAt).inMinutes.abs();
-      final byTime = aTimeDiff.compareTo(bTimeDiff);
-      if (byTime != 0) return byTime;
-      final aEloDiff = ((a.teamRating ?? myTeamRating) - myTeamRating).abs();
-      final bEloDiff = ((b.teamRating ?? myTeamRating) - myTeamRating).abs();
-      return aEloDiff.compareTo(bEloDiff);
-    });
-
-    return scored;
   }
 
   /// Captain cancels/deletes one of their own open match requests.

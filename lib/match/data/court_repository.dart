@@ -35,7 +35,7 @@ class CourtRepository {
   }
 
   /// Saves a captain's 3 ranked court choices (index 0 = 1st choice) for a
-  /// newly-created match request. Matching (findOpponents) and accepting
+  /// newly-created match request. Browsing (fetchCityRequests) and accepting
   /// (acceptMatchRequest) both read these back to resolve a suggested court.
   Future<void> insertRequestCourtPicks(
     String requestId,

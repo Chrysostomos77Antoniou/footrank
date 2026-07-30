@@ -22,6 +22,7 @@ import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/team/presentation/widgets/team_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MatchesPage extends StatefulWidget {
   const MatchesPage({super.key});
@@ -426,20 +427,20 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     if (!mounted || team == null) return;
     // Keep the Matches view in sync with the team just chosen.
     _selectTeam(team);
-    final created = await context.push<bool>(
+    final created = await context.push<MatchRequestModel>(
       AppRoutes.createMatch,
       extra: team.id,
     );
-    if (created == true) {
+    if (created != null) {
       _reloadRequests();
       if (!mounted) return;
-      final findNow = await showDialog<bool>(
+      final invite = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Request created'),
           content: const Text(
-              'Find an opponent now? We\'ll show nearby teams looking for a '
-              'match at a similar time and rating.'),
+              'Invite a rival team now? Share your match details so another '
+              'team can find and propose against your request.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -447,12 +448,12 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Find Opponents'),
+              child: const Text('Invite a Rival Team'),
             ),
           ],
         ),
       );
-      if (findNow == true) _openDiscovery();
+      if (invite == true) _inviteRival(created);
     }
   }
 
@@ -495,11 +496,24 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     }
   }
 
-  Future<void> _openDiscovery() async {
-    final team = _team;
-    if (team == null) return;
-    await context.push(AppRoutes.discoverMatches, extra: team.id);
-    _reloadRequests();
+  /// Shares [request]'s details via WhatsApp so a captain can invite a rival
+  /// team directly instead of only waiting for one to browse and propose.
+  Future<void> _inviteRival(MatchRequestModel request) async {
+    final d = request.scheduledAt.toLocal();
+    final date = '${d.day.toString().padLeft(2, '0')}/'
+        '${d.month.toString().padLeft(2, '0')} at '
+        '${d.hour.toString().padLeft(2, '0')}:'
+        '${d.minute.toString().padLeft(2, '0')}';
+    final msg = "Hey! We're looking for a match in ${request.city} on $date. "
+        "Got a team? Let's set one up on FootRank!";
+    final uri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(msg)}');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open WhatsApp')),
+        );
+      }
+    }
   }
 
   @override
@@ -507,14 +521,6 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Matches'),
-        actions: [
-          if (_team != null)
-            TextButton.icon(
-              icon: const Icon(Icons.search),
-              label: const Text('Find Opponents'),
-              onPressed: _openDiscovery,
-            ),
-        ],
       ),
       floatingActionButton: _teams.isNotEmpty
           ? FloatingActionButton.extended(
@@ -746,6 +752,8 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                                             onCancel: e.value.captainId == uid
                                                 ? () => _cancelRequest(e.value)
                                                 : null,
+                                            onInvite: () =>
+                                                _inviteRival(e.value),
                                             proposals: _isCaptain
                                                 ? proposalsByRequest[
                                                         e.value.id] ??
@@ -1346,12 +1354,14 @@ class _TeamMini extends StatelessWidget {
 class _RequestCard extends StatelessWidget {
   final MatchRequestModel request;
   final VoidCallback? onCancel;
+  final VoidCallback? onInvite;
   final List<MatchProposalModel> proposals;
   final ValueChanged<MatchProposalModel>? onAcceptProposal;
   final ValueChanged<MatchProposalModel>? onRejectProposal;
   const _RequestCard({
     required this.request,
     this.onCancel,
+    this.onInvite,
     this.proposals = const [],
     this.onAcceptProposal,
     this.onRejectProposal,
@@ -1439,6 +1449,13 @@ class _RequestCard extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ),
+                if (onInvite != null)
+                  IconButton(
+                    tooltip: 'Invite a rival team',
+                    icon: const Icon(Icons.share_outlined),
+                    color: AppColors.iconAccent(context),
+                    onPressed: onInvite,
+                  ),
                 if (onCancel != null)
                   IconButton(
                     tooltip: 'Cancel request',
@@ -1928,7 +1945,7 @@ class _OpponentFiltersState extends State<_OpponentFilters> {
 
   Widget _buildFields(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(0, 10, 0, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
