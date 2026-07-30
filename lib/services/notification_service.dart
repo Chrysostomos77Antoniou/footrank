@@ -92,7 +92,25 @@ class NotificationService {
 
   static Future<void> _initLocalNotifications() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidInit);
+    // iOS doesn't need this plugin for foreground banners (that's handled
+    // natively via setForegroundNotificationPresentationOptions above), but
+    // flutter_local_notifications' initialize() unconditionally throws
+    // ArgumentError on iOS if no iOS settings object is passed at all --
+    // that throw was aborting the rest of NotificationService.initialize()
+    // (everything after this call: the FCM listeners, the token fetch, the
+    // token-refresh wiring) on every single iOS launch, silently, since it's
+    // only caught by main()'s outer try/catch which reports to Crashlytics
+    // and nowhere else. Request no permissions here since
+    // FirebaseMessaging.requestPermission() above already covers that.
+    const iosInit = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+    const initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: iosInit,
+    );
     await _localNotifications.initialize(
       initSettings,
       // Tapped the local banner we show for Android foreground messages --
