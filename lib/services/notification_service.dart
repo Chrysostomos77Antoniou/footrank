@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:footrank/services/notification_router.dart';
+import 'package:footrank/services/supabase_service.dart';
 
 /// Top-level background handler (required by FCM to be a top-level function).
 @pragma('vm:entry-point')
@@ -43,6 +44,12 @@ class NotificationService {
       sound: true,
     );
     debugPrint('Notification permission: ${settings.authorizationStatus}');
+    if (settings.authorizationStatus != AuthorizationStatus.authorized &&
+        settings.authorizationStatus != AuthorizationStatus.provisional) {
+      await _logTokenIssue(
+        'Permission not granted: ${settings.authorizationStatus}',
+      );
+    }
 
     // iOS already banners foreground messages natively once this is set --
     // no local-notifications plugin needed on that platform.
@@ -73,7 +80,7 @@ class NotificationService {
       );
     });
 
-    final token = await _messaging.getToken();
+    final token = await currentToken();
     debugPrint('FCM token: $token');
     return token;
   }
@@ -133,9 +140,48 @@ class NotificationService {
   /// The current device FCM token, or null if unavailable.
   static Future<String?> currentToken() async {
     try {
-      return await _messaging.getToken();
-    } catch (_) {
+      if (Platform.isIOS) {
+        // On iOS, FCM can't mint a token until APNs registration completes --
+        // calling getToken() before that finishes throws or returns null, and
+        // there's no push-side symptom for this since it fails before a
+        // token ever reaches the server (unlike a bad APNs cert, which fails
+        // *after* the token exists, at send time).
+        var apnsToken = await _messaging.getAPNSToken();
+        var attempts = 0;
+        while (apnsToken == null && attempts < 10) {
+          await Future.delayed(const Duration(seconds: 1));
+          apnsToken = await _messaging.getAPNSToken();
+          attempts++;
+        }
+        if (apnsToken == null) {
+          await _logTokenIssue('APNs token not available after ${attempts}s wait');
+          return null;
+        }
+      }
+      final token = await _messaging.getToken();
+      if (token == null) {
+        await _logTokenIssue('getToken() returned null');
+      }
+      return token;
+    } catch (e) {
+      await _logTokenIssue('getToken() threw: $e');
       return null;
     }
+  }
+
+  /// Best-effort diagnostic trail for why a device never got/synced a push
+  /// token -- there's no Xcode console access for TestFlight builds, so this
+  /// is queried directly from the database instead.
+  static Future<void> _logTokenIssue(String message) async {
+    debugPrint('FCM token issue: $message');
+    try {
+      final user = SupabaseService.client.auth.currentUser;
+      if (user == null) return;
+      await SupabaseService.client.from('push_debug_log').insert({
+        'user_id': user.id,
+        'platform': Platform.isIOS ? 'ios' : 'android',
+        'message': message,
+      });
+    } catch (_) {}
   }
 }
