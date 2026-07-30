@@ -4,6 +4,7 @@ class NotificationModel {
   final String type;
   final String title;
   final String? body;
+  final String? referenceId;
   final bool read;
   final DateTime createdAt;
 
@@ -13,6 +14,7 @@ class NotificationModel {
     required this.type,
     required this.title,
     this.body,
+    this.referenceId,
     required this.read,
     required this.createdAt,
   });
@@ -24,6 +26,7 @@ class NotificationModel {
         type: json['type'] as String,
         title: json['title'] as String,
         body: json['body'] as String?,
+        referenceId: json['reference_id'] as String?,
         read: (json['read'] as bool?) ?? false,
         createdAt: DateTime.parse(json['created_at'] as String),
       );

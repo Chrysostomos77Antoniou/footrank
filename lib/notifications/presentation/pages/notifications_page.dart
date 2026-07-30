@@ -4,6 +4,7 @@ import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/notification_model.dart';
 import 'package:footrank/notifications/data/notification_repository.dart';
+import 'package:footrank/services/notification_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotificationsPage extends StatefulWidget {
@@ -98,48 +99,54 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     delay: Duration(milliseconds: 30 * i),
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: GlassCard(
-                        padding: const EdgeInsets.all(14),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: s.color.withValues(alpha: 0.16),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              alignment: Alignment.center,
-                              child: Icon(s.icon, color: s.color),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(n.title,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w800)),
-                                  if (n.body != null) ...[
-                                    const SizedBox(height: 2),
-                                    Text(n.body!,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            if (!n.read)
+                      child: GestureDetector(
+                        onTap: () => handleNotificationTap(
+                          type: n.type,
+                          referenceId: n.referenceId,
+                        ),
+                        child: GlassCard(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(
+                            children: [
                               Container(
-                                width: 10,
-                                height: 10,
+                                width: 48,
+                                height: 48,
                                 decoration: BoxDecoration(
-                                  color: AppColors.brand(context),
-                                  shape: BoxShape.circle,
+                                  color: s.color.withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                alignment: Alignment.center,
+                                child: Icon(s.icon, color: s.color),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(n.title,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w800)),
+                                    if (n.body != null) ...[
+                                      const SizedBox(height: 2),
+                                      Text(n.body!,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall),
+                                    ],
+                                  ],
                                 ),
                               ),
-                          ],
+                              if (!n.read)
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.brand(context),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

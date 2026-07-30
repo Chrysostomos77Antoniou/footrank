@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Required on Android 13+ (API 33) for the app to be able to show any
-         notification at all -- without this, FCM push messages are delivered
+         notification at all, without this, FCM push messages are delivered
          to the device but the OS silently drops the display, regardless of
          what the runtime permission prompt / Settings toggle shows. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -10,7 +10,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <!-- Default icon for FCM notification messages shown while the app is
-             backgrounded or killed. No custom channel id is set here -- FCM
+             backgrounded or killed. No custom channel id is set here, FCM
              auto-creates its own fallback channel when none is specified,
              and specifying one without also registering it natively would
              cause Android 8+ to silently drop the notification instead. -->

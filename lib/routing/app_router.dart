@@ -291,3 +291,10 @@ GoRouter buildRouter() => GoRouter(
     ),
   ],
 );
+
+/// Single shared router instance, so notification-tap handling (which fires
+/// from outside the widget tree, e.g. FirebaseMessaging callbacks) can
+/// navigate without a BuildContext. Created lazily on first access; the app
+/// itself must use this same instance rather than calling buildRouter()
+/// again, or the two would maintain separate navigation/redirect state.
+final GoRouter appRouter = buildRouter();

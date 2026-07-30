@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:footrank/services/notification_router.dart';
 
 /// Top-level background handler (required by FCM to be a top-level function).
 @pragma('vm:entry-point')
@@ -62,9 +64,13 @@ class NotificationService {
       if (Platform.isAndroid) _showForegroundBanner(message);
     });
 
-    // Tapped notification that opened the app
+    // Tapped a notification that opened the app from background -- sync and
+    // deep-link straight to whatever it was about.
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      debugPrint('Opened from notification: ${message.data}');
+      handleNotificationTap(
+        type: message.data['type'] as String?,
+        referenceId: message.data['reference_id'] as String?,
+      );
     });
 
     final token = await _messaging.getToken();
@@ -72,10 +78,29 @@ class NotificationService {
     return token;
   }
 
+  /// The push that launched the app from a fully terminated state, if any.
+  /// Callers must defer acting on this until the router/navigator exists.
+  static Future<RemoteMessage?> getInitialMessage() =>
+      _messaging.getInitialMessage();
+
   static Future<void> _initLocalNotifications() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidInit);
-    await _localNotifications.initialize(initSettings);
+    await _localNotifications.initialize(
+      initSettings,
+      // Tapped the local banner we show for Android foreground messages --
+      // Firebase has no visibility into this one (it's not the OS's own FCM
+      // notification), so it's handled entirely through this callback.
+      onDidReceiveNotificationResponse: (response) {
+        final payload = response.payload;
+        if (payload == null) return;
+        final data = jsonDecode(payload) as Map<String, dynamic>;
+        handleNotificationTap(
+          type: data['type'] as String?,
+          referenceId: data['reference_id'] as String?,
+        );
+      },
+    );
     await _localNotifications
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -98,6 +123,7 @@ class NotificationService {
           priority: Priority.high,
         ),
       ),
+      payload: jsonEncode(message.data),
     );
   }
 

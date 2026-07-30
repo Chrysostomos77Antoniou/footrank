@@ -3,6 +3,8 @@ import 'package:footrank/core/theme/app_theme.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/video_splash_overlay.dart';
 import 'package:footrank/routing/app_router.dart';
+import 'package:footrank/services/notification_router.dart';
+import 'package:footrank/services/notification_service.dart';
 
 class FootRankApp extends StatefulWidget {
   const FootRankApp({super.key});
@@ -12,10 +14,25 @@ class FootRankApp extends StatefulWidget {
 }
 
 class _FootRankAppState extends State<FootRankApp> {
-  late final _router = buildRouter();
-
   /// Cold-start branded video splash; removed from the tree once it finishes.
   bool _splashDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Cold-start via a tapped push notification: getInitialMessage() is
+    // called from main() before the router exists, so the actual navigation
+    // happens here once it's safe to do so (after the first frame).
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final initial = await NotificationService.getInitialMessage();
+      if (initial != null) {
+        handleNotificationTap(
+          type: initial.data['type'] as String?,
+          referenceId: initial.data['reference_id'] as String?,
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +48,7 @@ class _FootRankAppState extends State<FootRankApp> {
           // Switch palettes instantly instead of cross-fading every colour over
           // ~200ms (which looked slow/laggy on long lists).
           themeAnimationDuration: Duration.zero,
-          routerConfig: _router,
+          routerConfig: appRouter,
           builder: (context, child) {
             // Honour the user's font-size setting, but clamp it so very large
             // scales don't break layouts.
