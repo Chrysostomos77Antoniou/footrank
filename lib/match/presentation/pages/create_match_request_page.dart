@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
@@ -111,12 +112,13 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
   }
 
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(
+    // Flutter's built-in keyboard-entry time picker places the cursor after
+    // the existing digits instead of selecting them, so typing a new hour
+    // means deleting the old one first. This custom dialog selects each
+    // field's text the moment it's focused, so typing immediately overwrites.
+    final picked = await showDialog<TimeOfDay>(
       context: context,
-      initialTime: _time ?? TimeOfDay.now(),
-      // Default to the keyboard (type the time) — far clearer than the clock dial.
-      initialEntryMode: TimePickerEntryMode.input,
-      helpText: 'Enter kick-off time',
+      builder: (_) => _TimeEntryDialog(initial: _time ?? TimeOfDay.now()),
     );
     if (picked != null) setState(() => _time = picked);
   }
@@ -575,6 +577,116 @@ class _PickerField extends StatelessWidget {
         ),
         child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
+    );
+  }
+}
+
+/// Hour/minute entry dialog where tapping either field selects its existing
+/// value, so typing a digit overwrites it immediately instead of appending
+/// after a cursor left at the end (Flutter's built-in keyboard-entry time
+/// picker does the latter, forcing a manual delete first).
+class _TimeEntryDialog extends StatefulWidget {
+  final TimeOfDay initial;
+  const _TimeEntryDialog({required this.initial});
+
+  @override
+  State<_TimeEntryDialog> createState() => _TimeEntryDialogState();
+}
+
+class _TimeEntryDialogState extends State<_TimeEntryDialog> {
+  late final _hourCtrl =
+      TextEditingController(text: widget.initial.hour.toString().padLeft(2, '0'));
+  late final _minuteCtrl = TextEditingController(
+      text: widget.initial.minute.toString().padLeft(2, '0'));
+  final _hourFocus = FocusNode();
+  final _minuteFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _hourFocus.addListener(() {
+      if (_hourFocus.hasFocus) _selectAll(_hourCtrl);
+    });
+    _minuteFocus.addListener(() {
+      if (_minuteFocus.hasFocus) _selectAll(_minuteCtrl);
+    });
+  }
+
+  void _selectAll(TextEditingController c) {
+    c.selection = TextSelection(baseOffset: 0, extentOffset: c.text.length);
+  }
+
+  @override
+  void dispose() {
+    _hourCtrl.dispose();
+    _minuteCtrl.dispose();
+    _hourFocus.dispose();
+    _minuteFocus.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final h = int.tryParse(_hourCtrl.text);
+    final m = int.tryParse(_minuteCtrl.text);
+    if (h == null || m == null || h > 23 || m > 59) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid time')),
+      );
+      return;
+    }
+    Navigator.pop(context, TimeOfDay(hour: h, minute: m));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Enter kick-off time'),
+      content: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _hourCtrl,
+              focusNode: _hourFocus,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              maxLength: 2,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              decoration: const InputDecoration(labelText: 'Hour', counterText: ''),
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (v) {
+                if (v.length == 2) _minuteFocus.requestFocus();
+              },
+              onSubmitted: (_) => _minuteFocus.requestFocus(),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: Text(':', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+          ),
+          Expanded(
+            child: TextField(
+              controller: _minuteCtrl,
+              focusNode: _minuteFocus,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              maxLength: 2,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              decoration: const InputDecoration(labelText: 'Minute', counterText: ''),
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onSubmitted: (_) => _submit(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('OK')),
+      ],
     );
   }
 }

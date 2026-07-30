@@ -1240,28 +1240,58 @@ class _RequestCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
-              ...proposals.map((p) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
+              ...proposals.map((p) => Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.12)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        GradientAvatar(name: p.teamName ?? '?', radius: 16),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(p.teamName ?? 'Unknown team',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700)),
+                        Row(
+                          children: [
+                            GradientAvatar(
+                                name: p.teamName ?? '?',
+                                imageUrl: p.teamLogo,
+                                radius: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(p.teamName ?? 'Unknown team',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15)),
+                            ),
+                          ],
                         ),
-                        TextButton(
-                          onPressed: onRejectProposal == null
-                              ? null
-                              : () => onRejectProposal!(p),
-                          child: const Text('Reject'),
-                        ),
-                        FilledButton(
-                          onPressed: onAcceptProposal == null
-                              ? null
-                              : () => onAcceptProposal!(p),
-                          child: const Text('Accept'),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: onRejectProposal == null
+                                    ? null
+                                    : () => onRejectProposal!(p),
+                                child: const Text('Reject'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: onAcceptProposal == null
+                                    ? null
+                                    : () => onAcceptProposal!(p),
+                                child: const Text('Accept'),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1459,14 +1489,15 @@ class _OpponentCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.place_outlined,
-                      size: 15, color: AppColors.iconAccent(context)),
+                  Icon(Icons.place, size: 17, color: AppColors.iconAccent(context)),
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
                       opponent.courtPicks!.map((c) => c.name).join(' · '),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.muted(context)),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: AppColors.iconAccent(context)),
                     ),
                   ),
                 ],
@@ -1548,7 +1579,11 @@ class _SentProposalCard extends StatelessWidget {
 /// City defaults to the acting team's own registered city but can be
 /// switched to browse other cities; court and date are optional narrowing —
 /// clearing them is the only way to see "every open request in the city".
-class _OpponentFilters extends StatelessWidget {
+/// Collapsed by default behind a single "Filters" summary row -- expands to
+/// reveal the full city/court/type/date/time grid. Keeps the Available
+/// Opponents list from being pushed below the fold by five always-visible
+/// fields when most of the time nobody's actively narrowing the search.
+class _OpponentFilters extends StatefulWidget {
   final String city;
   final String? courtId;
   final DateTime? date;
@@ -1575,6 +1610,25 @@ class _OpponentFilters extends StatelessWidget {
     required this.onMatchTypeChanged,
   });
 
+  @override
+  State<_OpponentFilters> createState() => _OpponentFiltersState();
+}
+
+class _OpponentFiltersState extends State<_OpponentFilters> {
+  bool _expanded = false;
+
+  String get city => widget.city;
+  String? get courtId => widget.courtId;
+  DateTime? get date => widget.date;
+  TimeOfDay? get time => widget.time;
+  String? get matchType => widget.matchType;
+  List<CourtModel> get courts => widget.courts;
+  ValueChanged<String> get onCityChanged => widget.onCityChanged;
+  ValueChanged<String?> get onCourtChanged => widget.onCourtChanged;
+  ValueChanged<DateTime?> get onDateChanged => widget.onDateChanged;
+  ValueChanged<TimeOfDay?> get onTimeChanged => widget.onTimeChanged;
+  ValueChanged<String?> get onMatchTypeChanged => widget.onMatchTypeChanged;
+
   String _formatDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
@@ -1597,10 +1651,70 @@ class _OpponentFilters extends StatelessWidget {
     if (picked != null) onTimeChanged(picked);
   }
 
+  String get _summary {
+    final courtName = courtId == null
+        ? 'Any court'
+        : courts.firstWhere((c) => c.id == courtId,
+                orElse: () => const CourtModel(id: '', name: 'Any court', city: ''))
+            .name;
+    final typeLabel = matchType == null
+        ? 'Any type'
+        : (matchType == 'ranked' ? 'Ranked' : 'Casual');
+    final dateLabel = date == null ? 'Any date' : _formatDate(date!);
+    return '$city · $courtName · $typeLabel · $dateLabel';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: GlassCard(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  children: [
+                    Icon(Icons.tune, size: 18, color: AppColors.iconAccent(context)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _expanded ? 'Filters' : _summary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: _expanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: const Icon(Icons.keyboard_arrow_down, size: 22),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 200),
+              crossFadeState: _expanded
+                  ? CrossFadeState.showFirst
+                  : CrossFadeState.showSecond,
+              firstChild: _buildFields(context),
+              secondChild: const SizedBox(width: double.infinity),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFields(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
