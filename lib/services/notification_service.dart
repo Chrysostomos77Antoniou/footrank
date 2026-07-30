@@ -46,7 +46,7 @@ class NotificationService {
     debugPrint('Notification permission: ${settings.authorizationStatus}');
     if (settings.authorizationStatus != AuthorizationStatus.authorized &&
         settings.authorizationStatus != AuthorizationStatus.provisional) {
-      await _logTokenIssue(
+      await logTokenIssue(
         'Permission not granted: ${settings.authorizationStatus}',
       );
     }
@@ -154,25 +154,26 @@ class NotificationService {
           attempts++;
         }
         if (apnsToken == null) {
-          await _logTokenIssue('APNs token not available after ${attempts}s wait');
+          await logTokenIssue('APNs token not available after ${attempts}s wait');
           return null;
         }
       }
       final token = await _messaging.getToken();
       if (token == null) {
-        await _logTokenIssue('getToken() returned null');
+        await logTokenIssue('getToken() returned null');
       }
       return token;
     } catch (e) {
-      await _logTokenIssue('getToken() threw: $e');
+      await logTokenIssue('getToken() threw: $e');
       return null;
     }
   }
 
   /// Best-effort diagnostic trail for why a device never got/synced a push
   /// token -- there's no Xcode console access for TestFlight builds, so this
-  /// is queried directly from the database instead.
-  static Future<void> _logTokenIssue(String message) async {
+  /// is queried directly from the database instead. Public: also called from
+  /// FcmTokenService when the sync (not just the getToken() call) fails.
+  static Future<void> logTokenIssue(String message) async {
     debugPrint('FCM token issue: $message');
     try {
       final user = SupabaseService.client.auth.currentUser;

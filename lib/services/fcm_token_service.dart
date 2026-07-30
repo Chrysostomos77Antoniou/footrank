@@ -22,8 +22,11 @@ class FcmTokenService {
         'token': token,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       });
-    } catch (_) {
-      // Best-effort — never block the app on token sync.
+    } catch (e) {
+      // Best-effort — never block the app on token sync, but a token that
+      // was obtained and then failed to save is just as invisible as one
+      // that was never obtained, so it still needs to be logged.
+      await NotificationService.logTokenIssue('fcm_tokens upsert failed: $e');
     }
   }
 
@@ -41,8 +44,19 @@ class FcmTokenService {
     } catch (_) {}
   }
 
-  /// Start syncing the token on sign-in / session restore / refresh.
-  static void init() {
+  /// Start syncing on sign-in / session restore. Must be called immediately
+  /// after Supabase itself initializes -- it fires an `initialSession` event
+  /// synchronously as part of setup, and that's a broadcast stream with no
+  /// replay, so subscribing any later silently misses it forever for anyone
+  /// whose session is being restored rather than freshly signed in.
+  ///
+  /// Safe to call before Firebase.initializeApp(): this only touches
+  /// Supabase's own auth stream at subscribe time. The one thing that does
+  /// touch Firebase (NotificationService.currentToken(), inside sync()) only
+  /// runs later, inside the event callback, and already catches its own
+  /// errors -- so an event firing before Firebase is ready just logs and
+  /// moves on instead of crashing.
+  static void initAuthListener() {
     SupabaseService.client.auth.onAuthStateChange.listen((state) {
       switch (state.event) {
         case AuthChangeEvent.signedIn:
@@ -54,6 +68,15 @@ class FcmTokenService {
           break;
       }
     });
+  }
+
+  /// Start re-syncing whenever FCM mints a new token. Unlike the listener
+  /// above, this evaluates NotificationService.onTokenRefresh (and so
+  /// FirebaseMessaging.instance) the moment it's called, with nothing to
+  /// catch a failure -- calling this before Firebase.initializeApp() has
+  /// completed throws immediately and crashes app startup. Only call it
+  /// after Firebase/NotificationService have finished initializing.
+  static void initTokenRefreshListener() {
     NotificationService.onTokenRefresh.listen((_) => sync());
   }
 }
