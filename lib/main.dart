@@ -29,14 +29,6 @@ Future<void> main() async {
   // Watch for the password-recovery deep link so we can route to the reset page.
   initPasswordRecoveryListener();
 
-  // Must be registered right after Supabase itself initializes -- it fires
-  // an `initialSession` event synchronously as part of setup, and that's a
-  // broadcast stream with no replay: subscribing any later (e.g. after the
-  // Firebase block below, which can take several seconds) silently misses
-  // it forever for anyone whose session is being restored rather than
-  // freshly signed in, so their FCM token would never get synced at all.
-  FcmTokenService.init();
-
   // Firebase + push notifications (Task 11.1). Guarded so a failure here
   // never blocks the app from launching.
   try {
@@ -51,10 +43,6 @@ Future<void> main() async {
       return true;
     };
     await NotificationService.initialize();
-    // Belt-and-braces: don't rely solely on the auth listener above having
-    // caught the right event -- explicitly sync once the token is actually
-    // obtainable (it isn't until Firebase/APNs init above has completed).
-    await FcmTokenService.sync();
   } catch (e, st) {
     debugPrint('Firebase/notifications init failed: $e');
     // Best-effort: only reports if Firebase.initializeApp() itself succeeded
@@ -69,6 +57,9 @@ Future<void> main() async {
       );
     } catch (_) {}
   }
+
+  // Keep the user's FCM device token in sync so the server can push to them.
+  FcmTokenService.init();
 
   runApp(const FootRankApp());
 }
