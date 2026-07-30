@@ -21,7 +21,6 @@ import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/team/presentation/widgets/team_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class MatchesPage extends StatefulWidget {
@@ -65,40 +64,11 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   // Open / Sent / Pending, inside My Activity.
   int _activityTab = 0;
 
-  // One-time explainer for the Opponents vs My Activity split. Defaults to
-  // "seen" so returning users never see a flash of it while prefs load;
-  // flips to false (showing the banner) only once we've actually confirmed
-  // it hasn't been dismissed before.
-  bool _coachSeen = true;
-  static const _coachKey = 'matches_page_tabs_coach_seen';
-
   @override
   void initState() {
     super.initState();
     _load();
-    _loadCoachSeen();
     appRefresh.addListener(_load);
-  }
-
-  Future<void> _loadCoachSeen() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final seen = prefs.getBool(_coachKey) ?? false;
-      if (!mounted) return;
-      setState(() => _coachSeen = seen);
-    } catch (_) {
-      // Best-effort persistence; ignore storage errors.
-    }
-  }
-
-  Future<void> _dismissCoach() async {
-    setState(() => _coachSeen = true);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_coachKey, true);
-    } catch (_) {
-      // Best-effort persistence; ignore storage errors.
-    }
   }
 
   @override
@@ -557,13 +527,6 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                 onSelect: _selectTeam,
               ),
             ),
-          if (!_coachSeen)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: FadeSlideIn(
-                child: _MatchesCoachBanner(onDismiss: _dismissCoach),
-              ),
-            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: FadeSlideIn(
@@ -1014,50 +977,6 @@ class _SectionTabs extends StatelessWidget {
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-/// One-time explainer for the Opponents / My Activity split, shown until
-/// dismissed (see [_MatchesPageState._dismissCoach]).
-class _MatchesCoachBanner extends StatelessWidget {
-  final VoidCallback onDismiss;
-  const _MatchesCoachBanner({required this.onDismiss});
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = AppColors.iconAccent(context);
-    return GlassCard(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.lightbulb_outline, color: accent, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Two places to look',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800)),
-                const SizedBox(height: 4),
-                Text(
-                  'Opponents is for browsing and proposing matches. '
-                  'My Activity tracks your own requests and proposals.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.muted(context)),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'Got it',
-            icon: const Icon(Icons.close, size: 18),
-            onPressed: onDismiss,
-          ),
         ],
       ),
     );
