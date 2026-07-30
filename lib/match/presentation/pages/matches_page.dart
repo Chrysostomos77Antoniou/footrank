@@ -21,6 +21,7 @@ import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/team/presentation/widgets/team_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MatchesPage extends StatefulWidget {
   const MatchesPage({super.key});
@@ -58,14 +59,45 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
 
   // Upcoming Matches / Match History.
   int _matchesTab = 0;
-  // Open Requests / Available Opponents.
-  int _requestsTab = 0;
+  // Opponents / My Activity.
+  int _mainTab = 0;
+  // Open / Sent / Pending, inside My Activity.
+  int _activityTab = 0;
+
+  // One-time explainer for the Opponents vs My Activity split. Defaults to
+  // "seen" so returning users never see a flash of it while prefs load;
+  // flips to false (showing the banner) only once we've actually confirmed
+  // it hasn't been dismissed before.
+  bool _coachSeen = true;
+  static const _coachKey = 'matches_page_tabs_coach_seen';
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadCoachSeen();
     appRefresh.addListener(_load);
+  }
+
+  Future<void> _loadCoachSeen() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final seen = prefs.getBool(_coachKey) ?? false;
+      if (!mounted) return;
+      setState(() => _coachSeen = seen);
+    } catch (_) {
+      // Best-effort persistence; ignore storage errors.
+    }
+  }
+
+  Future<void> _dismissCoach() async {
+    setState(() => _coachSeen = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_coachKey, true);
+    } catch (_) {
+      // Best-effort persistence; ignore storage errors.
+    }
   }
 
   @override
@@ -519,6 +551,13 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                 onSelect: _selectTeam,
               ),
             ),
+          if (!_coachSeen)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: FadeSlideIn(
+                child: _MatchesCoachBanner(onDismiss: _dismissCoach),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: FadeSlideIn(
@@ -528,32 +567,21 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                   final incomingCount = (incomingSnap.data ?? const {})
                       .values
                       .fold<int>(0, (sum, list) => sum + list.length);
-                  return FutureBuilder<List<MatchProposalModel>>(
-                    future: _sentProposalsFuture,
-                    builder: (context, sentSnap) {
-                      final sentCount = (sentSnap.data ?? const []).length;
-                      return FutureBuilder<List<MatchModel>>(
-                        future: _matchesFuture,
-                        builder: (context, matchesSnap) {
-                          final pendingCount = (matchesSnap.data ?? const [])
-                              .where((m) => m.status == 'pending')
-                              .length;
-                          return _SectionTabs(
-                            index: _requestsTab,
-                            items: [
-                              _TabItem(Icons.list_alt_outlined, 'Requests',
-                                  badgeCount: incomingCount),
-                              const _TabItem(
-                                  Icons.person_search_outlined, 'Opponents'),
-                              _TabItem(Icons.send_outlined, 'Propose',
-                                  badgeCount: sentCount),
-                              _TabItem(
-                                  Icons.pending_actions_outlined, 'Pending',
-                                  badgeCount: pendingCount),
-                            ],
-                            onChanged: (i) => setState(() => _requestsTab = i),
-                          );
-                        },
+                  return FutureBuilder<List<MatchModel>>(
+                    future: _matchesFuture,
+                    builder: (context, matchesSnap) {
+                      final pendingCount = (matchesSnap.data ?? const [])
+                          .where((m) => m.status == 'pending')
+                          .length;
+                      return _SectionTabs(
+                        index: _mainTab,
+                        items: [
+                          const _TabItem(
+                              Icons.person_search_outlined, 'Opponents'),
+                          _TabItem(Icons.list_alt_outlined, 'My Activity',
+                              badgeCount: incomingCount + pendingCount),
+                        ],
+                        onChanged: (i) => setState(() => _mainTab = i),
                       );
                     },
                   );
@@ -562,70 +590,10 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
             ),
           ),
           IndexedStack(
-            index: _requestsTab,
+            index: _mainTab,
             alignment: Alignment.topCenter,
             children: [
-              FutureBuilder<List<MatchRequestModel>>(
-                future: _future,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const SkeletonList(count: 2);
-                  }
-                  if (snapshot.hasError) {
-                    return Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: ErrorView(
-                        message: friendlyError(snapshot.error!),
-                        onRetry: _reloadRequests,
-                      ),
-                    );
-                  }
-                  final requests = snapshot.data
-                          ?.where((r) =>
-                              MatchStatus.fromString(r.status).isOpen)
-                          .toList() ??
-                      [];
-                  if (requests.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: EmptyView(
-                        icon: Icons.sports_soccer_outlined,
-                        title: 'No matches scheduled yet',
-                        hint: 'Tap "Create Match" to start.',
-                      ),
-                    );
-                  }
-                  final uid = SupabaseService.client.auth.currentUser?.id;
-                  return FutureBuilder<Map<String, List<MatchProposalModel>>>(
-                    future: _proposalsFuture ??
-                        Future.value(const <String, List<MatchProposalModel>>{}),
-                    builder: (context, proposalsSnapshot) {
-                      final proposalsByRequest = proposalsSnapshot.data ?? {};
-                      return Column(
-                        children: requests
-                            .asMap()
-                            .entries
-                            .map((e) => FadeSlideIn(
-                                  delay: Duration(milliseconds: 50 * e.key),
-                                  child: _RequestCard(
-                                    request: e.value,
-                                    onCancel: e.value.captainId == uid
-                                        ? () => _cancelRequest(e.value)
-                                        : null,
-                                    proposals: _isCaptain
-                                        ? proposalsByRequest[e.value.id] ??
-                                            const []
-                                        : const [],
-                                    onAcceptProposal: _acceptProposal,
-                                    onRejectProposal: _rejectProposal,
-                                  ),
-                                ))
-                            .toList(),
-                      );
-                    },
-                  );
-                },
-              ),
+              // ---- Opponents: browse open requests from other teams ----
               Column(
                 children: [
                   FadeSlideIn(
@@ -688,82 +656,196 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                   ),
                 ],
               ),
-              FutureBuilder<List<MatchProposalModel>>(
-                future: _sentProposalsFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const SkeletonList(count: 2);
-                  }
-                  if (snapshot.hasError) {
-                    return Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: ErrorView(
-                        message: friendlyError(snapshot.error!),
-                        onRetry: _reloadRequests,
+              // ---- My Activity: everything about the acting team's own
+              // requests and proposals, split Open / Sent / Awaiting Confirm
+              // instead of separate top-level tabs ----
+              Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: FutureBuilder<Map<String, List<MatchProposalModel>>>(
+                      future: _proposalsFuture,
+                      builder: (context, incomingSnap) {
+                        final incomingCount = (incomingSnap.data ?? const {})
+                            .values
+                            .fold<int>(0, (sum, list) => sum + list.length);
+                        return FutureBuilder<List<MatchModel>>(
+                          future: _matchesFuture,
+                          builder: (context, matchesSnap) {
+                            final pendingCount = (matchesSnap.data ?? const [])
+                                .where((m) => m.status == 'pending')
+                                .length;
+                            return _PillSubTabs(
+                              index: _activityTab,
+                              items: [
+                                _PillItem('Open', badgeCount: incomingCount),
+                                const _PillItem('Sent'),
+                                _PillItem('Awaiting confirm',
+                                    badgeCount: pendingCount),
+                              ],
+                              onChanged: (i) =>
+                                  setState(() => _activityTab = i),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  IndexedStack(
+                    index: _activityTab,
+                    alignment: Alignment.topCenter,
+                    children: [
+                      FutureBuilder<List<MatchRequestModel>>(
+                        future: _future,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const SkeletonList(count: 2);
+                          }
+                          if (snapshot.hasError) {
+                            return Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: ErrorView(
+                                message: friendlyError(snapshot.error!),
+                                onRetry: _reloadRequests,
+                              ),
+                            );
+                          }
+                          final requests = snapshot.data
+                                  ?.where((r) =>
+                                      MatchStatus.fromString(r.status).isOpen)
+                                  .toList() ??
+                              [];
+                          if (requests.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: EmptyView(
+                                icon: Icons.sports_soccer_outlined,
+                                title: 'No matches scheduled yet',
+                                hint: 'Tap "Create Match" to start.',
+                              ),
+                            );
+                          }
+                          final uid = SupabaseService.client.auth.currentUser?.id;
+                          return FutureBuilder<Map<String, List<MatchProposalModel>>>(
+                            future: _proposalsFuture ??
+                                Future.value(
+                                    const <String, List<MatchProposalModel>>{}),
+                            builder: (context, proposalsSnapshot) {
+                              final proposalsByRequest =
+                                  proposalsSnapshot.data ?? {};
+                              return Column(
+                                children: requests
+                                    .asMap()
+                                    .entries
+                                    .map((e) => FadeSlideIn(
+                                          delay:
+                                              Duration(milliseconds: 50 * e.key),
+                                          child: _RequestCard(
+                                            request: e.value,
+                                            onCancel: e.value.captainId == uid
+                                                ? () => _cancelRequest(e.value)
+                                                : null,
+                                            proposals: _isCaptain
+                                                ? proposalsByRequest[
+                                                        e.value.id] ??
+                                                    const []
+                                                : const [],
+                                            onAcceptProposal: _acceptProposal,
+                                            onRejectProposal: _rejectProposal,
+                                          ),
+                                        ))
+                                    .toList(),
+                              );
+                            },
+                          );
+                        },
                       ),
-                    );
-                  }
-                  final sent = snapshot.data ?? [];
-                  if (sent.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: EmptyView(
-                        icon: Icons.outgoing_mail,
-                        title: 'No open proposals',
-                        hint: 'Proposals your team sends to other teams\' '
-                            'requests show up here while they\'re pending.',
+                      FutureBuilder<List<MatchProposalModel>>(
+                        future: _sentProposalsFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const SkeletonList(count: 2);
+                          }
+                          if (snapshot.hasError) {
+                            return Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: ErrorView(
+                                message: friendlyError(snapshot.error!),
+                                onRetry: _reloadRequests,
+                              ),
+                            );
+                          }
+                          final sent = snapshot.data ?? [];
+                          if (sent.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: EmptyView(
+                                icon: Icons.outgoing_mail,
+                                title: 'No open proposals',
+                                hint:
+                                    'Proposals your team sends to other teams\' '
+                                    'requests show up here while they\'re pending.',
+                              ),
+                            );
+                          }
+                          return Column(
+                            children: sent
+                                .asMap()
+                                .entries
+                                .map((e) => FadeSlideIn(
+                                      delay: Duration(milliseconds: 50 * e.key),
+                                      child:
+                                          _SentProposalCard(proposal: e.value),
+                                    ))
+                                .toList(),
+                          );
+                        },
                       ),
-                    );
-                  }
-                  return Column(
-                    children: sent
-                        .asMap()
-                        .entries
-                        .map((e) => FadeSlideIn(
-                              delay: Duration(milliseconds: 50 * e.key),
-                              child: _SentProposalCard(proposal: e.value),
-                            ))
-                        .toList(),
-                  );
-                },
-              ),
-              FutureBuilder<List<MatchModel>>(
-                future: _matchesFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const SkeletonList(count: 2);
-                  }
-                  final myTeamId = _team?.id;
-                  final pending = (snapshot.data ?? [])
-                      .where((m) => m.status == 'pending')
-                      .toList();
-                  if (pending.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: EmptyView(
-                        icon: Icons.pending_actions_outlined,
-                        title: 'Nothing waiting on confirmation',
+                      FutureBuilder<List<MatchModel>>(
+                        future: _matchesFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const SkeletonList(count: 2);
+                          }
+                          final myTeamId = _team?.id;
+                          final pending = (snapshot.data ?? [])
+                              .where((m) => m.status == 'pending')
+                              .toList();
+                          if (pending.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: EmptyView(
+                                icon: Icons.pending_actions_outlined,
+                                title: 'Nothing waiting on confirmation',
+                              ),
+                            );
+                          }
+                          return Column(
+                            children: pending.asMap().entries.map((e) {
+                              final m = e.value;
+                              final iAmHome = m.homeTeamId == myTeamId;
+                              final iConfirmed =
+                                  iAmHome ? m.homeOk : m.awayOk;
+                              return FadeSlideIn(
+                                delay: Duration(milliseconds: 50 * e.key),
+                                child: _PendingMatchCard(
+                                  match: m,
+                                  iConfirmed: iConfirmed,
+                                  canAct: _isCaptain,
+                                  onConfirm: () => _confirmFixture(m),
+                                  onReject: () => _rejectMatch(m),
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
                       ),
-                    );
-                  }
-                  return Column(
-                    children: pending.asMap().entries.map((e) {
-                      final m = e.value;
-                      final iAmHome = m.homeTeamId == myTeamId;
-                      final iConfirmed = iAmHome ? m.homeOk : m.awayOk;
-                      return FadeSlideIn(
-                        delay: Duration(milliseconds: 50 * e.key),
-                        child: _PendingMatchCard(
-                          match: m,
-                          iConfirmed: iConfirmed,
-                          canAct: _isCaptain,
-                          onConfirm: () => _confirmFixture(m),
-                          onReject: () => _rejectMatch(m),
-                        ),
-                      );
-                    }).toList(),
-                  );
-                },
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
@@ -926,6 +1008,138 @@ class _SectionTabs extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// One-time explainer for the Opponents / My Activity split, shown until
+/// dismissed (see [_MatchesPageState._dismissCoach]).
+class _MatchesCoachBanner extends StatelessWidget {
+  final VoidCallback onDismiss;
+  const _MatchesCoachBanner({required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppColors.iconAccent(context);
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lightbulb_outline, color: accent, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Two places to look',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text(
+                  'Opponents is for browsing and proposing matches. '
+                  'My Activity tracks your own requests and proposals.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.muted(context)),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Got it',
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: onDismiss,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PillItem {
+  final String label;
+  final int badgeCount;
+  const _PillItem(this.label, {this.badgeCount = 0});
+}
+
+/// Lightweight sub-tab row (Open / Sent / Awaiting Confirm) nested inside
+/// the My Activity tab -- plain pills, no icons, so they read as a step
+/// below the primary Opponents/My Activity tab bar rather than competing
+/// with it.
+class _PillSubTabs extends StatelessWidget {
+  final int index;
+  final List<_PillItem> items;
+  final ValueChanged<int> onChanged;
+
+  const _PillSubTabs({
+    required this.index,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppColors.iconAccent(context);
+    final muted =
+        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
+    final border =
+        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.16);
+    return Row(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(
+            child: PressableScale(
+              onTap: () => onChanged(i),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: index == i ? accent.withValues(alpha: 0.14) : null,
+                  border: index == i ? null : Border.all(color: border),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    Text(
+                      items[i].label,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: index == i ? accent : muted,
+                      ),
+                    ),
+                    if (items[i].badgeCount > 0)
+                      Positioned(
+                        right: 2,
+                        top: -6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.danger,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '${items[i].badgeCount}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
