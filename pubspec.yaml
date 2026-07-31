@@ -28,7 +28,7 @@ dependencies:
   url_launcher: ^6.3.0
   cached_network_image: ^3.4.1
   firebase_crashlytics: ^4.1.5
-  sign_in_with_apple: ^6.1.4
+  sign_in_with_apple: ^8.1.0
   crypto: ^3.0.6
   google_sign_in: ^7.2.0
   flutter_facebook_auth: ^7.0.0
