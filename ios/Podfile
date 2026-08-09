@@ -1,6 +1,6 @@
-# Matches IPHONEOS_DEPLOYMENT_TARGET in Runner.xcodeproj — recent Firebase iOS
-# SDKs (firebase_core/messaging/crashlytics) require 13.0+.
-platform :ios, '13.0'
+# Matches IPHONEOS_DEPLOYMENT_TARGET in Runner.xcodeproj. Apple requires
+# apps to set a minimum of 15.0+ from Spring 2027 (ITMS-90068).
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'

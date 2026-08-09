@@ -1336,6 +1336,8 @@ class _RequestCard extends StatelessWidget {
                   radius: 22,
                   child: Text(request.format.split('v').first),
                 ),
+                const SizedBox(width: 8),
+                LevelBadge(value: request.teamRating ?? 0, size: 32),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -1440,6 +1442,7 @@ class _RequestCard extends StatelessWidget {
                                       fontWeight: FontWeight.w700,
                                       fontSize: 15)),
                             ),
+                            LevelBadge(value: p.teamRating ?? 0, size: 32),
                           ],
                         ),
                         const SizedBox(height: 10),
