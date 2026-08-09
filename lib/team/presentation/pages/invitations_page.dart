@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/async_views.dart';
+import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/invitation_model.dart';
+import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/team/presentation/widgets/leave_team_picker.dart';
 
@@ -44,6 +46,18 @@ class _InvitationsPageState extends State<InvitationsPage> {
       if (!mounted) return;
       final freed = await showLeaveTeamPicker(context);
       if (freed && mounted) await _accept(inv);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    }
+  }
+
+  Future<void> _viewTeam(InvitationModel inv) async {
+    try {
+      final team = await _repo.fetchById(inv.teamId);
+      if (mounted) showTeamSheet(context, team);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -112,15 +126,45 @@ class _InvitationsPageState extends State<InvitationsPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(inv.teamName,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w800)),
-                              if (inv.teamCity != null)
-                                Text(inv.teamCity!,
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall),
+                              InkWell(
+                                onTap: () => _viewTeam(inv),
+                                borderRadius: BorderRadius.circular(12),
+                                child: Row(
+                                  children: [
+                                    GradientAvatar(
+                                      name: inv.teamName,
+                                      imageUrl: inv.teamLogo,
+                                      radius: 22,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(inv.teamName,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleMedium
+                                                  ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w800)),
+                                          if (inv.teamCity != null)
+                                            Text(inv.teamCity!,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(Icons.chevron_right,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withValues(alpha: 0.4)),
+                                  ],
+                                ),
+                              ),
                               const SizedBox(height: AppSpacing.sm),
                               // Bound each button with Expanded: the app's button
                               // theme uses Size.fromHeight (infinite min width), which

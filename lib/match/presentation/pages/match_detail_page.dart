@@ -6,6 +6,7 @@ import 'package:footrank/core/utils/maps_launcher.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/level_badge.dart';
+import 'package:footrank/core/widgets/pitch_power_preview.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_model.dart';
@@ -767,6 +768,13 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
         if (match.suggestedCourtId != null) ...[
           const SizedBox(height: 8),
           _SuggestedCourtCard(match: match),
+        ],
+        if (status != MatchStatus.completed && _myTeamId != null) ...[
+          const SizedBox(height: 8),
+          PitchPowerPreview(
+            teamId: _myTeamId!,
+            matchType: match.matchType,
+          ),
         ],
       ],
     );

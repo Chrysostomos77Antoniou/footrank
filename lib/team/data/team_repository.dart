@@ -63,6 +63,27 @@ class TeamRepository {
         .toList();
   }
 
+  /// Projected Pitch Power (team rating) change for [teamId] if its next
+  /// [matchType] match is a win/draw/loss -- computed server-side with the
+  /// same catch-up-aware formula the completion trigger applies, so the
+  /// hidden roster-power number behind the catch-up bonus is never sent to
+  /// the client, only the resulting deltas.
+  Future<({int win, int draw, int loss})> previewRatingDelta({
+    required String teamId,
+    required String matchType,
+  }) async {
+    final data = await SupabaseService.client.rpc(
+      'preview_team_rating_delta',
+      params: {'p_team_id': teamId, 'p_match_type': matchType},
+    );
+    final row = (data as List).cast<Map<String, dynamic>>().first;
+    return (
+      win: row['win_delta'] as int,
+      draw: row['draw_delta'] as int,
+      loss: row['loss_delta'] as int,
+    );
+  }
+
   Future<TeamModel> fetchById(String id) async {
     final data =
         await SupabaseService.client.from(_teams).select().eq('id', id).single();
@@ -318,7 +339,7 @@ class TeamRepository {
 
     final data = await SupabaseService.client
         .from(_invitations)
-        .select('*, teams(name, city)')
+        .select('*, teams(name, city, logo_url)')
         .eq('user_id', uid)
         .eq('status', 'pending')
         .order('created_at', ascending: false);

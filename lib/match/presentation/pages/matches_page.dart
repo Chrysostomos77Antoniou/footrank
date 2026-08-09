@@ -52,6 +52,9 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   TimeOfDay? _filterTime;
   String? _filterMatchType; // null = any, else 'casual' | 'ranked'
   List<CourtModel> _filterCourts = [];
+  // 0 = any Pitch Power -- the app no longer restricts which opponents are
+  // visible; a captain who wants to narrow by strength sets this themselves.
+  int _filterPowerRange = 0;
 
   bool get _isCaptain =>
       _team != null &&
@@ -100,6 +103,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
         _filterTime = null;
         _filterMatchType = null;
         _filterCourts = [];
+        _filterPowerRange = 0;
       }
       _future = sel == null ? null : _matchRepo.fetchMyTeamRequests(sel.id);
       _matchesFuture = sel == null ? null : _matchRepo.fetchTeamMatches(sel.id);
@@ -123,6 +127,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       _filterTime = null;
       _filterMatchType = null;
       _filterCourts = [];
+      _filterPowerRange = 0;
       _future = _matchRepo.fetchMyTeamRequests(team.id);
       _matchesFuture = _matchRepo.fetchTeamMatches(team.id);
       _opponentsFuture = _fetchOpponents(team.id);
@@ -134,8 +139,8 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     _loadFilterCourts();
   }
 
-  Future<List<MatchRequestModel>> _fetchOpponents(String teamId) {
-    return _matchRepo.fetchCityRequests(
+  Future<List<MatchRequestModel>> _fetchOpponents(String teamId) async {
+    final requests = await _matchRepo.fetchCityRequests(
       city: _filterCity ?? kCities.first,
       excludeTeamId: teamId,
       courtId: _filterCourtId,
@@ -144,6 +149,12 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
           _filterTime == null ? null : _filterTime!.hour * 60 + _filterTime!.minute,
       matchType: _filterMatchType,
     );
+    final range = _filterPowerRange;
+    if (range <= 0) return requests;
+    final myRating = _team?.rating ?? 1500;
+    return requests
+        .where((r) => ((r.teamRating ?? 1500) - myRating).abs() <= range)
+        .toList();
   }
 
   Future<void> _loadFilterCourts() async {
@@ -185,6 +196,14 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   void _setFilterTime(TimeOfDay? time) {
     setState(() {
       _filterTime = time;
+      final team = _team;
+      _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
+    });
+  }
+
+  void _setFilterPowerRange(int range) {
+    setState(() {
+      _filterPowerRange = range;
       final team = _team;
       _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
     });
@@ -572,12 +591,14 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                       date: _filterDate,
                       time: _filterTime,
                       matchType: _filterMatchType,
+                      powerRange: _filterPowerRange,
                       courts: _filterCourts,
                       onCityChanged: _setFilterCity,
                       onCourtChanged: _setFilterCourt,
                       onDateChanged: _setFilterDate,
                       onTimeChanged: _setFilterTime,
                       onMatchTypeChanged: _setFilterMatchType,
+                      onPowerRangeChanged: _setFilterPowerRange,
                     ),
                   ),
                   FutureBuilder<List<MatchRequestModel>>(
@@ -1739,12 +1760,14 @@ class _OpponentFilters extends StatefulWidget {
   final DateTime? date;
   final TimeOfDay? time;
   final String? matchType;
+  final int powerRange;
   final List<CourtModel> courts;
   final ValueChanged<String> onCityChanged;
   final ValueChanged<String?> onCourtChanged;
   final ValueChanged<DateTime?> onDateChanged;
   final ValueChanged<TimeOfDay?> onTimeChanged;
   final ValueChanged<String?> onMatchTypeChanged;
+  final ValueChanged<int> onPowerRangeChanged;
 
   const _OpponentFilters({
     required this.city,
@@ -1752,12 +1775,14 @@ class _OpponentFilters extends StatefulWidget {
     required this.date,
     required this.time,
     required this.matchType,
+    required this.powerRange,
     required this.courts,
     required this.onCityChanged,
     required this.onCourtChanged,
     required this.onDateChanged,
     required this.onTimeChanged,
     required this.onMatchTypeChanged,
+    required this.onPowerRangeChanged,
   });
 
   @override
@@ -1772,12 +1797,14 @@ class _OpponentFiltersState extends State<_OpponentFilters> {
   DateTime? get date => widget.date;
   TimeOfDay? get time => widget.time;
   String? get matchType => widget.matchType;
+  int get powerRange => widget.powerRange;
   List<CourtModel> get courts => widget.courts;
   ValueChanged<String> get onCityChanged => widget.onCityChanged;
   ValueChanged<String?> get onCourtChanged => widget.onCourtChanged;
   ValueChanged<DateTime?> get onDateChanged => widget.onDateChanged;
   ValueChanged<TimeOfDay?> get onTimeChanged => widget.onTimeChanged;
   ValueChanged<String?> get onMatchTypeChanged => widget.onMatchTypeChanged;
+  ValueChanged<int> get onPowerRangeChanged => widget.onPowerRangeChanged;
 
   String _formatDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
@@ -1973,6 +2000,34 @@ class _OpponentFiltersState extends State<_OpponentFilters> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const SizedBox(
+                width: 84,
+                child: Text('Power range', style: TextStyle(fontSize: 13)),
+              ),
+              Expanded(
+                child: Slider(
+                  value: powerRange.toDouble(),
+                  min: 0,
+                  max: 500,
+                  divisions: 20,
+                  label: powerRange == 0 ? 'Any' : '±$powerRange',
+                  activeColor: AppColors.brand(context),
+                  onChanged: (v) => onPowerRangeChanged(v.round()),
+                ),
+              ),
+              SizedBox(
+                width: 48,
+                child: Text(
+                  powerRange == 0 ? 'Any' : '±$powerRange',
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
             ],

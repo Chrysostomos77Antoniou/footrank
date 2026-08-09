@@ -8,6 +8,7 @@ class InvitationModel {
   // Joined team fields (for the invitee's view)
   final String teamName;
   final String? teamCity;
+  final String? teamLogo;
 
   const InvitationModel({
     required this.id,
@@ -17,6 +18,7 @@ class InvitationModel {
     required this.createdAt,
     required this.teamName,
     this.teamCity,
+    this.teamLogo,
   });
 
   /// Expects a row from team_invitations with a nested `teams` object.
@@ -30,6 +32,7 @@ class InvitationModel {
       createdAt: DateTime.parse(json['created_at'] as String),
       teamName: (team['name'] as String?) ?? 'Unknown team',
       teamCity: team['city'] as String?,
+      teamLogo: team['logo_url'] as String?,
     );
   }
 }
