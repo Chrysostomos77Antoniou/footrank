@@ -59,13 +59,28 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     try {
       final match = await _matchRepo.fetchMatchById(widget.matchId);
       final uid = SupabaseService.client.auth.currentUser?.id;
-      final home = await _teamRepo.fetchById(match.homeTeamId);
-      final away = await _teamRepo.fetchById(match.awayTeamId);
+
+      // Wave 2: none of these depend on each other, only on `match` — fetch
+      // them concurrently instead of one HTTPS round-trip at a time.
+      final (home, away, attendance, behavior, contacts) = await (
+        _teamRepo.fetchById(match.homeTeamId),
+        _teamRepo.fetchById(match.awayTeamId),
+        _matchRepo.fetchAttendance(match.id),
+        _matchRepo.fetchMyBehavior(match.id),
+        // Participant-only captain contacts (RPC throws for non-participants).
+        _matchRepo
+            .matchCaptainContacts(match.id)
+            .catchError((_) => <Map<String, dynamic>>[]),
+      ).wait;
+
+      // Wave 3: member lists depend on the team IDs resolved above.
       // Fetched once here (not per-rebuild) so marking attendance doesn't
       // re-trigger a network fetch that reflows the page and jumps the
       // scroll position back to the top.
-      final homeMembers = await _teamRepo.fetchMembers(home.id);
-      final awayMembers = await _teamRepo.fetchMembers(away.id);
+      final (homeMembers, awayMembers) = await (
+        _teamRepo.fetchMembers(home.id),
+        _teamRepo.fetchMembers(away.id),
+      ).wait;
 
       bool isCaptain = false;
       String? myTeamId;
@@ -84,16 +99,6 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       } else if (awayMembers.any((m) => m.userId == uid)) {
         myTeamId = away.id;
         opponentTeamId = home.id;
-      }
-
-      final attendance = await _matchRepo.fetchAttendance(match.id);
-      final behavior = await _matchRepo.fetchMyBehavior(match.id);
-      // Participant-only captain contacts (RPC throws for non-participants).
-      List<Map<String, dynamic>> contacts = [];
-      try {
-        contacts = await _matchRepo.matchCaptainContacts(match.id);
-      } catch (_) {
-        contacts = [];
       }
 
       if (!mounted) return;
