@@ -51,5 +51,8 @@ android/app/upload-keystore.jks
 *.keystore
 store_screens/
 
+# Firebase CLI's local deploy cache — machine/run-specific, not for git
+.firebase/
+
 # Local Claude Code config (contains local permission history, not for git)
 .claude/
