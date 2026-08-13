@@ -5,6 +5,7 @@ import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
 import 'package:footrank/core/utils/error_text.dart';
+import 'package:footrank/core/utils/password_strength.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/routing/app_router.dart';
@@ -316,9 +317,16 @@ class _RegisterPageState extends State<RegisterPage> {
                                     ],
                                     textInputAction: TextInputAction.done,
                                     onFieldSubmitted: (_) => _signUpWithEmail(),
-                                    validator: (v) => v == null || v.length < 8
-                                        ? 'Min 8 characters'
-                                        : null,
+                                    validator: passwordStrengthError,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '8+ characters, with upper & lowercase '
+                                    'letters, a number, and a symbol',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.6),
+                                      fontSize: 11,
+                                    ),
                                   ),
                                   SizedBox(height: compact ? 10 : 22),
                                   AuthPrimaryButton(

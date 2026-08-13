@@ -6,6 +6,7 @@ import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/utils/error_text.dart';
+import 'package:footrank/core/utils/password_strength.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/routing/app_router.dart';
@@ -109,9 +110,16 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             icon: Icons.lock_outline,
                             obscure: true,
                             textInputAction: TextInputAction.next,
-                            validator: (v) => (v == null || v.length < 8)
-                                ? 'Use at least 8 characters'
-                                : null,
+                            validator: passwordStrengthError,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '8+ characters, with upper & lowercase letters, '
+                            'a number, and a symbol',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 11,
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.md),
                           AuthField(
