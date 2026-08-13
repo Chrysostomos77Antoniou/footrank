@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "footrank-14e9a"
+  },
+  "targets": {
+    "footrank-14e9a": {
+      "hosting": {
+        "admin": [
+          "footrank-admin"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
