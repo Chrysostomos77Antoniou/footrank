@@ -58,6 +58,7 @@ flutter:
   assets:
     - assets/video/auth_bg.mp4
     - assets/video/splash_intro.mp4
+    - assets/branding/app_icon.png
   fonts:
     - family: Sora
       fonts:
