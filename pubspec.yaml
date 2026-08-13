@@ -2,7 +2,7 @@ name: footrank
 description: "FootRank - Football ranking and match tracking app."
 publish_to: 'none'
 
-version: 1.0.5+66
+version: 1.0.5+67
 
 environment:
   sdk: ^3.8.1
