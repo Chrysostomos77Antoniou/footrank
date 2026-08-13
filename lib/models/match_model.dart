@@ -23,6 +23,7 @@ class MatchModel {
   final DateTime createdAt;
   final String? suggestedCourtId;
   final String? courtBookingStatus; // pending | booked, null = not resolved yet
+  final String? cancelReason; // expired_no_score | null (only set when status == cancelled)
 
   // Optional joined team fields
   final String? homeTeamName;
@@ -64,6 +65,7 @@ class MatchModel {
     required this.createdAt,
     this.suggestedCourtId,
     this.courtBookingStatus,
+    this.cancelReason,
     this.homeTeamName,
     this.awayTeamName,
     this.homeTeamLogo,
@@ -117,6 +119,7 @@ class MatchModel {
       createdAt: DateTime.parse(json['created_at'] as String),
       suggestedCourtId: json['suggested_court_id'] as String?,
       courtBookingStatus: json['court_booking_status'] as String?,
+      cancelReason: json['cancel_reason'] as String?,
       suggestedCourtName: suggestedCourt?['name'] as String?,
       suggestedCourtAddress: suggestedCourt?['address'] as String?,
       suggestedCourtImageUrl: suggestedCourt?['image_url'] as String?,

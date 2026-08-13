@@ -43,6 +43,9 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   Future<List<MatchRequestModel>>? _opponentsFuture;
   Future<Map<String, List<MatchProposalModel>>>? _proposalsFuture;
   Future<List<MatchProposalModel>>? _sentProposalsFuture;
+  // Member count of the selected team, used to steer under-staffed captains
+  // toward posting a request instead of proposing (see _loadMemberCount).
+  int? _memberCount;
 
   // Available Opponents filters -- city is mandatory (defaults to the acting
   // team's own registered city); everything else is optional narrowing.
@@ -113,8 +116,16 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
           : _matchRepo.fetchProposalsForTeamRequests(sel.id);
       _sentProposalsFuture =
           sel == null ? null : _matchRepo.fetchSentProposals(sel.id);
+      if (sel == null) _memberCount = null;
     });
     if (sel != null && sel.id != previousTeamId) _loadFilterCourts();
+    if (sel != null) _loadMemberCount(sel.id);
+  }
+
+  Future<void> _loadMemberCount(String teamId) async {
+    final members = await _teamRepo.fetchMembers(teamId);
+    if (!mounted || teamId != _team?.id) return;
+    setState(() => _memberCount = members.length);
   }
 
   void _selectTeam(TeamModel team) {
@@ -135,8 +146,10 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
           ? _matchRepo.fetchProposalsForTeamRequests(team.id)
           : null;
       _sentProposalsFuture = _matchRepo.fetchSentProposals(team.id);
+      _memberCount = null;
     });
     _loadFilterCourts();
+    _loadMemberCount(team.id);
   }
 
   Future<List<MatchRequestModel>> _fetchOpponents(String teamId) async {
@@ -619,13 +632,27 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                       }
                       final opponents = snapshot.data ?? [];
                       if (opponents.isEmpty) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
+                        final underStaffed = (_memberCount ?? 5) < 5;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                           child: EmptyView(
                             icon: Icons.person_search_outlined,
-                            title: 'No open requests match your filters',
-                            hint: 'Try a different court or date, or check '
-                                'back later.',
+                            title: underStaffed
+                                ? 'No teams are searching right now'
+                                : 'No open requests match your filters',
+                            hint: underStaffed
+                                ? 'Post a request and let them come to you '
+                                    '-- you only need 5 players at match '
+                                    'time, not right now.'
+                                : 'Try a different court or date, or post '
+                                    'your own request.',
+                            action: _team == null
+                                ? null
+                                : FilledButton.icon(
+                                    onPressed: _openCreate,
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('Post a Request'),
+                                  ),
                           ),
                         );
                       }

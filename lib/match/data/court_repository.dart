@@ -13,10 +13,10 @@ class CourtRepository {
         .select('id, name, city, address, image_url')
         .ilike('city', city.trim())
         .eq('active', true)
-        // Courts with no sort_order (the vast majority) sort first, in
-        // alphabetical order; a court can be pinned to the end of the list
-        // by giving it a sort_order value, regardless of its name.
-        .order('sort_order', nullsFirst: true)
+        // A court can be pinned toward the top by giving it a lower
+        // sort_order; courts without one (the vast majority) sort after
+        // every pinned court, in alphabetical order among themselves.
+        .order('sort_order', nullsFirst: false)
         .order('name');
 
     return (data as List)
@@ -31,7 +31,7 @@ class CourtRepository {
         .select('id, name, city, address, image_url')
         .eq('active', true)
         .order('city')
-        .order('sort_order', nullsFirst: true)
+        .order('sort_order', nullsFirst: false)
         .order('name');
 
     return (data as List)

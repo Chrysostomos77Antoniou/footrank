@@ -261,17 +261,12 @@ class TeamRepository {
         .toList();
   }
 
-  /// Captain approves a request: adds the user as player and marks approved.
+  /// Captain approves a request: adds the user as player and marks approved
+  /// in a single atomic RPC, so a dropped connection can't leave one step
+  /// done without the other.
   Future<void> approveRequest(JoinRequestModel request) async {
-    await SupabaseService.client.from(_members).insert({
-      'team_id': request.teamId,
-      'user_id': request.userId,
-      'role': 'player',
-    });
-
-    await SupabaseService.client
-        .from(_requests)
-        .update({'status': 'approved'}).eq('id', request.id);
+    await SupabaseService.client.rpc('approve_join_request_atomic',
+        params: {'p_request_id': request.id});
   }
 
   Future<void> rejectRequest(JoinRequestModel request) async {
