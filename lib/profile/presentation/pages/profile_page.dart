@@ -67,7 +67,16 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
   }
 
   Future<void> _signOut() async {
-    await _authRepo.signOut();
+    try {
+      await _authRepo.signOut();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sign out failed: ${friendlyError(e)}')),
+        );
+      }
+      return;
+    }
     if (mounted) context.go(AppRoutes.login);
   }
 
@@ -113,7 +122,7 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     }

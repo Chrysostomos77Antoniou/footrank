@@ -17,11 +17,24 @@ String friendlyError(Object error) {
       .replaceFirst('PostgrestException(message: ', '');
 
   final lower = msg.toLowerCase();
+  if (lower.contains('phone_taken') ||
+      lower.contains('uq_user_contacts_phone_normalized')) {
+    return 'That phone number is already linked to another account.';
+  }
+  if (lower.contains('phone_invalid')) {
+    return 'Enter a valid Cyprus mobile, e.g. 99 123456.';
+  }
+  if (lower.contains('phone_required')) {
+    return 'Phone number is required.';
+  }
   if (lower.contains('attendance_required')) {
     return 'Mark at least 5 attended players for your team before submitting a score.';
   }
   if (lower.contains('teams_name_lower_unique')) {
     return 'A team with that name already exists. Please pick another name.';
+  }
+  if (lower.contains('uniq_pending_request')) {
+    return 'You already have a pending request for this team.';
   }
   if (lower.contains('duplicate') || lower.contains('unique')) {
     return 'That already exists.';

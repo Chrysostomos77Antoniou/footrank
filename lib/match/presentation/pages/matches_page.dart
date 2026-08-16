@@ -375,8 +375,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     }
@@ -415,8 +414,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     }
@@ -490,9 +488,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     }

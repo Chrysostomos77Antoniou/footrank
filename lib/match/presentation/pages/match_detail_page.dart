@@ -320,8 +320,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(e.toString().replaceFirst('Exception: ', ''))),
+            SnackBar(content: Text(friendlyError(e))),
           );
         }
       }
@@ -368,7 +367,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     }

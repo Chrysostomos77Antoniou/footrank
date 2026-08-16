@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/team/data/team_repository.dart';
 
@@ -37,19 +38,11 @@ class _JoinTeamPageState extends State<JoinTeamPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(_friendlyError(e))));
+            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  String _friendlyError(Object e) {
-    final msg = e.toString();
-    if (msg.contains('uniq_pending_request') || msg.contains('duplicate')) {
-      return 'You already have a pending request for this team';
-    }
-    return msg.replaceFirst('Exception: ', '');
   }
 
   @override

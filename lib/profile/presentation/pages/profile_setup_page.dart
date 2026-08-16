@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
+import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
@@ -84,7 +85,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(_friendlyError(e))));
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -114,24 +115,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.push(target!);
     });
-  }
-
-  String _friendlyError(Object e) {
-    final msg = e.toString();
-    if (msg.contains('PHONE_TAKEN') ||
-        msg.contains('uq_user_contacts_phone_normalized')) {
-      return 'That phone number is already linked to another account';
-    }
-    if (msg.contains('PHONE_INVALID')) {
-      return 'Enter a valid Cyprus mobile, e.g. 99 123456';
-    }
-    if (msg.contains('PHONE_REQUIRED')) {
-      return 'Phone number is required';
-    }
-    if (msg.contains('duplicate') || msg.contains('unique')) {
-      return 'That username is already taken';
-    }
-    return msg;
   }
 
   @override

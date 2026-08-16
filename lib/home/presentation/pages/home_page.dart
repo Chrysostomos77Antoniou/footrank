@@ -6,6 +6,7 @@ import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
+import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/team_model.dart';
@@ -136,7 +137,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
     } on TimeoutException {
       message = 'Sync timed out — check your connection';
     } catch (e) {
-      message = 'Sync failed: ${e.toString().replaceFirst('Exception: ', '')}';
+      message = 'Sync failed: ${friendlyError(e)}';
     }
     if (!mounted) return;
     setState(() => _syncing = false);

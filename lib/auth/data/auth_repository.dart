@@ -1,9 +1,11 @@
+import 'dart:async' show unawaited;
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -195,18 +197,42 @@ class AuthRepository {
     await _client.auth.signOut();
   }
 
+  /// Each provider-specific step below is independently guarded: on Android,
+  /// FacebookAuth.logOut() (and occasionally GoogleSignIn.signOut()) can
+  /// throw when that provider was never actually used to sign in, which --
+  /// left unguarded -- used to abort the whole method before it reached
+  /// _client.auth.signOut(), leaving the Supabase session alive and the
+  /// Sign Out button looking like it did nothing. The real Supabase
+  /// sign-out is the one step that's allowed to propagate, since a failure
+  /// there means the user is genuinely still signed in and the caller needs
+  /// to know.
   Future<void> signOut() async {
     // Drop this device's push token first (while still authenticated) so a
     // shared device never delivers the next user's alerts to the previous one.
-    await FcmTokenService.remove();
+    await _guardedStep('FcmTokenService.remove', FcmTokenService.remove);
     // Otherwise the native Google/Facebook pickers silently re-sign the
     // same account back in next time instead of letting the user
     // choose/switch.
     if (_googleInit != null) {
-      await GoogleSignIn.instance.signOut();
+      await _guardedStep(
+          'GoogleSignIn.signOut', GoogleSignIn.instance.signOut);
     }
-    await FacebookAuth.instance.logOut();
+    await _guardedStep('FacebookAuth.logOut', FacebookAuth.instance.logOut);
     await _client.auth.signOut();
+  }
+
+  Future<void> _guardedStep(String label, Future<void> Function() step) async {
+    try {
+      await step();
+    } catch (e, st) {
+      debugPrint('signOut: $label failed (non-fatal, continuing): $e');
+      unawaited(FirebaseCrashlytics.instance.recordError(
+        e,
+        st,
+        fatal: false,
+        reason: 'signOut: $label failed',
+      ));
+    }
   }
 
   bool get isNewUser {

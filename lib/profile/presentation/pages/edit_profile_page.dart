@@ -89,29 +89,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(_friendly(e))));
+            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-  }
-
-  String _friendly(Object e) {
-    final m = e.toString();
-    if (m.contains('PHONE_TAKEN') ||
-        m.contains('uq_user_contacts_phone_normalized')) {
-      return 'That phone number is already linked to another account';
-    }
-    if (m.contains('PHONE_INVALID')) {
-      return 'Enter a valid Cyprus mobile, e.g. 99 123456';
-    }
-    if (m.contains('PHONE_REQUIRED')) {
-      return 'Phone number is required';
-    }
-    if (m.contains('duplicate') || m.contains('unique')) {
-      return 'That username is already taken';
-    }
-    return friendlyError(e);
   }
 
   /// Cyprus mobile: 8 digits starting with 9, with or without the +357 /

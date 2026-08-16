@@ -9,7 +9,7 @@ import 'package:footrank/team/data/team_repository.dart';
 /// moves independently of player ELO (see apply_elo_on_completion), with a
 /// catch-up bonus based on the roster's hidden real skill, and that hidden
 /// number is never sent to the client, only the resulting deltas.
-class PitchPowerPreview extends StatelessWidget {
+class PitchPowerPreview extends StatefulWidget {
   final String teamId;
   final String matchType;
 
@@ -26,10 +26,33 @@ class PitchPowerPreview extends StatelessWidget {
   });
 
   @override
+  State<PitchPowerPreview> createState() => _PitchPowerPreviewState();
+}
+
+class _PitchPowerPreviewState extends State<PitchPowerPreview> {
+  late Future<({int win, int draw, int loss})> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = TeamRepository().previewRatingDelta(
+        teamId: widget.teamId, matchType: widget.matchType);
+  }
+
+  @override
+  void didUpdateWidget(PitchPowerPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.teamId != widget.teamId ||
+        oldWidget.matchType != widget.matchType) {
+      _future = TeamRepository().previewRatingDelta(
+          teamId: widget.teamId, matchType: widget.matchType);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<({int win, int draw, int loss})>(
-      future: TeamRepository()
-          .previewRatingDelta(teamId: teamId, matchType: matchType),
+      future: _future,
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox.shrink();
         final deltas = snapshot.data!;
@@ -70,7 +93,7 @@ class PitchPowerPreview extends StatelessWidget {
           ],
         );
 
-        if (compact) return content;
+        if (widget.compact) return content;
 
         return GlassCard(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
