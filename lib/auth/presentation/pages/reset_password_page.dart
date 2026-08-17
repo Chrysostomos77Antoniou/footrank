@@ -72,12 +72,12 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 const SizedBox(height: AppSpacing.xxl),
                 const FadeSlideIn(child: BrandLogo(size: 72)),
                 const SizedBox(height: AppSpacing.lg),
-                FadeSlideIn(
-                  delay: const Duration(milliseconds: 80),
+                const FadeSlideIn(
+                  delay: Duration(milliseconds: 80),
                   child: GradientText(
                     'Set a new password',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontSize: 26,
                       fontWeight: FontWeight.w800,

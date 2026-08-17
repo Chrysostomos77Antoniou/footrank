@@ -267,7 +267,13 @@ Telling a user the system already knows its estimate is uncertain, and explainin
 
 Each phase is independently shippable and becomes its own implementation plan.
 
-**Phase 0 — Flutter upgrade.** 3.32.6 → latest stable, aligning local with CI. Its own isolated commit with its own A70 verification pass; **never bundled into a redesign commit**. Rationale: the local/CI mismatch is a live bug that has already shipped stale APKs once, pre-launch is the cheapest moment to take the version hit, and the Impeller Vulkan pipeline-cache work in the intervening releases specifically helps mid-range Adreno hardware. Gains predictive back and `Hero` curve customisation.
+**Phase 0 — Flutter upgrade. DEFERRED (2026-08-16).**
+
+Original rationale was that local (3.32.6) had drifted from CI. **This was verified false**: all four workflows explicitly pin `flutter-version: 3.32.6` (`ci.yml:19`, `ci.yml:51`, `integration.yml:21`, `security-scan.yml:30`), matching local exactly. The mismatch recorded in project notes was real when written and has since been fixed by pinning; the note was stale.
+
+With no live mismatch to repair, the remaining benefits — Impeller Vulkan pipeline-cache work for the A70's Adreno 612, predictive back, `Hero` curve customisation — are real but not urgent, and an upgrade would additionally require bumping all four CI pins and re-verifying a release build immediately after 1.0.7+69 entered Play review.
+
+**Decision: revisit at the start of Phase 3**, where the Impeller and `Hero`-curve gains are actually consumed, and after 1.0.7 clears review. Everything in this spec except predictive back and `Hero` curve customisation works on 3.32.6.
 
 **Phase 1 — Token tier + enforcement.** Semantic tier, new token classes, `app_theme.dart` reduced to zero literals, `custom_lint` rules, `analysis_options.yaml` rules enabled.
 

@@ -484,9 +484,9 @@ class _ProfileHero extends StatelessWidget {
               color: AppColors.danger.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
+              children: [
                 Icon(Icons.flag, color: AppColors.danger, size: 16),
                 SizedBox(width: 6),
                 Text(

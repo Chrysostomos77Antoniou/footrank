@@ -39,14 +39,14 @@ class SkeletonList extends StatelessWidget {
         children: [
           ShimmerBox(width: itemHeight * 0.6, height: itemHeight * 0.6, radius: 14),
           const SizedBox(width: 14),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ShimmerBox(width: double.infinity, height: 14, radius: 7),
-                const SizedBox(height: 8),
-                const ShimmerBox(width: 120, height: 12, radius: 6),
+                SizedBox(height: 8),
+                ShimmerBox(width: 120, height: 12, radius: 6),
               ],
             ),
           ),
@@ -72,7 +72,7 @@ class ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 44, color: AppColors.danger),
+            const Icon(Icons.error_outline, size: 44, color: AppColors.danger),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             if (onRetry != null) ...[

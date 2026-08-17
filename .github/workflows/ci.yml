@@ -25,6 +25,14 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
+      # Ratcheting design-token gate: fails only when a change ADDS raw
+      # colours/radii/font sizes/durations/spacers outside lib/core/theme/.
+      # Existing violations are tracked in tool/design_token_baseline.json and
+      # burn down as screens migrate — see the header of the script for why
+      # this is a ratchet rather than a hard lint.
+      - name: Design-token gate
+        run: dart run tool/check_design_tokens.dart
+
       - name: Run tests
         run: flutter test
 

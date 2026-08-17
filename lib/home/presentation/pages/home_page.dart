@@ -269,9 +269,9 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
               ],
               const SizedBox(height: AppSpacing.md),
               // ---- Secondary actions ----
-              FadeSlideIn(
-                delay: const Duration(milliseconds: 240),
-                child: const _SectionLabel('MANAGE'),
+              const FadeSlideIn(
+                delay: Duration(milliseconds: 240),
+                child: _SectionLabel('MANAGE'),
               ),
               FadeSlideIn(
                 delay: const Duration(milliseconds: 280),

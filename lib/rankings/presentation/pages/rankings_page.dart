@@ -72,7 +72,7 @@ class _RankingsPageState extends State<RankingsPage> with ThemeRepaintMixin {
                 // keep their own cached futures, so this is a UI-only rebuild.
                 child: IndexedStack(
                   index: _tab,
-                  children: [
+                  children: const [
                     PlayerLeaderboard(),
                     _TeamLeaderboard(),
                   ],

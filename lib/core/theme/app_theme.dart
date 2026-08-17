@@ -29,12 +29,13 @@ class _FadeSlidePageTransitionsBuilder extends PageTransitionsBuilder {
       opacity: curved,
       child: SlideTransition(
         position: Tween<Offset>(
-          begin: const Offset(0, 0.02),
+          begin: const Offset(0, AppMotion.pageSlideOffset),
           end: Offset.zero,
         ).animate(curved),
         child: FadeTransition(
           // Page being covered recedes slightly for depth.
-          opacity: Tween<double>(begin: 1, end: 0.88).animate(covered),
+          opacity: Tween<double>(begin: 1, end: AppOpacity.coveredPage)
+              .animate(covered),
           child: child,
         ),
       ),
@@ -42,6 +43,14 @@ class _FadeSlidePageTransitionsBuilder extends PageTransitionsBuilder {
   }
 }
 
+/// Component-tier theme.
+///
+/// This file consumes semantic tokens ([AppSemantic], [AppOpacity],
+/// [AppTypeScale], [AppFonts], [AppIconSize], [AppElevation]) and colours from
+/// [AppColors] — and nothing else. If you find yourself typing a number or a
+/// `Color(0x...)` here, it belongs in `app_tokens.dart` or `app_colors.dart`
+/// first. The token file calls itself the single source of truth; this file is
+/// the one that has to prove it.
 class AppTheme {
   AppTheme._();
 
@@ -66,13 +75,11 @@ class AppTheme {
     ).copyWith(
       surface: isDark ? _darkBg : _lightBg,
       // Pin high-contrast text colors so nothing washes out, esp. in light mode.
-      onSurface: isDark ? const Color(0xFFECEEF1) : const Color(0xFF000000),
+      onSurface: isDark ? AppColors.darkOnSurface : AppColors.lightOnSurface,
     );
 
     final cardColor = isDark ? _darkCard : _lightCard;
-    final borderColor = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : const Color(0xFFE3E6EB);
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     final onSurface = scheme.onSurface;
 
@@ -81,7 +88,7 @@ class AppTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: isDark ? _darkBg : _lightBg,
       visualDensity: VisualDensity.adaptivePlatformDensity,
-      fontFamily: 'Manrope',
+      fontFamily: AppFonts.body,
       textTheme: _textTheme(onSurface),
 
       // Smooth, consistent screen-to-screen motion on every platform.
@@ -95,69 +102,73 @@ class AppTheme {
         },
       ),
 
-      // Icon-only buttons must still give a 44x44+ touch target.
+      // Icon-only buttons must still give a full-size touch target.
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          minimumSize: const Size(44, 44),
+          minimumSize:
+              const Size(AppSemantic.minTapTarget, AppSemantic.minTapTarget),
           tapTargetSize: MaterialTapTargetSize.padded,
         ),
       ),
 
       appBarTheme: AppBarTheme(
-        elevation: 0,
-        scrolledUnderElevation: 0,
+        elevation: AppElevation.flat,
+        scrolledUnderElevation: AppElevation.flat,
         centerTitle: false,
         backgroundColor: isDark ? _darkBg : _lightBg,
         foregroundColor: scheme.onSurface,
         titleTextStyle: TextStyle(
-          fontFamily: 'Sora',
-          fontSize: 20,
+          fontFamily: AppFonts.display,
+          fontSize: AppTypeScale.headline2,
           fontWeight: FontWeight.w800,
-          letterSpacing: -0.4,
+          letterSpacing: AppTypeScale.trackDisplay3,
           color: scheme.onSurface,
         ),
       ),
 
       cardTheme: CardThemeData(
-        elevation: 0,
+        elevation: AppElevation.flat,
         margin: EdgeInsets.zero,
         color: cardColor,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+          borderRadius: BorderRadius.circular(AppSemantic.cardRadius),
           side: BorderSide(color: borderColor),
         ),
       ),
 
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size.fromHeight(AppSemantic.buttonHeight),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.md),
+            borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
           ),
           textStyle: const TextStyle(
-              fontFamily: 'Sora',
-              fontSize: 15,
+              fontFamily: AppFonts.display,
+              fontSize: AppTypeScale.button,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.2),
+              letterSpacing: AppTypeScale.trackButton),
         ),
       ),
 
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size.fromHeight(AppSemantic.buttonHeight),
           side: BorderSide(color: borderColor),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.md),
+            borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
           ),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+              fontSize: AppTypeScale.button, fontWeight: FontWeight.w600),
         ),
       ),
 
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          minimumSize: const Size(44, 44),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          minimumSize:
+              const Size(AppSemantic.minTapTarget, AppSemantic.minTapTarget),
+          textStyle: const TextStyle(
+              fontSize: AppTypeScale.label1, fontWeight: FontWeight.w700),
         ),
       ),
 
@@ -165,56 +176,62 @@ class AppTheme {
         filled: true,
         fillColor: cardColor,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
           borderSide: BorderSide(color: borderColor),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
           borderSide: BorderSide(color: borderColor),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: BorderSide(color: accent, width: 1.5),
+          borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
+          borderSide: BorderSide(
+              color: accent, width: AppSemantic.focusedBorderWidth),
         ),
       ),
 
       navigationBarTheme: NavigationBarThemeData(
-        height: 70,
-        elevation: 0,
+        height: AppSemantic.navBarHeight,
+        elevation: AppElevation.flat,
         backgroundColor: cardColor,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: accent.withValues(alpha: 0.18),
+        indicatorColor: accent.withValues(alpha: AppOpacity.navIndicator),
         // Selected tab reads clearly: accent + heavier weight, not color alone.
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
-            fontSize: 12,
+            fontSize: AppTypeScale.label2,
             fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-            color: selected ? accent : onSurface.withValues(alpha: 0.72),
+            color: selected
+                ? accent
+                : onSurface.withValues(alpha: AppOpacity.navUnselected),
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
-            color: selected ? accent : onSurface.withValues(alpha: 0.72),
+            color: selected
+                ? accent
+                : onSurface.withValues(alpha: AppOpacity.navUnselected),
           );
         }),
       ),
 
       chipTheme: ChipThemeData(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppSemantic.chipRadius),
         ),
       ),
 
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppSemantic.overlayRadius),
         ),
       ),
 
-      dividerTheme: DividerThemeData(color: borderColor, thickness: 1),
+      dividerTheme: DividerThemeData(
+          color: borderColor, thickness: AppSemantic.borderWidth),
     );
   }
 
@@ -223,37 +240,42 @@ class AppTheme {
 
   /// Sora for the big expressive headings, Manrope for everything readable.
   static TextTheme _textTheme(Color onSurface) {
-    const display = 'Sora';
     TextStyle h(double size, FontWeight w, double spacing) => TextStyle(
-          fontFamily: display,
+          fontFamily: AppFonts.display,
           fontSize: size,
           fontWeight: w,
           letterSpacing: spacing,
-          height: 1.1,
+          height: AppTypeScale.displayHeight,
           color: onSurface,
         );
     TextStyle body(double size, FontWeight w) => TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           fontSize: size,
           fontWeight: w,
-          height: 1.5,
+          height: AppTypeScale.bodyHeight,
           color: onSurface,
         );
     return TextTheme(
-      displayLarge: h(34, FontWeight.w800, -0.8),
-      displayMedium: h(28, FontWeight.w800, -0.6),
-      displaySmall: h(24, FontWeight.w700, -0.4),
-      headlineMedium: h(22, FontWeight.w700, -0.3),
-      headlineSmall: h(20, FontWeight.w700, -0.2),
-      titleLarge: h(18, FontWeight.w700, -0.2),
-      titleMedium: body(16, FontWeight.w700),
-      titleSmall: body(14, FontWeight.w600),
-      bodyLarge: body(16, FontWeight.w500),
-      bodyMedium: body(14, FontWeight.w500),
-      bodySmall: body(12, FontWeight.w500),
-      labelLarge: body(14, FontWeight.w700),
-      labelMedium: body(12, FontWeight.w600),
-      labelSmall: body(11, FontWeight.w600),
+      displayLarge:
+          h(AppTypeScale.display1, FontWeight.w800, AppTypeScale.trackDisplay1),
+      displayMedium:
+          h(AppTypeScale.display2, FontWeight.w800, AppTypeScale.trackDisplay2),
+      displaySmall:
+          h(AppTypeScale.display3, FontWeight.w700, AppTypeScale.trackDisplay3),
+      headlineMedium: h(
+          AppTypeScale.headline1, FontWeight.w700, AppTypeScale.trackHeadline1),
+      headlineSmall: h(
+          AppTypeScale.headline2, FontWeight.w700, AppTypeScale.trackHeadline2),
+      titleLarge:
+          h(AppTypeScale.title1, FontWeight.w700, AppTypeScale.trackTitle1),
+      titleMedium: body(AppTypeScale.title2, FontWeight.w700),
+      titleSmall: body(AppTypeScale.title3, FontWeight.w600),
+      bodyLarge: body(AppTypeScale.body1, FontWeight.w500),
+      bodyMedium: body(AppTypeScale.body2, FontWeight.w500),
+      bodySmall: body(AppTypeScale.body3, FontWeight.w500),
+      labelLarge: body(AppTypeScale.label1, FontWeight.w700),
+      labelMedium: body(AppTypeScale.label2, FontWeight.w600),
+      labelSmall: body(AppTypeScale.label3, FontWeight.w600),
     );
   }
 }

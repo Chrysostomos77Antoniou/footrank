@@ -65,9 +65,9 @@ class _JoinTeamPageState extends State<JoinTeamPage> {
                             size: 52, color: AppColors.iconAccent(context))),
                   ),
                   const SizedBox(height: 8),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 80),
-                    child: const Center(
+                  const FadeSlideIn(
+                    delay: Duration(milliseconds: 80),
+                    child: Center(
                       child: GradientText('Join a team',
                           style: TextStyle(
                               fontSize: 22, fontWeight: FontWeight.w900)),

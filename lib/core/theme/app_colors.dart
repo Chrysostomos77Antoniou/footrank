@@ -70,11 +70,36 @@ class AppColors {
   static const Color lightBg = Color(0xFFF5F6F8);
   static const Color lightCard = Colors.white;
 
+  /// Primary text/icon colour on the dark surfaces above.
+  static const Color darkOnSurface = Color(0xFFECEEF1);
+
+  /// Primary text/icon colour on the light surfaces above.
+  ///
+  /// KNOWN ISSUE: pure black leaves light mode with no primary/secondary text
+  /// hierarchy once `muted()` derives from it. The redesign spec calls for
+  /// ~0xFF0B0F1A instead; deferred because it is a visible change and this
+  /// phase is structural. See docs/superpowers/specs/2026-08-16-footrank-redesign-design.md
+  static const Color lightOnSurface = Color(0xFF000000);
+
+  /// The single light-mode hairline border value.
+  ///
+  /// Previously defined twice with different values (0xFFE6E8EC here and
+  /// 0xFFE3E6EB inside app_theme.dart); consolidated here so cards, inputs,
+  /// dividers and widget-drawn borders can never drift apart again.
+  ///
+  /// KNOWN ISSUE: at ~1.2:1 against white this fails WCAG 2.2 SC 1.4.11 (3:1)
+  /// where it is the *sole* affordance — OutlinedButton and InputDecoration.
+  /// Darkening it is a visible change and needs sign-off; tracked in the spec.
+  static const Color lightBorder = Color(0xFFE6E8EC);
+
+  /// Dark-mode hairline border: white at low alpha over the navy surfaces.
+  static Color get darkBorder => Colors.white.withValues(alpha: 0.08);
+
   // Hairline borders.
   static Color border(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? Colors.white.withValues(alpha: 0.08)
-          : const Color(0xFFE6E8EC);
+          ? darkBorder
+          : lightBorder;
 
   // Muted secondary text/icon color — kept fairly strong so light mode stays
   // legible (low-opacity grey-on-white was washing out). Dark mode sits at

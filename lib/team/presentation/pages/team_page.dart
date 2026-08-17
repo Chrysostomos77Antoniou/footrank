@@ -528,7 +528,7 @@ class _DisbandedBanner extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       child: Row(
         children: [
-          Icon(Icons.info_outline, color: AppColors.danger),
+          const Icon(Icons.info_outline, color: AppColors.danger),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

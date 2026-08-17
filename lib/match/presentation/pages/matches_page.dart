@@ -1612,7 +1612,7 @@ class _PendingMatchCard extends StatelessWidget {
                       minimumSize: const Size(0, 44),
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       foregroundColor: AppColors.danger,
-                      side: BorderSide(color: AppColors.danger),
+                      side: const BorderSide(color: AppColors.danger),
                     ),
                     onPressed: canAct ? onReject : null,
                     child: const Text('Reject'),
