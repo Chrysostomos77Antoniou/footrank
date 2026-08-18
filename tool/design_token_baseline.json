@@ -1,10 +1,10 @@
 {
   "note": "Design-token violation baseline. May only decrease. Regenerate with: dart run tool/check_design_tokens.dart --update",
   "counts": {
-    "rawColor": 9,
+    "rawColor": 2,
     "rawRadius": 39,
-    "rawFontSize": 73,
-    "rawDuration": 91,
+    "rawFontSize": 70,
+    "rawDuration": 76,
     "magicSpacer": 222
   }
 }

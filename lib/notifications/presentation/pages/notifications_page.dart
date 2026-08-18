@@ -6,6 +6,8 @@ import 'package:footrank/models/notification_model.dart';
 import 'package:footrank/notifications/data/notification_repository.dart';
 import 'package:footrank/services/notification_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
+import 'package:footrank/core/theme/theme_controller.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -14,7 +16,8 @@ class NotificationsPage extends StatefulWidget {
   State<NotificationsPage> createState() => _NotificationsPageState();
 }
 
-class _NotificationsPageState extends State<NotificationsPage> {
+class _NotificationsPageState extends State<NotificationsPage>
+    with ThemeRepaintMixin {
   final _repo = NotificationRepository();
   late Future<List<NotificationModel>> _future;
   RealtimeChannel? _notifChannel;
@@ -96,7 +99,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   final n = items[i];
                   final s = _styleFor(context, n.type);
                   return FadeSlideIn(
-                    delay: Duration(milliseconds: 30 * i),
+                    delay: AppMotion.staggerFor(i),
+                    animateOnceId: n.id,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: GestureDetector(

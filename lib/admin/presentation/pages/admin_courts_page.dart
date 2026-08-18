@@ -9,6 +9,7 @@ import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 class AdminCourtsPage extends StatefulWidget {
   const AdminCourtsPage({super.key});
@@ -55,9 +56,7 @@ class _AdminCourtsPageState extends State<AdminCourtsPage> {
       _reload();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -68,9 +67,7 @@ class _AdminCourtsPageState extends State<AdminCourtsPage> {
       _reload();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }

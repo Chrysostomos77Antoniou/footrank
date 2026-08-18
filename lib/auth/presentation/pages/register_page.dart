@@ -4,11 +4,11 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
-import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/utils/password_strength.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/routing/app_router.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -46,13 +46,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   bool _requireAgreement() {
     if (_agreedToTerms) return true;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Please agree to the Terms of Service and Privacy Policy first',
-        ),
-      ),
-    );
+    showError(context, 'Please agree to the Terms of Service and Privacy Policy first',);
     return false;
   }
 
@@ -69,16 +63,12 @@ class _RegisterPageState extends State<RegisterPage> {
       if (res.session != null) {
         context.go(AppRoutes.profileSetup);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Check your email to confirm sign up')),
-        );
+        showSuccess(context, 'Check your email to confirm sign up');
         context.go(AppRoutes.login);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -92,9 +82,7 @@ class _RegisterPageState extends State<RegisterPage> {
       await _repo.signInWithGoogle();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _googleLoading = false);
@@ -108,9 +96,7 @@ class _RegisterPageState extends State<RegisterPage> {
       await _repo.signInWithApple();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _appleLoading = false);
@@ -124,9 +110,7 @@ class _RegisterPageState extends State<RegisterPage> {
       await _repo.signInWithFacebook();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _facebookLoading = false);

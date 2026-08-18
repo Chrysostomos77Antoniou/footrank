@@ -3,10 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
-import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 class CreateTeamPage extends StatefulWidget {
   const CreateTeamPage({super.key});
@@ -44,8 +44,7 @@ class _CreateTeamPageState extends State<CreateTeamPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -80,9 +79,7 @@ class _CreateTeamPageState extends State<CreateTeamPage> {
                   icon: const Icon(Icons.copy),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: code));
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      const SnackBar(content: Text('Invite code copied')),
-                    );
+                    showSuccess(context, 'Invite code copied');
                   },
                 ),
               ],

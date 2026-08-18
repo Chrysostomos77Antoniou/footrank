@@ -8,6 +8,7 @@ import 'package:footrank/models/invitation_model.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/team/presentation/widgets/leave_team_picker.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 class InvitationsPage extends StatefulWidget {
   const InvitationsPage({super.key});
@@ -36,9 +37,7 @@ class _InvitationsPageState extends State<InvitationsPage> {
     try {
       await _repo.acceptInvitation(inv);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('You joined ${inv.teamName}')),
-        );
+        showSuccess(context, 'You joined ${inv.teamName}');
       }
       _reload();
     } on TeamLimitException {
@@ -48,8 +47,7 @@ class _InvitationsPageState extends State<InvitationsPage> {
       if (freed && mounted) await _accept(inv);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -60,8 +58,7 @@ class _InvitationsPageState extends State<InvitationsPage> {
       if (mounted) showTeamSheet(context, team);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -72,8 +69,7 @@ class _InvitationsPageState extends State<InvitationsPage> {
       _reload();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -120,7 +116,7 @@ class _InvitationsPageState extends State<InvitationsPage> {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                       child: FadeSlideIn(
-                        delay: Duration(milliseconds: 60 * i),
+                        delay: AppMotion.staggerFor(i),
                         child: GlassCard(
                           padding: const EdgeInsets.all(AppSpacing.md),
                           child: Column(

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/theme/app_colors.dart';
-import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 class JoinTeamPage extends StatefulWidget {
   const JoinTeamPage({super.key});
@@ -30,15 +30,12 @@ class _JoinTeamPageState extends State<JoinTeamPage> {
     try {
       final teamName = await _repo.requestJoinByCode(_codeCtrl.text);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Join request sent to $teamName')),
-        );
+        showSuccess(context, 'Join request sent to $teamName');
         context.pop(true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _loading = false);

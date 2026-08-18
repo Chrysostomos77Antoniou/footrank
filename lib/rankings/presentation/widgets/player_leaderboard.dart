@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
@@ -13,6 +14,8 @@ import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/team/presentation/widgets/team_picker.dart';
+import 'package:footrank/core/widgets/feedback.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 
 const _positions = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'];
 
@@ -23,7 +26,12 @@ class PlayerLeaderboard extends StatefulWidget {
   State<PlayerLeaderboard> createState() => _PlayerLeaderboardState();
 }
 
-class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
+/// Uses [ThemeRepaintMixin] like every other screen in the app. This widget
+/// was the only list surface without it, so a runtime theme toggle left it
+/// painting with the previous mode's colours until something else forced a
+/// rebuild.
+class _PlayerLeaderboardState extends State<PlayerLeaderboard>
+    with ThemeRepaintMixin {
   final _repo = RankingRepository();
   final _teamRepo = TeamRepository();
   final _searchCtrl = TextEditingController();
@@ -57,12 +65,10 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
     try {
       await _teamRepo.invitePlayer(teamId: team.id, userId: p.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Invitation sent to ${p.name} for ${team.name}')));
+      showSuccess(context, 'Invitation sent to ${p.name} for ${team.name}');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -175,7 +181,8 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                 itemBuilder: (context, i) {
                   final p = players[i];
                   return FadeSlideIn(
-                    delay: Duration(milliseconds: 40 * i),
+                    delay: AppMotion.staggerFor(i),
+                    animateOnceId: p.id,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: GlassCard(
@@ -194,24 +201,27 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  // Sourced from the TextTheme (rebuilt with
+                                  // the ThemeData) rather than from a raw
+                                  // TextStyle holding colorScheme.onSurface —
+                                  // the latter kept the previous mode's colour
+                                  // after a theme toggle.
                                   Text(p.name,
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 15.5,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurface)),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.w800)),
                                   const SizedBox(height: 2),
                                   Text(
                                     '@${p.username}'
                                     '${p.position != null ? '  ·  ${p.position}' : ''}',
-                                    style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface
-                                            .withValues(alpha: 0.65)),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.muted(context)),
                                   ),
                                 ],
                               ),

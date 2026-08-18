@@ -17,6 +17,7 @@ import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/team/presentation/widgets/team_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -104,13 +105,10 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
     final members = await _teamRepo.fetchMembers(team.id);
     if (!mounted) return;
     if (members.length < 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${team.name} needs at least 5 players before you can create a '
-            'match (currently ${members.length}).',
-          ),
-        ),
+      showError(
+        context,
+        '${team.name} needs at least 5 players before you can create a '
+        'match (currently ${members.length}).',
       );
       return;
     }
@@ -124,7 +122,10 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
     // Drop cached state and tell every tab to re-fetch fresh data.
     ProfileRepository.invalidateCache();
     triggerAppRefresh();
-    String message;
+    // Sync reports three genuinely different outcomes, so it picks the helper
+    // per branch rather than funnelling them all through one grey pill —
+    // "refreshed" and "failed" should never look the same.
+    void Function() report;
     try {
       final count = await _notifRepo.unreadCount().timeout(
         const Duration(seconds: 10),
@@ -133,17 +134,16 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
       setState(() {
         _unread = Future.value(count);
       });
-      message = 'Synced — data refreshed';
+      report = () => showSuccess(context, 'Synced — data refreshed');
     } on TimeoutException {
-      message = 'Sync timed out — check your connection';
+      report =
+          () => showError(context, 'Sync timed out — check your connection');
     } catch (e) {
-      message = 'Sync failed: ${friendlyError(e)}';
+      report = () => showError(context, 'Sync failed: ${friendlyError(e)}');
     }
     if (!mounted) return;
     setState(() => _syncing = false);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    report();
   }
 
   @override

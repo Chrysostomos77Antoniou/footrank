@@ -3,7 +3,6 @@ import 'package:footrank/admin/data/admin_repository.dart';
 import 'package:footrank/admin/presentation/widgets/admin_widgets.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
-import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -11,6 +10,7 @@ import 'package:footrank/admin/models/match_cancellation_model.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_proposal_model.dart';
 import 'package:footrank/models/match_request_model.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 class AdminMatchesPage extends StatefulWidget {
   const AdminMatchesPage({super.key});
@@ -66,9 +66,7 @@ class _AdminMatchesPageState extends State<AdminMatchesPage>
       _reload();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -115,9 +113,7 @@ class _AdminMatchesPageState extends State<AdminMatchesPage>
       _reload();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }

@@ -11,6 +11,7 @@ import 'package:footrank/models/team_model.dart';
 import 'package:footrank/rankings/data/ranking_repository.dart';
 import 'package:footrank/rankings/presentation/widgets/player_leaderboard.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 
 class RankingsPage extends StatefulWidget {
   const RankingsPage({super.key});
@@ -93,7 +94,14 @@ class _TeamLeaderboard extends StatefulWidget {
   State<_TeamLeaderboard> createState() => _TeamLeaderboardState();
 }
 
-class _TeamLeaderboardState extends State<_TeamLeaderboard> {
+/// Uses [ThemeRepaintMixin] for the same reason [RankingsPage] and the player
+/// leaderboard do: without it this widget never rebuilds on a runtime theme
+/// toggle, so every colour it resolved — text included — stays on the previous
+/// mode until something else forces a rebuild. This was the last list surface
+/// in the app missing it, which is why the Teams sub-tab kept rendering the
+/// wrong text colour while Players rendered correctly.
+class _TeamLeaderboardState extends State<_TeamLeaderboard>
+    with ThemeRepaintMixin {
   final _repo = RankingRepository();
   final _cityCtrl = TextEditingController();
   late Future<List<TeamModel>> _future;
@@ -183,7 +191,8 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
                 itemBuilder: (context, i) {
                   final t = teams[i];
                   return FadeSlideIn(
-                    delay: Duration(milliseconds: 40 * i),
+                    delay: AppMotion.staggerFor(i),
+                    animateOnceId: t.id,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: GlassCard(
@@ -202,13 +211,19 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  // Colour comes from the TextTheme, which is
+                                  // rebuilt with the ThemeData on every theme
+                                  // change — matching how team_page and the
+                                  // other working screens do it. Reading
+                                  // colorScheme.onSurface into a raw TextStyle
+                                  // here left this page showing the previous
+                                  // mode's text colour after a theme toggle.
                                   Text(t.name,
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 15.5,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurface)),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.w800)),
                                   const SizedBox(height: 2),
                                   Text.rich(
                                     TextSpan(
@@ -217,10 +232,7 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard> {
                                           .bodySmall
                                           ?.copyWith(
                                               fontWeight: FontWeight.w600,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurface
-                                                  .withValues(alpha: 0.65)),
+                                              color: AppColors.muted(context)),
                                       children: [
                                         if (t.city != null)
                                           TextSpan(text: '${t.city!} · '),

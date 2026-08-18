@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
-import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/services/supabase_service.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 const _positions = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'];
 
@@ -83,9 +83,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       if (mounted) _routeAfterSetup();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _loading = false);

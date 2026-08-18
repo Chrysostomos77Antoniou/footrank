@@ -3,11 +3,11 @@ import 'package:footrank/admin/data/admin_repository.dart';
 import 'package:footrank/admin/presentation/widgets/admin_widgets.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
-import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/user_model.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 class AdminUsersPage extends StatefulWidget {
   const AdminUsersPage({super.key});
@@ -298,9 +298,7 @@ class _UserDetailDialogState extends State<_UserDetailDialog> {
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
         setState(() => _saving = false);
       }
     }

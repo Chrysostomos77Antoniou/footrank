@@ -6,11 +6,11 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/services/gallery_picker.dart';
 import 'package:footrank/core/theme/app_colors.dart';
-import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 class EditTeamPage extends StatefulWidget {
   final TeamModel team;
@@ -68,15 +68,12 @@ class _EditTeamPageState extends State<EditTeamPage> {
         logoUrl: logoUrl,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Team updated')),
-        );
+        showSuccess(context, 'Team updated');
         context.pop(true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _saving = false);

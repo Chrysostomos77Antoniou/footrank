@@ -6,6 +6,7 @@ import 'package:footrank/core/widgets/court_image_preview.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/models/court_model.dart';
+import 'package:footrank/core/theme/theme_controller.dart';
 
 /// Read-only directory of every active court, grouped by city — reachable
 /// from Home so anyone can see where matches can be played before ever
@@ -17,7 +18,8 @@ class CourtsPage extends StatefulWidget {
   State<CourtsPage> createState() => _CourtsPageState();
 }
 
-class _CourtsPageState extends State<CourtsPage> {
+class _CourtsPageState extends State<CourtsPage>
+    with ThemeRepaintMixin {
   final _repo = CourtRepository();
   late Future<List<CourtModel>> _future;
 

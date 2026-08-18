@@ -18,6 +18,9 @@ import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:footrank/core/widgets/feedback.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
+import 'package:footrank/core/theme/theme_controller.dart';
 
 class MatchDetailPage extends StatefulWidget {
   final String matchId;
@@ -27,7 +30,8 @@ class MatchDetailPage extends StatefulWidget {
   State<MatchDetailPage> createState() => _MatchDetailPageState();
 }
 
-class _MatchDetailPageState extends State<MatchDetailPage> {
+class _MatchDetailPageState extends State<MatchDetailPage>
+    with ThemeRepaintMixin {
   final _matchRepo = MatchRepository();
   final _teamRepo = TeamRepository();
 
@@ -147,9 +151,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -161,13 +163,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
   }) async {
     final match = _match!;
     if (!_matchStarted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'You can rate players 90 minutes after kick-off (from ${_kickoffLabel()}).',
-          ),
-        ),
-      );
+      showError(context, 'You can rate players 90 minutes after kick-off (from ${_kickoffLabel()}).',);
       return;
     }
     try {
@@ -180,9 +176,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       setState(() => _myBehavior[player.userId] = rating);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -214,13 +208,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
   Future<void> _submitScore() async {
     final match = _match!;
     if (!_matchStarted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'You can submit the score 90 minutes after kick-off (from ${_kickoffLabel()}).',
-          ),
-        ),
-      );
+      showError(context, 'You can submit the score 90 minutes after kick-off (from ${_kickoffLabel()}).',);
       return;
     }
     // Attendance is never auto-marked -- every captain must explicitly
@@ -231,13 +219,7 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
         .length;
     if (attendedCount < 5) {
       setState(() => _tab = 2); // Attendance tab -- unmarked players get a "!"
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Mark at least 5 attended players for your team before submitting a score.',
-          ),
-        ),
-      );
+      showError(context, 'Mark at least 5 attended players for your team before submitting a score.',);
       return;
     }
     final result = await showDialog<({int home, int away})>(
@@ -267,16 +249,12 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
                 'trusted captain. Match completed.',
           _ => 'Score submitted. Waiting for the opponent\'s report.',
         };
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(msg)));
+        showInfo(context, msg);
       }
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -313,15 +291,11 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
         await _matchRepo.cancelMatch(match.id);
         if (!mounted) return;
         triggerAppRefresh();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Match cancelled')));
+        showSuccess(context, 'Match cancelled');
         Navigator.of(context).pop(true);
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyError(e))),
-          );
+          showError(context, e);
         }
       }
       return;
@@ -357,18 +331,13 @@ class _MatchDetailPageState extends State<MatchDetailPage> {
       final penalized = await _matchRepo.cancelConfirmedMatch(match.id);
       if (!mounted) return;
       triggerAppRefresh();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(penalized
+      showSuccess(context, penalized
                 ? 'Match cancelled — your team lost 200 Pitch Power.'
-                : 'Match cancelled.')),
-      );
+                : 'Match cancelled.');
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e))),
-        );
+        showError(context, e);
       }
     }
   }
@@ -950,7 +919,7 @@ class _TeamRoster extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: FadeSlideIn(
-                  delay: Duration(milliseconds: 40 * e.key),
+                  delay: AppMotion.staggerFor(e.key),
                   child: GlassCard(
                     padding: const EdgeInsets.all(14),
                     onTap: () => showPlayerSheetById(context, m.userId),
@@ -1147,9 +1116,7 @@ class _ReasonDialogState extends State<_ReasonDialog> {
           onPressed: () {
             final reason = _ctrl.text.trim();
             if (reason.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please enter a reason')),
-              );
+              showError(context, 'Please enter a reason');
               return;
             }
             Navigator.pop(context, reason);
@@ -1197,9 +1164,7 @@ class _ScoreDialogState extends State<_ScoreDialog> {
     final h = int.tryParse(_homeCtrl.text.trim());
     final a = int.tryParse(_awayCtrl.text.trim());
     if (h == null || a == null || h < 0 || a < 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Enter valid scores')));
+      showError(context, 'Enter valid scores');
       return;
     }
     Navigator.pop(context, (home: h, away: a));

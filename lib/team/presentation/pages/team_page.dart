@@ -16,6 +16,8 @@ import 'package:footrank/models/team_model.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/core/widgets/feedback.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 
 class TeamPage extends StatefulWidget {
   const TeamPage({super.key});
@@ -122,7 +124,7 @@ class _TeamPageState extends State<TeamPage> with ThemeRepaintMixin {
                 (e) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: FadeSlideIn(
-                    delay: Duration(milliseconds: 60 * e.key),
+                    delay: AppMotion.staggerFor(e.key),
                     child: _TeamListCard(
                       team: e.value,
                       isCaptain: e.value.captainId == uid,
@@ -497,9 +499,7 @@ class _LeaveDisbandButton extends StatelessWidget {
       onChanged();
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e))),
-        );
+        showError(context, e);
       }
     }
   }
@@ -659,9 +659,7 @@ class _InviteCodeCard extends StatelessWidget {
             icon: const Icon(Icons.copy),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: code));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Invite code copied')),
-              );
+              showSuccess(context, 'Invite code copied');
             },
           ),
         ],
@@ -704,15 +702,13 @@ class _PendingRequestsState extends State<_PendingRequests> {
     try {
       await widget.repo.approveRequest(r);
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('${r.name} added to team')));
+        showSuccess(context, '${r.name} added to team');
       }
       _reload();
       widget.onChanged();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -723,8 +719,7 @@ class _PendingRequestsState extends State<_PendingRequests> {
       _reload();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -835,8 +830,7 @@ class _MemberListState extends State<_MemberList> {
       widget.onChanged();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -864,8 +858,7 @@ class _MemberListState extends State<_MemberList> {
       widget.onChanged();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -896,8 +889,7 @@ class _MemberListState extends State<_MemberList> {
       widget.onChanged();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }

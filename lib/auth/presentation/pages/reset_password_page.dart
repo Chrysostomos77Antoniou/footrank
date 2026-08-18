@@ -5,11 +5,11 @@ import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
-import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/utils/password_strength.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/routing/app_router.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 /// Shown after the user taps the reset link in their email. They set a new
 /// password (entered twice, must match) before entering the app.
@@ -41,15 +41,12 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       await _authRepo.updatePassword(_pw.text);
       passwordRecovery.value = false;
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password updated — you\'re signed in.')),
-      );
+      showSuccess(context, 'Password updated — you\'re signed in.');
       context.go(AppRoutes.home);
     } catch (e) {
       if (mounted) {
         setState(() => _busy = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }

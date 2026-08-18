@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/widgets/async_views.dart';
-import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -11,6 +10,9 @@ import 'package:footrank/models/team_model.dart';
 import 'package:footrank/models/user_model.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/core/widgets/feedback.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
+import 'package:footrank/core/theme/theme_controller.dart';
 
 const _positions = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'];
 
@@ -21,7 +23,8 @@ class FreeAgentsPage extends StatefulWidget {
   State<FreeAgentsPage> createState() => _FreeAgentsPageState();
 }
 
-class _FreeAgentsPageState extends State<FreeAgentsPage> {
+class _FreeAgentsPageState extends State<FreeAgentsPage>
+    with ThemeRepaintMixin {
   final _repo = FreeAgentRepository();
   final _teamRepo = TeamRepository();
   FreeAgentFilter _filter = const FreeAgentFilter();
@@ -77,13 +80,10 @@ class _FreeAgentsPageState extends State<FreeAgentsPage> {
       await _teamRepo.invitePlayer(teamId: team.id, userId: agent.id);
       if (!mounted) return;
       setState(() => _invitedIds.add(agent.id));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invitation sent to ${agent.name}')),
-      );
+      showSuccess(context, 'Invitation sent to ${agent.name}');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -132,7 +132,8 @@ class _FreeAgentsPageState extends State<FreeAgentsPage> {
                       itemBuilder: (context, i) {
                         final a = agents[i];
                         return FadeSlideIn(
-                          delay: Duration(milliseconds: 30 * i),
+                          delay: AppMotion.staggerFor(i),
+                          animateOnceId: a.id,
                           child: Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: _AgentCard(

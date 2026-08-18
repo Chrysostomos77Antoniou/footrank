@@ -1,4 +1,4 @@
-import 'package:flutter/animation.dart';
+import 'package:flutter/material.dart';
 
 /// Design tokens — the single source of truth for spacing, radii and motion.
 ///
@@ -63,27 +63,74 @@ class AppRadius {
 }
 
 /// Shared motion language: fast feedback, calm entrances, one curve family.
+///
+/// Sourced from Flutter's own `Durations` and `Easing`, which ship in stable
+/// (3.32.6) and are generated directly from Google's Material token database.
+/// This file previously invented a parallel set (110 / 200 / 320ms with
+/// `easeOutCubic`) that meant the same thing but disagreed slightly — and the
+/// app then ran *three* different timings for one conceptual gesture: the
+/// router used 280ms in / 220ms out, the theme's page transition used the
+/// framework default, and [FadeSlideIn] inside the arriving page used 320ms.
+/// The page finished moving before its own contents did.
+///
+/// One source now, so a screen and its contents arrive as one event.
 class AppMotion {
   AppMotion._();
 
-  /// 110ms — press feedback (must feel instant).
-  static const Duration press = Duration(milliseconds: 110);
+  /// 100ms — press feedback. Inside Nielsen's 0.1s direct-manipulation window,
+  /// so the user attributes the movement to their own finger.
+  static const Duration press = Durations.short2;
 
-  /// 200ms — small state changes (icon swaps, toggles).
-  static const Duration quick = Duration(milliseconds: 200);
+  /// 150ms — micro state changes (icon swap, chevron rotate, badge count).
+  static const Duration micro = Durations.short3;
 
-  /// 320ms — content entrances.
-  static const Duration enter = Duration(milliseconds: 320);
+  /// 200ms — small in-place changes (tab indicator, chip select, expand).
+  static const Duration quick = Durations.short4;
 
-  /// Standard easing for anything entering the screen.
-  static const Curve easeOut = Curves.easeOutCubic;
+  /// 300ms — the standard transition. Page push, dialog/sheet open, tab
+  /// fade-through AND content entrance, deliberately all the same number.
+  static const Duration enter = Durations.medium2;
 
-  /// Standard easing for anything leaving the screen.
-  static const Curve easeIn = Curves.easeInCubic;
+  /// 250ms — exits. ~17% shorter than the entrance; nobody watches an exit
+  /// finish, and a slow dismissal feels like lag.
+  static const Duration exit = Durations.medium1;
+
+  /// 350ms — large/hero transitions (container transform, thumbnail expand).
+  static const Duration hero = Durations.medium3;
+
+  /// 600ms — number roll-up. This is the ranking payoff moment: legible, but
+  /// not laboured (down from 900ms).
+  static const Duration count = Durations.long4;
+
+  /// 30ms — delay between consecutive list items.
+  ///
+  /// Material's choreography guidance is ~20ms and never more than a beat;
+  /// the app previously multiplied an uncapped `40 * index`, so row 39 of a
+  /// leaderboard waited 1,560ms before starting to fade in.
+  static const Duration stagger = Duration(milliseconds: 30);
+
+  /// Only the first 6 rows stagger; everything after starts immediately, so
+  /// the cascade is capped at 180ms regardless of list length.
+  static const int staggerCap = 6;
+
+  /// Everything ENTERING the screen. Arrives at speed, settles to rest.
+  static const Curve easeOut = Easing.emphasizedDecelerate;
+
+  /// Everything LEAVING. Starts at rest, exits at speed, no wasted tail.
+  static const Curve easeIn = Easing.emphasizedAccelerate;
+
+  /// Elements that begin AND end at rest on screen: press scale, tab
+  /// indicator, expand/collapse, number roll-up.
+  static const Curve standard = Easing.standard;
 
   /// How far an incoming page drifts up, as a fraction of its height.
   /// Small on purpose: less travel reads as more expensive.
   static const double pageSlideOffset = 0.02;
+
+  /// Delay for the item at [index] in a staggered list, capped per
+  /// [staggerCap] so long lists do not trail off into a slideshow.
+  static Duration staggerFor(int index) =>
+      stagger * (index < staggerCap ? index : staggerCap);
 }
 
 /// Tier 2 — semantic tokens. What a value *means*, not what it is.
@@ -102,8 +149,15 @@ class AppSemantic {
   /// Buttons, inputs, and anything the user manipulates directly.
   static const double controlRadius = AppRadius.md;
 
-  /// Chips and small status pills.
+  /// Material `Chip` / `ChoiceChip` widgets.
   static const double chipRadius = AppRadius.xl;
+
+  /// Small hand-drawn status pills (match state, role badges).
+  ///
+  /// Deliberately tighter than [chipRadius]: a Material chip is a control the
+  /// user taps, a status pill is a label. The app previously shipped these at
+  /// 9, 10, 12 and 20 across six implementations.
+  static const double statusPillRadius = AppRadius.sm;
 
   /// Transient overlays that sit above content (snackbars, tooltips).
   ///
@@ -132,6 +186,15 @@ class AppSemantic {
 
   /// Gap between an icon and the text it labels.
   static const double iconGap = AppSpacing.xs;
+
+  /// Gap between a value and the label that names it (a stat's number and its
+  /// caption, a list row's title and subtitle).
+  ///
+  /// OFF-SCALE (2, below [AppSpacing.xxs] 4) and deliberately so: these two
+  /// lines are one unit of meaning, and a full 4px reads as two separate
+  /// items. Named rather than left as a bare literal so it is a decision
+  /// instead of an accident.
+  static const double labelGap = 2;
 
   // ---- Sizes -------------------------------------------------------------
 

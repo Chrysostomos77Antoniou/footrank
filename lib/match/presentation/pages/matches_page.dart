@@ -22,6 +22,8 @@ import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/team/presentation/widgets/team_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:footrank/core/widgets/feedback.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 
 class MatchesPage extends StatefulWidget {
   const MatchesPage({super.key});
@@ -276,32 +278,20 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     final members = await _teamRepo.fetchMembers(team.id);
     if (!mounted) return;
     if (members.length < 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${team.name} needs at least 5 players before you can propose a '
-            'match (currently ${members.length}).',
-          ),
-        ),
-      );
+      showError(context, '${team.name} needs at least 5 players before you can propose a '
+            'match (currently ${members.length}).',);
       return;
     }
 
     try {
       await _matchRepo.proposeMatch(requestId: opponent.id, teamId: team.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                'Proposal sent vs ${opponent.teamName}. Waiting for their '
-                'captain to pick.')),
-      );
+      showSuccess(context, 'Proposal sent vs ${opponent.teamName}. Waiting for their '
+                'captain to pick.');
       _reloadRequests();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -329,17 +319,11 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     try {
       await _matchRepo.acceptProposal(proposal.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text('Match confirmed vs ${proposal.teamName ?? 'them'}!')),
-      );
+      showSuccess(context, 'Match confirmed vs ${proposal.teamName ?? 'them'}!');
       _reloadRequests();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -348,15 +332,11 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     try {
       await _matchRepo.rejectProposal(proposal.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Proposal declined')),
-      );
+      showSuccess(context, 'Proposal declined');
       _reloadRequests();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -365,18 +345,13 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     try {
       final status = await _matchRepo.confirmFixture(m.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(status == 'confirmed'
+      showSuccess(context, status == 'confirmed'
                 ? 'Match confirmed!'
-                : 'Confirmed on your side. Waiting for the opponent.')),
-      );
+                : 'Confirmed on your side. Waiting for the opponent.');
       _reloadRequests();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e))),
-        );
+        showError(context, e);
       }
     }
   }
@@ -407,15 +382,11 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     try {
       await _matchRepo.cancelMatch(m.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Match rejected')),
-      );
+      showSuccess(context, 'Match rejected');
       _reloadRequests();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e))),
-        );
+        showError(context, e);
       }
     }
   }
@@ -481,15 +452,11 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     try {
       await _matchRepo.deleteRequest(r.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Match request cancelled')),
-      );
+      showSuccess(context, 'Match request cancelled');
       _reloadRequests();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e))),
-        );
+        showError(context, e);
       }
     }
   }
@@ -507,9 +474,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     final uri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(msg)}');
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open WhatsApp')),
-        );
+        showError(context, 'Could not open WhatsApp');
       }
     }
   }
@@ -657,7 +622,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                             .asMap()
                             .entries
                             .map((e) => FadeSlideIn(
-                                  delay: Duration(milliseconds: 50 * e.key),
+                                  delay: AppMotion.staggerFor(e.key),
                                   child: _OpponentCard(
                                     opponent: e.value,
                                     onPropose: () => _propose(e.value),
@@ -753,7 +718,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                                     .entries
                                     .map((e) => FadeSlideIn(
                                           delay:
-                                              Duration(milliseconds: 50 * e.key),
+                                              AppMotion.staggerFor(e.key),
                                           child: _RequestCard(
                                             request: e.value,
                                             onCancel: e.value.captainId == uid
@@ -810,7 +775,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                                 .asMap()
                                 .entries
                                 .map((e) => FadeSlideIn(
-                                      delay: Duration(milliseconds: 50 * e.key),
+                                      delay: AppMotion.staggerFor(e.key),
                                       child:
                                           _SentProposalCard(proposal: e.value),
                                     ))
@@ -845,7 +810,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                               final iConfirmed =
                                   iAmHome ? m.homeOk : m.awayOk;
                               return FadeSlideIn(
-                                delay: Duration(milliseconds: 50 * e.key),
+                                delay: AppMotion.staggerFor(e.key),
                                 child: _PendingMatchCard(
                                   match: m,
                                   iConfirmed: iConfirmed,
@@ -908,7 +873,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                               .asMap()
                               .entries
                               .map((e) => FadeSlideIn(
-                                    delay: Duration(milliseconds: 50 * e.key),
+                                    delay: AppMotion.staggerFor(e.key),
                                     child: _MatchCard(
                                         match: e.value, myTeamId: myTeamId),
                                   ))
@@ -928,7 +893,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                               .asMap()
                               .entries
                               .map((e) => FadeSlideIn(
-                                    delay: Duration(milliseconds: 50 * e.key),
+                                    delay: AppMotion.staggerFor(e.key),
                                     child: _MatchCard(
                                         match: e.value, myTeamId: myTeamId),
                                   ))

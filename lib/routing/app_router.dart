@@ -30,6 +30,7 @@ import 'package:footrank/team/presentation/pages/edit_team_page.dart';
 import 'package:footrank/team/presentation/pages/invitations_page.dart';
 import 'package:footrank/team/presentation/pages/join_team_page.dart';
 import 'package:footrank/team/presentation/pages/team_page.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 
 class AppRoutes {
   static const login = '/login';
@@ -59,26 +60,34 @@ final _authRepo = AuthRepository();
 final _profileRepo = ProfileRepository();
 
 /// A slide-up + fade transition for pushed pages.
+///
+/// Every value here now comes from [AppMotion]. It previously hard-coded
+/// 280ms in / 220ms out with `Curves.easeOutCubic`, while the theme's own
+/// page transition used the framework default and [FadeSlideIn] inside the
+/// arriving page ran 320ms — three timings for what the user experiences as
+/// one gesture, so a page finished moving before its contents did. They now
+/// share [AppMotion.enter], and land together.
 CustomTransitionPage<T> _animatedPage<T>(Widget child, GoRouterState state) {
   return CustomTransitionPage<T>(
     key: state.pageKey,
     child: _SwipeBackWrapper(child: child),
-    transitionDuration: const Duration(milliseconds: 280),
-    reverseTransitionDuration: const Duration(milliseconds: 220),
+    transitionDuration: AppMotion.enter,
+    reverseTransitionDuration: AppMotion.exit,
     transitionsBuilder: (context, animation, secondary, child) {
       // Distinct forward/reverse curves so a swipe-back pop eases out on
       // its own terms instead of just running the entry curve backwards
-      // (which reads as a slow start, since easeOut reversed becomes easeIn).
+      // (which reads as a slow start, since a decelerate curve reversed
+      // becomes an accelerate one).
       final curved = CurvedAnimation(
         parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic,
+        curve: AppMotion.easeOut,
+        reverseCurve: AppMotion.easeIn,
       );
       return FadeTransition(
         opacity: curved,
         child: SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(0, 0.04),
+            begin: const Offset(0, AppMotion.pageSlideOffset),
             end: Offset.zero,
           ).animate(curved),
           child: child,

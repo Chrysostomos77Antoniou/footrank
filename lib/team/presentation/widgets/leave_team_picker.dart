@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 /// Shown when the user is at the 3-team limit and wants to join another. Lists
 /// their teams; leaving (or disbanding, for captains) one returns true so the
@@ -65,8 +65,7 @@ class _LeaveSheetState extends State<_LeaveSheet> {
     } catch (e) {
       if (mounted) {
         setState(() => _busyId = null);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }

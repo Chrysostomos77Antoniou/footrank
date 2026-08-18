@@ -70,6 +70,17 @@ class AppColors {
   static const Color lightBg = Color(0xFFF5F6F8);
   static const Color lightCard = Colors.white;
 
+  // Ambient background layer. Previously hard-coded inside premium.dart,
+  // which meant the app's most pervasive visual surface could not be retuned
+  // from the palette.
+  static const Color ambientDarkTop = Color(0xFF161D38);
+  static const Color ambientDarkMid = Color(0xFF0E1326);
+  static const Color ambientDarkBottom = Color(0xFF080B18);
+  static const Color ambientLightBottom = Color(0xFFE7EAF1);
+  static const Color ambientGlowDark = Color(0xFF2A3461);
+  static const Color ambientVignetteDark = Color(0xFF05060E);
+  static const Color ambientVignetteLight = Color(0xFFD7DBE6);
+
   /// Primary text/icon colour on the dark surfaces above.
   static const Color darkOnSurface = Color(0xFFECEEF1);
 

@@ -17,6 +17,7 @@ import 'package:footrank/models/user_model.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -71,9 +72,7 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
       await _authRepo.signOut();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sign out failed: ${friendlyError(e)}')),
-        );
+        showError(context, 'Sign out failed: ${friendlyError(e)}');
       }
       return;
     }
@@ -86,9 +85,7 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
     );
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not open the $label')));
+        showError(context, 'Could not open the $label');
       }
     }
   }
@@ -121,9 +118,7 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
       if (mounted) context.go(AppRoutes.login);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e))),
-        );
+        showError(context, e);
       }
     }
   }

@@ -6,11 +6,11 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/services/gallery_picker.dart';
 import 'package:footrank/core/theme/app_colors.dart';
-import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/user_model.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 const _positions = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'];
 
@@ -81,15 +81,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
       );
       await _repo.saveMyPhone(_phoneCtrl.text.trim());
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated')),
-        );
+        showSuccess(context, 'Profile updated');
         context.pop(true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _saving = false);

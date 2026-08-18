@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
-import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/utils/maps_launcher.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/court_image_preview.dart';
@@ -13,6 +12,8 @@ import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/court_model.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/core/widgets/feedback.dart';
+import 'package:footrank/core/theme/theme_controller.dart';
 
 class CreateMatchRequestPage extends StatefulWidget {
   /// The captain's team id (required to create a request).
@@ -23,7 +24,8 @@ class CreateMatchRequestPage extends StatefulWidget {
   State<CreateMatchRequestPage> createState() => _CreateMatchRequestPageState();
 }
 
-class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
+class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
+    with ThemeRepaintMixin {
   final _formKey = GlobalKey<FormState>();
   final _repo = MatchRepository();
   final _teamRepo = TeamRepository();
@@ -126,21 +128,15 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_city == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please select a city')));
+      showError(context, 'Please select a city');
       return;
     }
     if (_date == null || _time == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please pick a date and time')),
-      );
+      showError(context, 'Please pick a date and time');
       return;
     }
     if (_selectedCourtId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pick a court')),
-      );
+      showError(context, 'Pick a court');
       return;
     }
     final scheduledAt = DateTime(
@@ -155,9 +151,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
     // date but choosing an earlier time). Such requests would otherwise be
     // created and surface in opponents' discovery windows.
     if (scheduledAt.isBefore(DateTime.now())) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kick-off must be in the future')),
-      );
+      showError(context, 'Kick-off must be in the future');
       return;
     }
 
@@ -170,14 +164,8 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
       if (conflict != null) {
         if (mounted) {
           final t = TimeOfDay.fromDateTime(conflict).format(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Your team already has an open request or confirmed match '
-                'for $t that day.',
-              ),
-            ),
-          );
+          showError(context, 'Your team already has an open request or confirmed match '
+                'for $t that day.',);
         }
         return;
       }
@@ -191,16 +179,12 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage> {
         format: _format,
       );
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Match request created')));
+        showSuccess(context, 'Match request created');
         context.pop(request);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -629,9 +613,7 @@ class _TimeEntryDialogState extends State<_TimeEntryDialog> {
     final h = int.tryParse(_hourCtrl.text);
     final m = int.tryParse(_minuteCtrl.text);
     if (h == null || m == null || h > 23 || m > 59) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid time')),
-      );
+      showError(context, 'Enter a valid time');
       return;
     }
     Navigator.pop(context, TimeOfDay(hour: h, minute: m));

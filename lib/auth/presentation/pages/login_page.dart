@@ -3,10 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
-import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/routing/app_router.dart';
+import 'package:footrank/core/widgets/feedback.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -45,9 +45,7 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) context.go(AppRoutes.home);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -57,29 +55,17 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _sendPasswordReset() async {
     final email = _emailCtrl.text.trim();
     if (email.isEmpty || !email.contains('@')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Enter your email above first, then tap "Forgot password?"',
-          ),
-        ),
-      );
+      showError(context, 'Enter your email above first, then tap "Forgot password?"',);
       return;
     }
     try {
       await _repo.resetPassword(email);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password reset email sent \u2014 check your inbox.'),
-          ),
-        );
+        showSuccess(context, 'Password reset email sent \u2014 check your inbox.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     }
   }
@@ -90,9 +76,7 @@ class _LoginPageState extends State<LoginPage> {
       await _repo.signInWithGoogle();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _googleLoading = false);
@@ -105,9 +89,7 @@ class _LoginPageState extends State<LoginPage> {
       await _repo.signInWithApple();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _appleLoading = false);
@@ -120,9 +102,7 @@ class _LoginPageState extends State<LoginPage> {
       await _repo.signInWithFacebook();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showError(context, e);
       }
     } finally {
       if (mounted) setState(() => _facebookLoading = false);
