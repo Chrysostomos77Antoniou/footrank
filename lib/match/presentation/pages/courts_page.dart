@@ -7,6 +7,7 @@ import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/models/court_model.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 
 /// Read-only directory of every active court, grouped by city — reachable
 /// from Home so anyone can see where matches can be played before ever
@@ -63,13 +64,18 @@ class _CourtsPageState extends State<CourtsPage>
               }
               final cities = byCity.keys.toList()..sort();
 
-              var delay = 0;
+              // One running index across headers and rows alike, fed through
+              // the capped helper. The previous `delay += 40` accumulator was
+              // uncapped, so a list of 6 cities x 5 courts left the last row
+              // waiting well over a second before it began to appear.
+              var i = 0;
               return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                 children: [
                   for (final city in cities) ...[
                     FadeSlideIn(
-                      delay: Duration(milliseconds: delay += 40),
+                      delay: AppMotion.staggerFor(i++),
+                      animateOnceId: 'city:$city',
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(4, 16, 4, 10),
                         child: Text(
@@ -81,7 +87,8 @@ class _CourtsPageState extends State<CourtsPage>
                     ),
                     for (final c in byCity[city]!) ...[
                       FadeSlideIn(
-                        delay: Duration(milliseconds: delay += 40),
+                        delay: AppMotion.staggerFor(i++),
+                        animateOnceId: c.id,
                         child: _CourtRow(court: c),
                       ),
                       const SizedBox(height: 10),

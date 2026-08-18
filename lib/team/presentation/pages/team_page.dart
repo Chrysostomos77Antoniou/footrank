@@ -375,7 +375,7 @@ class _TeamView extends StatelessWidget {
                         const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
                     child: Column(
                       children: [
-                        LevelBadge(value: team.rating, size: 46),
+                        LevelBadge(value: team.rating, size: 46, animate: true),
                         const SizedBox(height: 8),
                         Text('Pitch Power',
                             style: Theme.of(context).textTheme.bodySmall),

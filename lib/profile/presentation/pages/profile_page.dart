@@ -441,7 +441,8 @@ class _ProfileHero extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 padding: const EdgeInsets.all(3),
-                child: LevelBadge(value: user.elo, size: 40, showLabel: true),
+                child: LevelBadge(
+                    value: user.elo, size: 40, showLabel: true, animate: true),
               ),
             ),
           ],
