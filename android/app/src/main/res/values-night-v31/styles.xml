@@ -19,5 +19,8 @@
          This Theme is only used starting with V2 of Flutter's Android embedding. -->
     <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
+        <!-- See values/styles.xml. NormalTheme is the runtime window theme, so
+             the cutout mode has to be set here as well as on LaunchTheme. -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 </resources>
