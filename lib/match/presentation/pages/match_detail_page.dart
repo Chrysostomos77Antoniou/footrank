@@ -22,6 +22,22 @@ import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 
+/// Maps a [MatchRepository.submitScore] result to the message shown to the
+/// captain. Pulled out to a top-level function (rather than left inline in
+/// the widget) so a typo or dropped case here — which would silently show
+/// the wrong outcome to a captain — is caught by a unit test instead of
+/// only by someone noticing the wrong toast in production.
+String scoreSubmitMessage(String status) => switch (status) {
+      'completed' => 'Both captains agree on the winner — match completed!',
+      'disputed' =>
+        'Your report disagrees with the opponent on the winner. '
+            'Please check and re-submit.',
+      'resolved' =>
+        'Still disagreeing — resolved automatically in favour of the more '
+            'trusted captain. Match completed.',
+      _ => 'Score submitted. Waiting for the opponent\'s report.',
+    };
+
 class MatchDetailPage extends StatefulWidget {
   final String matchId;
   const MatchDetailPage({super.key, required this.matchId});
@@ -239,17 +255,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         awayScore: result.away,
       );
       if (mounted) {
-        final msg = switch (status) {
-          'completed' => 'Both captains agree on the winner — match completed!',
-          'disputed' =>
-            'Your report disagrees with the opponent on the winner. '
-                'Please check and re-submit.',
-          'resolved' =>
-            'Still disagreeing — resolved automatically in favour of the more '
-                'trusted captain. Match completed.',
-          _ => 'Score submitted. Waiting for the opponent\'s report.',
-        };
-        showInfo(context, msg);
+        showInfo(context, scoreSubmitMessage(status));
       }
       await _load();
     } catch (e) {
