@@ -4,7 +4,7 @@ import 'package:footrank/services/supabase_service.dart';
 
 class RankingRepository {
   /// Players must have played at least this many matches to be ranked.
-  static const int minMatches = 5;
+  static const int minMatches = 2;
 
   /// Ranked players (>= [minMatches] matches), ordered by ELO (desc),
   /// optionally filtered by position.
