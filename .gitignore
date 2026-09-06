@@ -55,4 +55,7 @@ store_screens/
 .firebase/
 
 # Local Claude Code config (contains local permission history, not for git)
-.claude/
+.claude/*
+!.claude/hooks/
+!.claude/hooks/**
+!.claude/settings.json
