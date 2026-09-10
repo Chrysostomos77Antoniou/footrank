@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chrysostomos Antoniou — CV</title>
+<style>
+  @page { size: A4; margin: 10mm 13mm; }
+
+  :root {
+    --accent: #1F3864;
+    --ink:    #222222;
+    --muted:  #444444;
+    --faint:  #999999;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body {
+    margin: 0;
+    font-family: Calibri, "Carlito", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    font-size: 9.3pt;
+    line-height: 1.26;
+    color: var(--ink);
+  }
+
+  a { color: var(--accent); text-decoration: underline; }
+
+  /* ---------- header ---------- */
+  .name {
+    text-align: center;
+    font-size: 20pt;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: .09em;
+    margin: 0 0 1pt;
+  }
+  .tagline {
+    text-align: center;
+    font-size: 10.5pt;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .16em;
+    margin: 0 0 4pt;
+  }
+  .contact {
+    text-align: center;
+    font-size: 9pt;
+    color: var(--muted);
+    margin: 0 0 2pt;
+  }
+  .contact .sep { color: var(--faint); padding: 0 5pt; }
+
+  /* ---------- sections ---------- */
+  h2 {
+    font-size: 10.5pt;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .16em;
+    border-bottom: .9pt solid var(--accent);
+    padding-bottom: 1.5pt;
+    margin: 8.5pt 0 4pt;
+    break-after: avoid;
+  }
+
+  p.summary { margin: 0 0 2pt; text-align: justify; }
+
+  /* ---------- entries ---------- */
+  .entry { break-inside: avoid; margin-top: 5.5pt; }
+  .entry:first-of-type { margin-top: 0; }
+
+  .role {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10pt;
+    margin-bottom: .5pt;
+  }
+  .role .title { font-size: 10pt; font-weight: 700; color: #111; }
+  .role .org   { font-size: 9.5pt; font-weight: 700; color: var(--accent); }
+  .role .bar   { color: var(--faint); padding: 0 3pt; font-weight: 400; }
+  .role .dates {
+    font-size: 9pt;
+    font-style: italic;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .sub {
+    font-size: 9pt;
+    font-style: italic;
+    color: var(--muted);
+    margin: 0 0 2.5pt;
+  }
+  .sub .sep { color: var(--faint); padding: 0 4pt; font-style: normal; }
+
+  /* ---------- lists ---------- */
+  ul { margin: 0; padding-left: 13pt; }
+  li { margin-bottom: 1.2pt; }
+  li::marker { color: var(--accent); }
+  li b { color: #111; }
+
+  ul.skills { margin-bottom: 1pt; }
+
+  .interests { margin: 0; }
+</style>
+</head>
+<body>
+
+  <div class="name">CHRYSOSTOMOS ANTONIOU</div>
+  <div class="tagline">.NET Software Developer</div>
+  <div class="contact">
+    Nicosia, Cyprus<span class="sep">•</span>+357 96 460 190<span class="sep">•</span><a href="mailto:chrysostomosantoniou77@gmail.com">chrysostomosantoniou77@gmail.com</a>
+  </div>
+  <div class="contact" style="margin-bottom:0">
+    <a href="https://github.com/Chrysostomos77Antoniou?tab=repositories">GitHub Repositories</a><span class="sep">•</span><a href="https://www.linkedin.com/in/chrysostomos-antoniou-19186934a/">LinkedIn</a>
+  </div>
+
+  <h2>Professional Summary</h2>
+  <p class="summary">
+    Computer Science graduate and current MSc Artificial Intelligence candidate with commercial experience designing,
+    developing and maintaining .NET-based web applications in C# and SQL. Comfortable across the full stack —
+    object-oriented C# on the back end, relational database design and query optimisation, and HTML5, CSS and JavaScript
+    on the front end. Has delivered production applications end-to-end, from architecture and data modelling through
+    REST API integration, automated system testing and Git-based release management. Fluent in Greek and English,
+    with a strong appetite for learning, taking initiative and growing within a collaborative engineering team.
+  </p>
+
+  <h2>Core Technical Skills</h2>
+  <ul class="skills">
+    <li><b>Languages &amp; .NET:</b> C#, .NET — object-oriented design with a focus on clean, maintainable and scalable code; C++, Java, Python, Dart, TypeScript</li>
+    <li><b>Web &amp; APIs:</b> RESTful API design and integration, JSON, XML, HTML5, CSS, JavaScript</li>
+    <li><b>Databases:</b> SQL — query writing, updates, schema design and performance optimisation; PostgreSQL</li>
+    <li><b>Testing &amp; Quality:</b> System test validation, automated unit and integration testing, regression suites, code reviews, debugging and troubleshooting</li>
+    <li><b>Version Control &amp; CI:</b> Git and GitHub, branching and pull-request workflows, GitHub Actions CI pipelines</li>
+    <li><b>Security &amp; Cloud:</b> Basic application security practices, authentication and row-level access control, automated dependency and security scanning, cloud-hosted backends</li>
+    <li><b>Documentation:</b> Technical documentation of developed code, implemented functionality and system design</li>
+  </ul>
+
+  <h2>Professional Experience</h2>
+
+  <div class="entry">
+    <div class="role">
+      <div><span class="title">Software Developer</span><span class="bar">|</span><span class="org">ZEBRA Consultants</span></div>
+      <div class="dates">06/2025 – 12/2025</div>
+    </div>
+    <div class="sub">Nicosia, Cyprus<span class="sep">•</span>C#, .NET, SQL, HTML</div>
+    <ul>
+      <li>Developed and maintained features for existing web applications according to functional and technical specifications, working across both back end and front end using C#, HTML and SQL.</li>
+      <li>Maintained and extended production software to ensure smooth day-to-day operation, improve the user experience and continuously enhance application capabilities.</li>
+      <li>Supported database management tasks including writing and tuning queries, applying data updates and optimising query performance.</li>
+      <li>Performed bug fixing and system testing of delivered code, validating changes before release to ensure stability.</li>
+      <li>Participated in code reviews and team system updates, contributing to code quality and shared engineering standards.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="role">
+      <div><span class="title">Computing Teacher</span><span class="bar">|</span><span class="org">Pascal Education</span></div>
+      <div class="dates">12/2025 – 07/2026</div>
+    </div>
+    <div class="sub">Nicosia, Cyprus</div>
+    <ul>
+      <li>Delivered engaging Computing lessons in programming, computer science and digital skills to students of varying abilities.</li>
+      <li>Explained technical concepts clearly in both Greek and English, building students’ problem-solving ability and confidence with technology.</li>
+      <li>Planned lessons and classroom activities, demonstrating strong communication, interpersonal and organisational skills with students and staff.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="role">
+      <div><span class="title">Machine Learning Intern</span><span class="bar">|</span><span class="org">IQ3SOLAR</span></div>
+      <div class="dates">07/2024 – 09/2024</div>
+    </div>
+    <div class="sub">Limassol, Cyprus<span class="sep">•</span>Python, machine learning, data engineering</div>
+    <ul>
+      <li>Forecast solar power generation using machine learning models and weather data, delivering day-ahead and multi-day production forecasts.</li>
+      <li>Handled data management tasks — collecting, cleaning and preparing large weather and production datasets for model training and evaluation.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="role">
+      <div><span class="title">Security Systems Technician</span><span class="bar">|</span><span class="org">A.A. Protecta Private Security Services Ltd</span></div>
+      <div class="dates">06/2022 – 08/2022</div>
+    </div>
+    <div class="sub">Nicosia, Cyprus</div>
+    <ul>
+      <li>Installed and configured security systems and programmed camera hardware on client sites.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="role">
+      <div><span class="title">Infantry Soldier</span><span class="bar">|</span><span class="org">National Guard of Cyprus</span></div>
+      <div class="dates">07/2018 – 09/2019</div>
+    </div>
+    <div class="sub">Nicosia, Cyprus</div>
+    <ul>
+      <li>Completed mandatory 14-month national service, building discipline, responsibility and adaptability, and strengthening communication and collaboration skills within a diverse team.</li>
+    </ul>
+  </div>
+
+  <h2>Technical Projects</h2>
+
+  <div class="entry">
+    <div class="role">
+      <div><span class="title">FootRank — Cross-Platform Football Application</span></div>
+      <div class="dates">Personal Project</div>
+    </div>
+    <div class="sub">Flutter, Dart, PostgreSQL, REST APIs, GitHub Actions<span class="sep">•</span><a href="https://github.com/Chrysostomos77Antoniou/footrank">github.com/Chrysostomos77Antoniou/footrank</a></div>
+    <ul>
+      <li>Designed the architecture and shipped a production application end-to-end for organising matches, ranking teams and booking courts — defining the data model, API layer and feature roadmap from business requirements.</li>
+      <li>Modelled a relational PostgreSQL schema and secured it with row-level security policies, applying basic application security practices for authentication and per-user data access.</li>
+      <li>Integrated RESTful APIs with JSON payloads for all client–server communication, including real-time team ratings, match proposals, team invites and court-booking workflows.</li>
+      <li>Wrote automated unit and integration test suites, including regression coverage for score submission and match-proposal flows, and ran them as system test validation in a GitHub Actions CI pipeline alongside an automated security scan.</li>
+      <li>Maintained and continuously enhanced the application through versioned releases (currently v1.0.9) using Git branching and pull-request workflows, with technical documentation maintained alongside the code.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="role">
+      <div><span class="title">Mission Control — Agent Operations Dashboard</span></div>
+      <div class="dates">Personal Project</div>
+    </div>
+    <div class="sub">Next.js, TypeScript, REST APIs<span class="sep">•</span><a href="https://github.com/Chrysostomos77Antoniou/MissionControl">github.com/Chrysostomos77Antoniou/MissionControl</a></div>
+    <ul>
+      <li>Built a web dashboard that runs autonomous agents to research, draft and act on product growth goals, with a mandatory human approval gate for high-risk actions.</li>
+      <li>Implemented the front end in TypeScript against REST endpoints, applying clean separation between the UI, service and data layers.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="role">
+      <div><span class="title">CRM / Admin Panel</span></div>
+      <div class="dates">Personal Project</div>
+    </div>
+    <div class="sub">Flutter Web, PostgreSQL</div>
+    <ul>
+      <li>Developed an internal web admin panel for managing users, teams, courts and match data, covering full CRUD operations over a relational database.</li>
+    </ul>
+  </div>
+
+  <h2>Education</h2>
+
+  <div class="entry">
+    <div class="role">
+      <div><span class="title">MSc Artificial Intelligence</span><span class="bar">|</span><span class="org">University of Cyprus</span></div>
+      <div class="dates">09/2025 – Present</div>
+    </div>
+    <div class="sub">Nicosia, Cyprus</div>
+  </div>
+
+  <div class="entry">
+    <div class="role">
+      <div><span class="title">BSc Computer Science</span><span class="bar">|</span><span class="org">University of Piraeus</span></div>
+      <div class="dates">09/2019 – 02/2025</div>
+    </div>
+    <div class="sub">Piraeus, Greece<span class="sep">•</span>Grade: 7.32 / 10</div>
+    <ul>
+      <li>Comprehensive Computer Science programme covering software engineering, web development, databases and cybersecurity, with proficiency developed in C#, C++, Java and Python.</li>
+      <li>Key modules: Database Management Systems, ERP/CRM Systems, Modern Software Technology — Software for Mobile Devices.</li>
+      <li>Dissertation: designed, built and deployed a mobile application — awarded a grade of 10 / 10.</li>
+    </ul>
+  </div>
+
+  <div class="entry">
+    <div class="role">
+      <div><span class="title">Apolytirion (High School Diploma)</span><span class="bar">|</span><span class="org">Saint Varnavas Lyceum</span></div>
+      <div class="dates">09/2015 – 06/2018</div>
+    </div>
+    <div class="sub">Nicosia, Cyprus<span class="sep">•</span>15.75 / 20 (“Very Good”)<span class="sep">•</span>Computer Science, Physics, Mathematics</div>
+  </div>
+
+  <h2>Languages &amp; Certifications</h2>
+  <ul>
+    <li><b>Greek:</b> Native</li>
+    <li><b>English:</b> Fluent — IGCSE English as a Second Language (Grade C)</li>
+    <li><b>ictEurope (Intermediate):</b> Databases, General Computing, Internet Services</li>
+  </ul>
+
+  <h2>Interests</h2>
+  <p class="interests">
+    Football — two years in the Olympiakos Nicosia academies and one season as a semi-professional player for
+    Ethnikos Latsion (2017/18). Muay Thai, gym and music.
+  </p>
+
+</body>
+</html>
