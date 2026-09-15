@@ -30,3 +30,12 @@
 
 # video_player (ExoPlayer/Media3) -- optional codec extensions we don't ship.
 -dontwarn com.google.android.exoplayer2.**
+
+# flutter_stripe wraps Stripe's React Native SDK, whose push-provisioning proxy
+# references com.stripe.android.pushProvisioning.*. Those classes live in the
+# separate stripe-android-issuing-push-provisioning artifact, which we don't
+# depend on: push provisioning is for adding issued cards to a device wallet,
+# and FootRank only ever takes a card payment. R8 still fails on the dangling
+# references, exactly like the Play Core case above.
+-dontwarn com.stripe.android.pushProvisioning.**
+-keep class com.stripe.android.pushProvisioning.** { *; }
