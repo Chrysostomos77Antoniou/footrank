@@ -32,6 +32,10 @@ dependencies:
   crypto: ^3.0.6
   google_sign_in: ^7.2.0
   flutter_facebook_auth: ^7.0.0
+  # Payments (the €2 per-team match fee). Requires, on Android, that
+  # MainActivity extends FlutterFragmentActivity and that NormalTheme derives
+  # from Theme.AppCompat -- both done in android/ for this dependency.
+  flutter_stripe: ^11.0.0
 
 dev_dependencies:
   flutter_test:

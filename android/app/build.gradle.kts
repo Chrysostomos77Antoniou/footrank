@@ -89,4 +89,9 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Declared explicitly rather than relied on transitively via flutter_stripe:
+    // res/values/styles.xml references Theme.AppCompat for NormalTheme (the
+    // Stripe payment sheet requires it), and a resource-not-found there would
+    // fail the build, so the dependency that provides it shouldn't be implicit.
+    implementation("androidx.appcompat:appcompat:1.7.0")
 }

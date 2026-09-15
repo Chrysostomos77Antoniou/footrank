@@ -16,7 +16,14 @@
          running.
 
          This Theme is only used starting with V2 of Flutter's Android embedding. -->
-    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+    <!-- Parent is AppCompat (not @android:style/Theme.*) because the Stripe
+         Android SDK behind flutter_stripe inflates AppCompat widgets into this
+         activity; with a plain framework theme the payment sheet crashes with
+         "You need to use a Theme.AppCompat theme (or descendant)". Every item
+         below is unchanged. LaunchTheme deliberately keeps its framework parent:
+         it is only on screen before Flutter's first frame, long before any
+         payment UI, and its splash/cutout behaviour is tuned. -->
+    <style name="NormalTheme" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">?android:colorBackground</item>
         <!-- See values/styles.xml. NormalTheme is the runtime window theme, so
              the cutout mode has to be set here as well as on LaunchTheme. -->

@@ -11,9 +11,12 @@ import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_player_model.dart';
+import 'package:footrank/models/match_payment_model.dart';
 import 'package:footrank/models/match_status.dart';
 import 'package:footrank/models/team_member_model.dart';
 import 'package:footrank/models/team_model.dart';
+import 'package:footrank/match/presentation/widgets/match_fee_card.dart';
+import 'package:footrank/payment/data/payment_repository.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
@@ -50,6 +53,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
     with ThemeRepaintMixin {
   final _matchRepo = MatchRepository();
   final _teamRepo = TeamRepository();
+  final _paymentRepo = PaymentRepository();
 
   bool _loading = true;
   Object? _error;
@@ -65,6 +69,11 @@ class _MatchDetailPageState extends State<MatchDetailPage>
   List<Map<String, dynamic>> _contacts = [];
   Map<String, MatchPlayerModel> _attendance = {};
   Map<String, String> _myBehavior = {}; // targetUserId -> 'good'|'bad'
+
+  /// This team's match-fee row, when payments are configured in this build.
+  /// Null means no charge has been started yet (or payments are disabled).
+  MatchPaymentModel? _myPayment;
+  bool _paying = false;
 
   // Information / Contact / Attendance.
   int _tab = 0;
@@ -121,10 +130,27 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         opponentTeamId = home.id;
       }
 
+      // Wave 4: the fee row, which needs the resolved team id. Only a captain
+      // can pay, so nobody else needs it. Deliberately non-fatal -- payments are
+      // additive, and a payments outage must not turn the whole match page into
+      // an error screen.
+      MatchPaymentModel? myPayment;
+      if (isCaptain && myTeamId != null && PaymentRepository.isEnabled) {
+        try {
+          myPayment = await _paymentRepo.fetchMyPayment(
+            matchId: match.id,
+            teamId: myTeamId,
+          );
+        } catch (e) {
+          debugPrint('match fee lookup failed: $e');
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _match = match;
         _isCaptain = isCaptain;
+        _myPayment = myPayment;
         _myTeamId = myTeamId;
         _opponentTeamId = opponentTeamId;
         _homeTeam = home;
@@ -142,6 +168,71 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         _error = e;
         _loading = false;
       });
+    }
+  }
+
+  /// Captain pays their team's share of the FootRank fee.
+  ///
+  /// The Stripe sheet returning success means the money moved, but our own row
+  /// is written by the webhook a moment later -- so this waits briefly for that
+  /// to land rather than optimistically drawing "Paid" from a client-side
+  /// assumption. If the wait times out the payment still stands; the row just
+  /// hasn't caught up, and the next load will show it.
+  Future<void> _payMatchFee() async {
+    final match = _match;
+    final teamId = _myTeamId;
+    if (match == null || teamId == null || _paying) return;
+
+    setState(() => _paying = true);
+    try {
+      final result = await _paymentRepo.payMatchFee(match.id);
+      if (!mounted) return;
+
+      // Backing out of the sheet is not a failure -- say nothing.
+      if (result.isCancelled) return;
+
+      if (result.outcome == PaymentOutcome.failed) {
+        showError(context, paymentResultMessage(result));
+        // Surface the decline that the webhook recorded, so a retry shows the
+        // reason rather than an unchanged button.
+        await _refreshPayment(match.id, teamId);
+        return;
+      }
+
+      if (result.outcome == PaymentOutcome.alreadyPaid) {
+        // Nothing to wait for -- the row already exists, so read it straight
+        // back rather than polling for a webhook that landed long ago.
+        await _refreshPayment(match.id, teamId);
+        if (!mounted) return;
+        showInfo(context, paymentResultMessage(result));
+        triggerAppRefresh();
+        return;
+      }
+
+      final confirmed = await _paymentRepo.awaitConfirmation(
+        matchId: match.id,
+        teamId: teamId,
+      );
+      if (!mounted) return;
+
+      setState(() => _myPayment = confirmed ?? _myPayment);
+      showSuccess(context, paymentResultMessage(result));
+      // Other tabs/screens show the same fee state, so let them re-fetch.
+      triggerAppRefresh();
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
+  }
+
+  Future<void> _refreshPayment(String matchId, String teamId) async {
+    try {
+      final payment = await _paymentRepo.fetchMyPayment(
+        matchId: matchId,
+        teamId: teamId,
+      );
+      if (mounted) setState(() => _myPayment = payment);
+    } catch (e) {
+      debugPrint('match fee refresh failed: $e');
     }
   }
 
@@ -610,6 +701,17 @@ class _MatchDetailPageState extends State<MatchDetailPage>
               delay: const Duration(milliseconds: 60),
               child: _buildScoreSection()),
         ],
+        if (_showFeeCard(status)) ...[
+          const SizedBox(height: AppSpacing.xs),
+          FadeSlideIn(
+            delay: AppMotion.quick,
+            child: MatchFeeCard(
+              payment: _myPayment,
+              paying: _paying,
+              onPay: _payMatchFee,
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         FadeSlideIn(
           delay: const Duration(milliseconds: 120),
@@ -635,6 +737,18 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         ),
       ],
     );
+  }
+
+  /// The fee card is captain-only, and only on a live fixture: there is nothing
+  /// to collect on a cancelled match, and chasing a fee after a match has been
+  /// played and scored would be worse than letting it go. An already-paid fee
+  /// stays visible on a completed match as a receipt.
+  bool _showFeeCard(MatchStatus status) {
+    if (!PaymentRepository.isEnabled) return false;
+    if (!_isCaptain || _myTeamId == null) return false;
+    if (_match?.status == 'cancelled') return false;
+    if (_myPayment?.isPaid == true) return true;
+    return status == MatchStatus.confirmed;
   }
 
   Widget _buildRateTab(MatchModel match) {
