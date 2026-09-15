@@ -1,0 +1,17 @@
+project_id = "yspccychuwvlrjgioqss"
+
+# Captain-initiated: called from the app with the user's Supabase JWT, which the
+# function also re-checks in code before trusting the caller.
+[functions.create-match-payment]
+verify_jwt = true
+
+# Stripe cannot present a Supabase JWT, so the gateway check MUST be off or every
+# delivery is rejected with a 401 before the handler runs. The function is not
+# unauthenticated as a result: it verifies the Stripe-Signature HMAC against
+# STRIPE_WEBHOOK_SECRET and rejects anything that doesn't match.
+[functions.stripe-webhook]
+verify_jwt = false
+
+# Existing function, called server-side with a shared secret (x-push-secret).
+[functions.send-push]
+verify_jwt = false
