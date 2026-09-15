@@ -21,8 +21,8 @@
          Android SDK behind flutter_stripe inflates AppCompat widgets into this
          activity; with a plain framework theme the payment sheet crashes with
          "You need to use a Theme.AppCompat theme (or descendant)". Every item
-         below is unchanged. LaunchTheme deliberately keeps its framework parent
-         -- it is only on screen before Flutter's first frame, long before any
+         below is unchanged. LaunchTheme deliberately keeps its framework parent:
+         it is only on screen before Flutter's first frame, long before any
          payment UI, and its splash/cutout behaviour is tuned. -->
     <style name="NormalTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowBackground">?android:colorBackground</item>
