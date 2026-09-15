@@ -10,6 +10,7 @@ import 'package:footrank/auth/data/auth_flow.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/firebase_options.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
+import 'package:footrank/payment/data/payment_repository.dart';
 import 'package:footrank/services/fcm_token_service.dart';
 import 'package:footrank/services/notification_service.dart';
 import 'package:footrank/services/supabase_service.dart';
@@ -26,6 +27,11 @@ Future<void> main() async {
   await themeController.load();
   await OnboardingPrefs.load();
   await SupabaseService.initialize();
+  // Stripe SDK setup for the match fee. No-ops when STRIPE_PUBLISHABLE_KEY
+  // isn't defined, so debug builds and tests need no Stripe account. Must
+  // complete before any PaymentSheet is presented, hence awaited here rather
+  // than lazily on first use.
+  await PaymentRepository.initialize();
   // Watch for the password-recovery deep link so we can route to the reset page.
   initPasswordRecoveryListener();
 

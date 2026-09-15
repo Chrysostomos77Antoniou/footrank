@@ -63,8 +63,34 @@ to trust any event without a signing secret.
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
 
 The app additionally needs the Stripe **publishable** key, passed at build time
-like the Supabase config (`--dart-define=STRIPE_PUBLISHABLE_KEY=pk_…`). Never
-put a secret key in the client.
+like the Supabase config. Never put a secret key in the client.
+
+```bash
+flutter build apk --release \
+  --dart-define=SUPABASE_URL=https://yspccychuwvlrjgioqss.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=<anon-key> \
+  --dart-define=STRIPE_PUBLISHABLE_KEY=pk_live_…
+```
+
+With `STRIPE_PUBLISHABLE_KEY` absent the whole payment UI hides itself
+(`PaymentRepository.isEnabled`), so `flutter run` and CI keep working with no
+Stripe account. That is also the kill switch: ship a build without the key and
+payments disappear without a code change.
+
+### Android/iOS requirements that flutter_stripe imposes
+
+Two native changes were needed and are easy to undo by accident:
+
+- `MainActivity` must extend **`FlutterFragmentActivity`**, not
+  `FlutterActivity` — the Stripe SDK presents the payment sheet and 3DS
+  challenges as fragments.
+- `NormalTheme` in `android/app/src/main/res/values*/styles.xml` must have a
+  **`Theme.AppCompat`** parent, or the sheet throws "You need to use a
+  Theme.AppCompat theme (or descendant)". `LaunchTheme` was deliberately left on
+  its framework parent, since it is only on screen during startup and its
+  splash/cutout behaviour is tuned.
+
+iOS needs no change: the deployment target is already 15.0.
 
 ### Stripe dashboard setup
 

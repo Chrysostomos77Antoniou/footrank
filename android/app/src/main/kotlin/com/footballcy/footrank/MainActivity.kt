@@ -6,13 +6,18 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.MediaStore
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
 
-class MainActivity : FlutterActivity() {
+// FlutterFragmentActivity, not FlutterActivity: the Stripe Android SDK used by
+// flutter_stripe presents PaymentSheet and 3DS challenges as fragments, which
+// requires a FragmentActivity host. With plain FlutterActivity the payment sheet
+// throws at runtime instead of opening. NormalTheme is likewise given an
+// AppCompat parent (see res/values/styles.xml) for the same dependency.
+class MainActivity : FlutterFragmentActivity() {
     private val channelName = "footrank/gallery"
     private val pickRequestCode = 90111
     private var pendingResult: MethodChannel.Result? = null
