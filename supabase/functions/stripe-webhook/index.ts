@@ -15,6 +15,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
 
 /// Reject events older than this to blunt replay attempts (Stripe's own
 /// recommended tolerance).
@@ -25,6 +27,95 @@ function formatAmount(cents: number, currency: string): string {
   return symbol
     ? `${symbol}${(cents / 100).toFixed(2)}`
     : `${(cents / 100).toFixed(2)} ${String(currency).toUpperCase()}`;
+}
+
+
+/// Posts a "both teams paid" summary straight to Telegram.
+///
+/// Deliberately NOT routed through the mission-control app. That deployment is
+/// disabled on Vercel -- it answers 402 DEPLOYMENT_DISABLED -- which is what
+/// silently killed the existing fixture-confirmed message even though the
+/// database was posting correctly. Talking to api.telegram.org directly drops
+/// that dependency, so this keeps working regardless of mission-control.
+///
+/// Sends plain text rather than Markdown on purpose: a team name containing
+/// *, _ or [ would make Telegram reject a Markdown message outright, and a
+/// delivered plain message beats a bold one that 400s.
+///
+/// Never throws. The money has already moved and the rows are already correct,
+/// so a Telegram outage must not push the webhook into a non-2xx and make
+/// Stripe retry a payment that is fully recorded.
+async function sendMatchPaidTelegram(
+  supa: ReturnType<typeof createClient>,
+  matchId: string,
+): Promise<void> {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.log("Telegram not configured (TELEGRAM_BOT_TOKEN/CHAT_ID unset); skipping");
+    return;
+  }
+  try {
+    const { data: match } = await supa
+      .from("matches")
+      .select(
+        "city, scheduled_at, match_type, format, " +
+          "home_team:home_team_id(name), away_team:away_team_id(name), " +
+          "suggested_court:suggested_court_id(name, address)",
+      )
+      .eq("id", matchId)
+      .maybeSingle();
+    if (!match) return;
+
+    const { data: payments } = await supa
+      .from("match_payments")
+      .select("amount_cents, currency")
+      .eq("match_id", matchId)
+      .eq("status", "succeeded");
+
+    const rows = payments ?? [];
+    const total = rows.reduce(
+      (sum: number, p: { amount_cents?: number }) => sum + (p.amount_cents ?? 0),
+      0,
+    );
+    const currency = rows[0]?.currency ?? "eur";
+
+    // Cyprus local time -- the fixture is in Cyprus and so is whoever reads this.
+    const kickoff = new Date(match.scheduled_at as string).toLocaleString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Asia/Nicosia",
+    });
+
+    const court = (match.suggested_court as { name?: string } | null)?.name;
+    const home = (match.home_team as { name?: string } | null)?.name ?? "Home";
+    const away = (match.away_team as { name?: string } | null)?.name ?? "Away";
+
+    const text = [
+      "\u2705 Both teams paid",
+      "",
+      `${home} vs ${away}`,
+      `\ud83d\uddd3 ${kickoff}`,
+      `\ud83d\udccd ${court ? court + ", " : ""}${match.city}`,
+      `\ud83d\udcb6 ${formatAmount(total, currency)} collected (${rows.length} of 2 teams)`,
+      `${match.match_type} \u00b7 ${match.format}`,
+    ].join("\n");
+
+    const res = await fetch(
+      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text }),
+      },
+    );
+    if (!res.ok) {
+      console.error("Telegram sendMessage failed:", res.status, await res.text());
+    }
+  } catch (e) {
+    console.error("Telegram send threw:", e);
+  }
 }
 
 const json = (body: unknown, status = 200) =>
@@ -119,8 +210,14 @@ Deno.serve(async (req) => {
 
         const row = rows?.[0];
         const matchId = row?.match_id ?? pi.metadata?.match_id;
+        // The RPC returns the match's new derived status, so the "both teams
+        // paid" moment is detected here rather than re-queried.
+        let matchPaymentStatus: string | null = null;
         if (matchId) {
-          await supa.rpc("recalc_match_payment_status", { p_match_id: matchId });
+          const { data: recalced } = await supa.rpc("recalc_match_payment_status", {
+            p_match_id: matchId,
+          });
+          matchPaymentStatus = (recalced as string | null) ?? null;
         }
 
         // In-app confirmation + push, so the captain has proof inside the app
@@ -139,6 +236,14 @@ Deno.serve(async (req) => {
           // money moved and the row is correct, so returning non-2xx here would
           // make Stripe retry a payment that is already fully recorded.
           if (notifyErr) console.error("fee_paid notification failed:", notifyErr);
+        }
+
+        // `row` is only set when THIS delivery actually transitioned a payment,
+        // so a Stripe redelivery cannot re-announce a match that was already
+        // announced -- the second fee is what flips the match to 'paid', and
+        // only one delivery can do that.
+        if (row && matchId && matchPaymentStatus === "paid") {
+          await sendMatchPaidTelegram(supa, matchId);
         }
         break;
       }
