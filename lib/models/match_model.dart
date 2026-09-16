@@ -25,6 +25,10 @@ class MatchModel {
   final String? courtBookingStatus; // pending | booked, null = not resolved yet
   final String? cancelReason; // expired_no_score | null (only set when status == cancelled)
 
+  /// unpaid | awaiting_payment | paid -- derived match-wide from both teams'
+  /// fee rows. Advisory: nothing blocks an unpaid match from being played.
+  final String paymentStatus;
+
   // Optional joined team fields
   final String? homeTeamName;
   final String? awayTeamName;
@@ -66,6 +70,7 @@ class MatchModel {
     this.suggestedCourtId,
     this.courtBookingStatus,
     this.cancelReason,
+    this.paymentStatus = 'unpaid',
     this.homeTeamName,
     this.awayTeamName,
     this.homeTeamLogo,
@@ -89,6 +94,12 @@ class MatchModel {
   }
 
   bool get hasScore => homeScore != null && awayScore != null;
+
+  /// True once both teams' fees have succeeded.
+  bool get feesSettled => paymentStatus == 'paid';
+
+  /// No fee has been paid by either side yet, so this team definitely owes one.
+  bool get feeUnstarted => paymentStatus == 'unpaid';
 
   factory MatchModel.fromJson(Map<String, dynamic> json) {
     final home = json['home_team'] as Map<String, dynamic>?;
@@ -120,6 +131,7 @@ class MatchModel {
       suggestedCourtId: json['suggested_court_id'] as String?,
       courtBookingStatus: json['court_booking_status'] as String?,
       cancelReason: json['cancel_reason'] as String?,
+      paymentStatus: (json['payment_status'] as String?) ?? 'unpaid',
       suggestedCourtName: suggestedCourt?['name'] as String?,
       suggestedCourtAddress: suggestedCourt?['address'] as String?,
       suggestedCourtImageUrl: suggestedCourt?['image_url'] as String?,

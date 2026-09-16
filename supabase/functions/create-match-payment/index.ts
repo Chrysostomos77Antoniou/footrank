@@ -76,6 +76,10 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await supa.auth.getUser(jwt);
     const uid = userData?.user?.id;
     if (userErr || !uid) return json({ error: "unauthorized" }, 401);
+    // Stripe emails its own receipt to this address, which is the captain's
+    // proof of payment. We deliberately don't build our own invoice: Stripe's
+    // receipt is the authoritative record and needs no maintenance.
+    const receiptEmail = userData?.user?.email ?? undefined;
 
     const { match_id } = await req.json().catch(() => ({}));
     if (!match_id) return json({ error: "match_id required" }, 400);
@@ -155,6 +159,7 @@ Deno.serve(async (req) => {
       "metadata[team_id]": teamId,
       "metadata[captain_id]": uid,
     });
+    if (receiptEmail) body.set("receipt_email", receiptEmail);
 
     // Scoped to this row's current attempt count so a double-tap collapses into
     // one PaymentIntent, while a genuine retry after a decline still gets a new

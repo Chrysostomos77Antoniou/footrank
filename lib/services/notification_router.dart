@@ -8,6 +8,11 @@ const _matchTypes = {
   'match_reminder',
   'court_suggested',
   'match_expired',
+  // Payment types. Both deep-link to the match detail page, which is where the
+  // fee card lives -- 'fee_due' so the captain lands on the Pay button instead
+  // of hunting for it, 'fee_paid' so the receipt opens the match it belongs to.
+  'fee_due',
+  'fee_paid',
 };
 
 // Notification types backed by a `match_requests` row -- there's no single-

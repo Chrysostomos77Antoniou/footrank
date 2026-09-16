@@ -20,6 +20,13 @@ const WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET");
 /// recommended tolerance).
 const TOLERANCE_SECONDS = 300;
 
+function formatAmount(cents: number, currency: string): string {
+  const symbol = currency?.toLowerCase() === "eur" ? "\u20ac" : "";
+  return symbol
+    ? `${symbol}${(cents / 100).toFixed(2)}`
+    : `${(cents / 100).toFixed(2)} ${String(currency).toUpperCase()}`;
+}
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -94,7 +101,10 @@ Deno.serve(async (req) => {
     switch (event.type) {
       case "payment_intent.succeeded": {
         const pi = event.data.object;
-        // Forward-only, and scoped by payment-intent id so a replay is a no-op.
+        // Only a row that has NOT already succeeded may transition, so a
+        // redelivery matches nothing and returns no rows. That is what makes
+        // the receipt notification below exactly-once rather than once per
+        // delivery attempt.
         const { data: rows, error } = await supa
           .from("match_payments")
           .update({
@@ -103,13 +113,32 @@ Deno.serve(async (req) => {
             failure_reason: null,
           })
           .eq("stripe_payment_intent_id", pi.id)
-          .neq("status", "refunded")
-          .select("match_id");
+          .in("status", ["pending", "failed"])
+          .select("match_id, captain_id, amount_cents, currency");
         if (error) throw error;
 
-        const matchId = rows?.[0]?.match_id ?? pi.metadata?.match_id;
+        const row = rows?.[0];
+        const matchId = row?.match_id ?? pi.metadata?.match_id;
         if (matchId) {
           await supa.rpc("recalc_match_payment_status", { p_match_id: matchId });
+        }
+
+        // In-app confirmation + push, so the captain has proof inside the app
+        // and not only in Stripe's receipt email. Inserting into notifications
+        // is what fires the push (see the trg_push_notification trigger).
+        if (row?.captain_id) {
+          const amount = formatAmount(row.amount_cents ?? 200, row.currency ?? "eur");
+          const { error: notifyErr } = await supa.from("notifications").insert({
+            user_id: row.captain_id,
+            type: "fee_paid",
+            title: "Match fee paid",
+            body: `${amount} received for your team. A receipt has been emailed to you.`,
+            reference_id: matchId ?? null,
+          });
+          // A missing receipt notification must never fail the webhook: the
+          // money moved and the row is correct, so returning non-2xx here would
+          // make Stripe retry a payment that is already fully recorded.
+          if (notifyErr) console.error("fee_paid notification failed:", notifyErr);
         }
         break;
       }

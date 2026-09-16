@@ -13,6 +13,7 @@ import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/court_model.dart';
 import 'package:footrank/models/match_model.dart';
+import 'package:footrank/payment/data/payment_repository.dart';
 import 'package:footrank/models/match_proposal_model.dart';
 import 'package:footrank/models/match_request_model.dart';
 import 'package:footrank/models/match_status.dart';
@@ -1147,6 +1148,15 @@ class _MatchCard extends StatelessWidget {
     return 'draw';
   }
 
+  /// Fee wording for this card, or null when there is nothing to say --
+  /// payments disabled in this build, fees already settled, or a match that is
+  /// no longer collectable (completed/cancelled).
+  String? get _feeLabel {
+    if (!PaymentRepository.isEnabled) return null;
+    if (match.status != 'confirmed' || match.feesSettled) return null;
+    return match.feeUnstarted ? 'Fee due' : 'Fee pending';
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = match.scheduledAt.toLocal();
@@ -1208,6 +1218,16 @@ class _MatchCard extends StatelessWidget {
                   child: Text('${match.city} · $when · ${match.matchType}',
                       style: Theme.of(context).textTheme.bodySmall),
                 ),
+                // Surfaces an outstanding fee on the list itself, so a captain
+                // doesn't have to open each match to discover one is owed. The
+                // wording tracks what we actually know: 'unpaid' means neither
+                // side has paid (so this team definitely owes), while
+                // 'awaiting_payment' could be either side, hence the neutral
+                // label rather than a false "you owe".
+                if (_feeLabel != null) ...[
+                  _FeeChip(label: _feeLabel!, due: match.feeUnstarted),
+                  const SizedBox(width: AppSpacing.xs),
+                ],
                 if (label != null)
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -1229,6 +1249,47 @@ class _MatchCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Small pill flagging an outstanding match fee on a match card.
+///
+/// [due] distinguishes the two states we can tell apart: neither team has paid
+/// (actionable -- this captain owes) versus one side has (informational, and we
+/// cannot tell from the match row alone which side). Only the actionable case
+/// gets the accent colour, so the list doesn't cry wolf.
+class _FeeChip extends StatelessWidget {
+  final String label;
+  final bool due;
+  const _FeeChip({required this.label, required this.due});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = due ? AppColors.brand(context) : AppColors.muted(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xxs / 2,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(AppSemantic.statusPillRadius),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.receipt_long_rounded, size: AppIconSize.sm, color: color),
+          const SizedBox(width: AppSpacing.xxs),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ],
       ),
     );
   }
