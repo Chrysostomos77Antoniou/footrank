@@ -14,6 +14,7 @@ import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/court_model.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/payment/data/payment_repository.dart';
+import 'package:footrank/payment/presentation/widgets/pay_fee_button.dart';
 import 'package:footrank/models/match_proposal_model.dart';
 import 'package:footrank/models/match_request_model.dart';
 import 'package:footrank/models/match_status.dart';
@@ -36,6 +37,7 @@ class MatchesPage extends StatefulWidget {
 class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   final _matchRepo = MatchRepository();
   final _teamRepo = TeamRepository();
+  final _paymentRepo = PaymentRepository();
   final _courtRepo = CourtRepository();
 
   TeamModel? _team; // the currently-selected team (when in several)
@@ -62,6 +64,12 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   // visible; a captain who wants to narrow by strength sets this themselves.
   int _filterPowerRange = 0;
 
+  /// Fees this captain still owes, keyed by match id. Drives the Pay button on
+  /// each upcoming match card, so settling up never requires opening the match.
+  /// Only ever populated for teams the signed-in user captains, which is what
+  /// makes the button safe to show: if there is an entry, this user can pay it.
+  Map<String, PendingFee> _pendingFees = const {};
+
   bool get _isCaptain =>
       _team != null &&
       _team!.captainId == SupabaseService.client.auth.currentUser?.id;
@@ -77,13 +85,22 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   void initState() {
     super.initState();
     _load();
+    _loadPendingFees();
     appRefresh.addListener(_load);
+    appRefresh.addListener(_loadPendingFees);
   }
 
   @override
   void dispose() {
     appRefresh.removeListener(_load);
+    appRefresh.removeListener(_loadPendingFees);
     super.dispose();
+  }
+
+  Future<void> _loadPendingFees() async {
+    final fees = await _paymentRepo.fetchPendingFees();
+    if (!mounted) return;
+    setState(() => _pendingFees = {for (final f in fees) f.matchId: f});
   }
 
   Future<void> _load() async {
@@ -876,7 +893,11 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                               .map((e) => FadeSlideIn(
                                     delay: AppMotion.staggerFor(e.key),
                                     child: _MatchCard(
-                                        match: e.value, myTeamId: myTeamId),
+                                      match: e.value,
+                                      myTeamId: myTeamId,
+                                      pendingFee: _pendingFees[e.value.id],
+                                      onPaid: _loadPendingFees,
+                                    ),
                                   ))
                               .toList(),
                         ),
@@ -1130,7 +1151,17 @@ class _TeamSelector extends StatelessWidget {
 class _MatchCard extends StatelessWidget {
   final MatchModel match;
   final String? myTeamId;
-  const _MatchCard({required this.match, this.myTeamId});
+  /// Set only when the signed-in captain owes this match's fee -- its presence
+  /// is what authorises the Pay button, so no separate captain check is needed.
+  final PendingFee? pendingFee;
+  final VoidCallback? onPaid;
+
+  const _MatchCard({
+    required this.match,
+    this.myTeamId,
+    this.pendingFee,
+    this.onPaid,
+  });
 
   /// 'win' | 'loss' | 'draw' for my team, or null if not a finished match.
   String? get _result {
@@ -1146,15 +1177,6 @@ class _MatchCard extends StatelessWidget {
     if (mine > theirs) return 'win';
     if (mine < theirs) return 'loss';
     return 'draw';
-  }
-
-  /// Fee wording for this card, or null when there is nothing to say --
-  /// payments disabled in this build, fees already settled, or a match that is
-  /// no longer collectable (completed/cancelled).
-  String? get _feeLabel {
-    if (!PaymentRepository.isEnabled) return null;
-    if (match.status != 'confirmed' || match.feesSettled) return null;
-    return match.feeUnstarted ? 'Fee due' : 'Fee pending';
   }
 
   @override
@@ -1218,16 +1240,6 @@ class _MatchCard extends StatelessWidget {
                   child: Text('${match.city} · $when · ${match.matchType}',
                       style: Theme.of(context).textTheme.bodySmall),
                 ),
-                // Surfaces an outstanding fee on the list itself, so a captain
-                // doesn't have to open each match to discover one is owed. The
-                // wording tracks what we actually know: 'unpaid' means neither
-                // side has paid (so this team definitely owes), while
-                // 'awaiting_payment' could be either side, hence the neutral
-                // label rather than a false "you owe".
-                if (_feeLabel != null) ...[
-                  _FeeChip(label: _feeLabel!, due: match.feeUnstarted),
-                  const SizedBox(width: AppSpacing.xs),
-                ],
                 if (label != null)
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -1247,49 +1259,37 @@ class _MatchCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.labelLarge),
               ],
             ),
+            // The fee, payable right here. Previously this was only reachable
+            // by opening the match and scrolling, which meant captains did not
+            // know a fee was owed at all.
+            if (pendingFee != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  Icon(Icons.receipt_long_rounded,
+                      size: AppIconSize.sm, color: AppColors.brand(context)),
+                  const SizedBox(width: AppSpacing.xxs),
+                  Expanded(
+                    child: Text(
+                      pendingFee!.previouslyFailed
+                          ? 'Payment failed — your team is not covered'
+                          : 'Your team\'s fee is due',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.brand(context),
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                  PayFeeButton(
+                    fee: pendingFee!,
+                    compact: true,
+                    onPaid: onPaid,
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Small pill flagging an outstanding match fee on a match card.
-///
-/// [due] distinguishes the two states we can tell apart: neither team has paid
-/// (actionable -- this captain owes) versus one side has (informational, and we
-/// cannot tell from the match row alone which side). Only the actionable case
-/// gets the accent colour, so the list doesn't cry wolf.
-class _FeeChip extends StatelessWidget {
-  final String label;
-  final bool due;
-  const _FeeChip({required this.label, required this.due});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = due ? AppColors.brand(context) : AppColors.muted(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xs,
-        vertical: AppSpacing.xxs / 2,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(AppSemantic.statusPillRadius),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.receipt_long_rounded, size: AppIconSize.sm, color: color),
-          const SizedBox(width: AppSpacing.xxs),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-        ],
       ),
     );
   }

@@ -95,12 +95,6 @@ class MatchModel {
 
   bool get hasScore => homeScore != null && awayScore != null;
 
-  /// True once both teams' fees have succeeded.
-  bool get feesSettled => paymentStatus == 'paid';
-
-  /// No fee has been paid by either side yet, so this team definitely owes one.
-  bool get feeUnstarted => paymentStatus == 'unpaid';
-
   factory MatchModel.fromJson(Map<String, dynamic> json) {
     final home = json['home_team'] as Map<String, dynamic>?;
     final away = json['away_team'] as Map<String, dynamic>?;
