@@ -12,6 +12,11 @@ verify_jwt = true
 [functions.stripe-webhook]
 verify_jwt = false
 
+# Called only by the database (send_match_telegram), which presents the
+# service-role key from the vault -- so JWT verification stays ON.
+[functions.notify-telegram]
+verify_jwt = true
+
 # Existing function, called server-side with a shared secret (x-push-secret).
 [functions.send-push]
 verify_jwt = false
