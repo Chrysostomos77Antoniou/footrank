@@ -13,6 +13,8 @@ import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/court_model.dart';
 import 'package:footrank/models/match_model.dart';
+import 'package:footrank/payment/data/payment_repository.dart';
+import 'package:footrank/payment/presentation/widgets/pay_fee_button.dart';
 import 'package:footrank/models/match_proposal_model.dart';
 import 'package:footrank/models/match_request_model.dart';
 import 'package:footrank/models/match_status.dart';
@@ -35,6 +37,7 @@ class MatchesPage extends StatefulWidget {
 class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   final _matchRepo = MatchRepository();
   final _teamRepo = TeamRepository();
+  final _paymentRepo = PaymentRepository();
   final _courtRepo = CourtRepository();
 
   TeamModel? _team; // the currently-selected team (when in several)
@@ -61,6 +64,12 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   // visible; a captain who wants to narrow by strength sets this themselves.
   int _filterPowerRange = 0;
 
+  /// Fees this captain still owes, keyed by match id. Drives the Pay button on
+  /// each upcoming match card, so settling up never requires opening the match.
+  /// Only ever populated for teams the signed-in user captains, which is what
+  /// makes the button safe to show: if there is an entry, this user can pay it.
+  Map<String, PendingFee> _pendingFees = const {};
+
   bool get _isCaptain =>
       _team != null &&
       _team!.captainId == SupabaseService.client.auth.currentUser?.id;
@@ -76,13 +85,22 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   void initState() {
     super.initState();
     _load();
+    _loadPendingFees();
     appRefresh.addListener(_load);
+    appRefresh.addListener(_loadPendingFees);
   }
 
   @override
   void dispose() {
     appRefresh.removeListener(_load);
+    appRefresh.removeListener(_loadPendingFees);
     super.dispose();
+  }
+
+  Future<void> _loadPendingFees() async {
+    final fees = await _paymentRepo.fetchPendingFees();
+    if (!mounted) return;
+    setState(() => _pendingFees = {for (final f in fees) f.matchId: f});
   }
 
   Future<void> _load() async {
@@ -875,7 +893,11 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                               .map((e) => FadeSlideIn(
                                     delay: AppMotion.staggerFor(e.key),
                                     child: _MatchCard(
-                                        match: e.value, myTeamId: myTeamId),
+                                      match: e.value,
+                                      myTeamId: myTeamId,
+                                      pendingFee: _pendingFees[e.value.id],
+                                      onPaid: _loadPendingFees,
+                                    ),
                                   ))
                               .toList(),
                         ),
@@ -1129,7 +1151,17 @@ class _TeamSelector extends StatelessWidget {
 class _MatchCard extends StatelessWidget {
   final MatchModel match;
   final String? myTeamId;
-  const _MatchCard({required this.match, this.myTeamId});
+  /// Set only when the signed-in captain owes this match's fee -- its presence
+  /// is what authorises the Pay button, so no separate captain check is needed.
+  final PendingFee? pendingFee;
+  final VoidCallback? onPaid;
+
+  const _MatchCard({
+    required this.match,
+    this.myTeamId,
+    this.pendingFee,
+    this.onPaid,
+  });
 
   /// 'win' | 'loss' | 'draw' for my team, or null if not a finished match.
   String? get _result {
@@ -1227,6 +1259,35 @@ class _MatchCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.labelLarge),
               ],
             ),
+            // The fee, payable right here. Previously this was only reachable
+            // by opening the match and scrolling, which meant captains did not
+            // know a fee was owed at all.
+            if (pendingFee != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  Icon(Icons.receipt_long_rounded,
+                      size: AppIconSize.sm, color: AppColors.brand(context)),
+                  const SizedBox(width: AppSpacing.xxs),
+                  Expanded(
+                    child: Text(
+                      pendingFee!.previouslyFailed
+                          ? 'Payment failed — your team is not covered'
+                          : 'Your team\'s fee is due',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.brand(context),
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                  PayFeeButton(
+                    fee: pendingFee!,
+                    compact: true,
+                    onPaid: onPaid,
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

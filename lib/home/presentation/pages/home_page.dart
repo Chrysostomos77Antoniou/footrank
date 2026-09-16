@@ -12,6 +12,7 @@ import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/models/user_model.dart';
 import 'package:footrank/notifications/data/notification_repository.dart';
+import 'package:footrank/payment/presentation/widgets/pending_fee_banner.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/team/data/team_repository.dart';
@@ -240,6 +241,11 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
+              // Outstanding match fee, if any -- placed above the hero so it is
+              // the first thing under the header. The fee card inside match
+              // detail was not discoverable: a captain had to already know a
+              // fee existed and go looking. Renders nothing when none is owed.
+              const PendingFeeBanner(),
               FadeSlideIn(
                 delay: const Duration(milliseconds: 60),
                 child: _HeroBanner(),

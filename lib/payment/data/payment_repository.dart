@@ -4,6 +4,39 @@ import 'package:footrank/core/constants/app_constants.dart';
 import 'package:footrank/models/match_payment_model.dart';
 import 'package:footrank/services/supabase_service.dart';
 
+
+/// One match where the signed-in captain still owes their team's fee.
+///
+/// Carries just enough to render an actionable prompt without opening the
+/// match: who is playing, when, and how much.
+class PendingFee {
+  final String matchId;
+  final String teamId;
+  final String homeTeamName;
+  final String awayTeamName;
+  final DateTime scheduledAt;
+  final String city;
+
+  /// The existing row, when a charge was already attempted (e.g. declined).
+  /// Null when nothing has been started yet.
+  final MatchPaymentModel? payment;
+
+  const PendingFee({
+    required this.matchId,
+    required this.teamId,
+    required this.homeTeamName,
+    required this.awayTeamName,
+    required this.scheduledAt,
+    required this.city,
+    this.payment,
+  });
+
+  String get fixture => '$homeTeamName vs $awayTeamName';
+  bool get previouslyFailed => payment?.hasFailed ?? false;
+  String get amountLabel =>
+      payment?.amountLabel ?? MatchPaymentModel.formatAmount(200, 'eur');
+}
+
 /// The €2 platform fee one team owes for a confirmed match.
 ///
 /// FootRank never handles the pitch rental — teams pay the venue directly, in
@@ -65,6 +98,95 @@ class PaymentRepository {
       map[payment.teamId] = payment;
     }
     return map;
+  }
+
+
+  /// Every confirmed match where the signed-in user captains a team that has
+  /// not paid yet, soonest first.
+  ///
+  /// Drives the Home prompt, so a captain sees the outstanding fee the moment
+  /// they open the app rather than having to open each match to find it.
+  /// Returns empty (never throws) when payments are disabled or the user
+  /// captains nothing -- this feeds a banner, and a banner must not be able to
+  /// break the home screen.
+  Future<List<PendingFee>> fetchPendingFees() async {
+    final uid = _uid;
+    if (uid == null || !isEnabled) return const [];
+
+    try {
+      final teams = await SupabaseService.client
+          .from('teams')
+          .select('id')
+          .eq('captain_id', uid)
+          .isFilter('disbanded_at', null);
+
+      final teamIds = (teams as List)
+          .map((e) => (e as Map<String, dynamic>)['id'] as String)
+          .toList();
+      if (teamIds.isEmpty) return const [];
+
+      // `payment_status <> paid` narrows server-side; which SIDE still owes is
+      // resolved below from our own match_payments rows (RLS already limits
+      // those to this captain's teams).
+      final orFilter = teamIds
+          .map((id) => 'home_team_id.eq.$id,away_team_id.eq.$id')
+          .join(',');
+
+      final matches = await SupabaseService.client
+          .from('matches')
+          .select(
+              'id, scheduled_at, city, home_team_id, away_team_id, payment_status, '
+              'home_team:home_team_id(name), away_team:away_team_id(name)')
+          .eq('status', 'confirmed')
+          .neq('payment_status', 'paid')
+          .or(orFilter)
+          .order('scheduled_at');
+
+      final rows = (matches as List).cast<Map<String, dynamic>>();
+      if (rows.isEmpty) return const [];
+
+      final paid = <String>{};
+      final existing = <String, MatchPaymentModel>{};
+      final payments = await SupabaseService.client
+          .from(_table)
+          .select()
+          .inFilter('match_id', rows.map((m) => m['id'] as String).toList());
+      for (final e in payments as List) {
+        final p = MatchPaymentModel.fromJson(e as Map<String, dynamic>);
+        existing['${p.matchId}:${p.teamId}'] = p;
+        if (p.isPaid) paid.add('${p.matchId}:${p.teamId}');
+      }
+
+      final result = <PendingFee>[];
+      for (final m in rows) {
+        final matchId = m['id'] as String;
+        final home = m['home_team_id'] as String;
+        final away = m['away_team_id'] as String;
+        final myTeamId = teamIds.contains(home)
+            ? home
+            : (teamIds.contains(away) ? away : null);
+        if (myTeamId == null) continue;
+
+        final key = '$matchId:$myTeamId';
+        if (paid.contains(key)) continue; // this side is settled
+
+        result.add(PendingFee(
+          matchId: matchId,
+          teamId: myTeamId,
+          homeTeamName:
+              (m['home_team'] as Map?)?['name'] as String? ?? 'Home',
+          awayTeamName:
+              (m['away_team'] as Map?)?['name'] as String? ?? 'Away',
+          scheduledAt: DateTime.parse(m['scheduled_at'] as String),
+          city: m['city'] as String? ?? '',
+          payment: existing[key],
+        ));
+      }
+      return result;
+    } catch (e) {
+      debugPrint('fetchPendingFees failed: $e');
+      return const [];
+    }
   }
 
   /// Runs the full pay flow for the calling captain: asks the Edge Function for
