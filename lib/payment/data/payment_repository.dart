@@ -66,6 +66,15 @@ class PaymentRepository {
   static Future<void> initialize() async {
     if (!isEnabled) return;
     Stripe.publishableKey = AppConstants.stripePublishableKey;
+    // Required by the native SDK whenever the PaymentSheet requests Apple
+    // Pay (see payMatchFee's `applePay:` param below) -- separate from just
+    // passing applePay per-sheet, and separate from the entitlement in
+    // Runner.entitlements. Without this, presenting the sheet throws
+    // "`merchantIdentifier` is required, but none was found" before it ever
+    // opens, on iOS specifically; harmless to set on Android, where it's
+    // simply unused. Must match the merchant ID registered in Apple
+    // Developer and in Runner.entitlements exactly.
+    Stripe.merchantIdentifier = 'merchant.com.footballcy.footrank';
     await Stripe.instance.applySettings();
   }
 
