@@ -288,6 +288,29 @@ class PaymentRepository {
     }
   }
 
+  /// Both sides' fee status for [matchId] -- the opponent's included, via the
+  /// participant-only `match_payment_summary` RPC.
+  ///
+  /// This is the one sanctioned way a captain learns whether the OTHER team
+  /// has paid: `match_payments` RLS still only returns each captain's own
+  /// row, and stays that way -- the RPC exposes just a paid/unpaid summary
+  /// on top, never the opponent's actual payment row. Returns null (never
+  /// throws) on any error, including "not a participant", since this only
+  /// feeds an optional status line and must not be able to break the page.
+  Future<MatchPaymentSummary?> fetchPaymentSummary(String matchId) async {
+    try {
+      final data = await SupabaseService.client.rpc(
+        'match_payment_summary',
+        params: {'p_match_id': matchId},
+      );
+      if (data == null) return null;
+      return MatchPaymentSummary.fromJson((data as Map).cast<String, dynamic>());
+    } catch (e) {
+      debugPrint('fetchPaymentSummary failed: $e');
+      return null;
+    }
+  }
+
   /// Waits briefly for Stripe's webhook to land, so the captain sees "Paid"
   /// rather than a stale "Pay €2" button immediately after a successful sheet.
   ///

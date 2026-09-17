@@ -75,6 +75,12 @@ class _MatchDetailPageState extends State<MatchDetailPage>
   MatchPaymentModel? _myPayment;
   bool _paying = false;
 
+  /// Both sides' fee status, so a captain can see whether the OPPONENT has
+  /// paid too -- not just their own row. Null until loaded (or when
+  /// payments/fee card aren't shown at all); the fee card treats null as
+  /// "don't show that line" rather than guessing a status.
+  MatchPaymentSummary? _paymentSummary;
+
   // Information / Contact / Attendance.
   int _tab = 0;
 
@@ -135,6 +141,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
       // additive, and a payments outage must not turn the whole match page into
       // an error screen.
       MatchPaymentModel? myPayment;
+      MatchPaymentSummary? paymentSummary;
       if (isCaptain && myTeamId != null && PaymentRepository.isEnabled) {
         try {
           myPayment = await _paymentRepo.fetchMyPayment(
@@ -144,6 +151,11 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         } catch (e) {
           debugPrint('match fee lookup failed: $e');
         }
+        // Opponent visibility: only worth asking for once the match is
+        // actually confirmed (that's the only status match_payment_summary's
+        // participant check is relevant for), and it must never be able to
+        // fail the page -- the repo already swallows its own errors.
+        paymentSummary = await _paymentRepo.fetchPaymentSummary(match.id);
       }
 
       if (!mounted) return;
@@ -151,6 +163,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         _match = match;
         _isCaptain = isCaptain;
         _myPayment = myPayment;
+        _paymentSummary = paymentSummary;
         _myTeamId = myTeamId;
         _opponentTeamId = opponentTeamId;
         _homeTeam = home;
@@ -234,6 +247,10 @@ class _MatchDetailPageState extends State<MatchDetailPage>
     } catch (e) {
       debugPrint('match fee refresh failed: $e');
     }
+    // Best-effort: the opponent's status may have changed too, and a captain
+    // waiting for the other side to pay is exactly who reopens this screen.
+    final summary = await _paymentRepo.fetchPaymentSummary(matchId);
+    if (mounted && summary != null) setState(() => _paymentSummary = summary);
   }
 
   Future<void> _mark(TeamMemberModel player, bool attended) async {
@@ -709,6 +726,10 @@ class _MatchDetailPageState extends State<MatchDetailPage>
               payment: _myPayment,
               paying: _paying,
               onPay: _payMatchFee,
+              opponentTeamName: _opponentTeamName(match),
+              opponentPaid: _opponentTeamId == null
+                  ? null
+                  : _paymentSummary?.paidFor(_opponentTeamId!),
             ),
           ),
         ],
@@ -749,6 +770,14 @@ class _MatchDetailPageState extends State<MatchDetailPage>
     if (_match?.status == 'cancelled') return false;
     if (_myPayment?.isPaid == true) return true;
     return status == MatchStatus.confirmed;
+  }
+
+  /// The other captain's team name, for the fee card's opponent-status line.
+  String? _opponentTeamName(MatchModel match) {
+    if (_opponentTeamId == null) return null;
+    return _opponentTeamId == match.homeTeamId
+        ? (match.homeTeamName ?? 'Home')
+        : (match.awayTeamName ?? 'Away');
   }
 
   Widget _buildRateTab(MatchModel match) {

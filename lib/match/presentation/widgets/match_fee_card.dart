@@ -22,11 +22,23 @@ class MatchFeeCard extends StatelessWidget {
 
   final VoidCallback onPay;
 
+  /// The opposing team's name, for the "Opponent: paid/not yet" line below.
+  /// Null hides that line entirely (summary not loaded yet, or payments are
+  /// disabled) rather than showing a misleading default.
+  final String? opponentTeamName;
+
+  /// Whether the opponent's fee has been paid, from the participant-safe
+  /// `match_payment_summary` RPC. Null hides the line, same as
+  /// [opponentTeamName] -- the two are only ever set together.
+  final bool? opponentPaid;
+
   const MatchFeeCard({
     super.key,
     required this.payment,
     required this.paying,
     required this.onPay,
+    this.opponentTeamName,
+    this.opponentPaid,
   });
 
   @override
@@ -40,42 +52,52 @@ class MatchFeeCard extends StatelessWidget {
     // amount comes from the server when the charge is created.
     final amount = payment?.amountLabel ??
         MatchPaymentModel.formatAmount(200, 'eur');
+    final opponentLine = _opponentLine(context);
 
     if (paid) {
       return GlassCard(
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(
-              Icons.check_circle_rounded,
-              color: AppColors.success,
-              size: AppIconSize.md,
-            ),
-            const SizedBox(width: AppSemantic.iconGap),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Match fee paid',
-                    style: theme.textTheme.titleSmall,
+            Row(
+              children: [
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.success,
+                  size: AppIconSize.md,
+                ),
+                const SizedBox(width: AppSemantic.iconGap),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Match fee paid',
+                        style: theme.textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: AppSemantic.labelGap),
+                      Text(
+                        'Pitch fees are still paid at the venue.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.muted(context),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: AppSemantic.labelGap),
-                  Text(
-                    'Pitch fees are still paid at the venue.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.muted(context),
-                    ),
+                ),
+                Text(
+                  amount,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            Text(
-              amount,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
+            if (opponentLine != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              opponentLine,
+            ],
           ],
         ),
       );
@@ -128,6 +150,10 @@ class MatchFeeCard extends StatelessWidget {
               ),
             ),
           ],
+          if (opponentLine != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            opponentLine,
+          ],
           const SizedBox(height: AppSpacing.sm),
           AppButton(
             label: failed ? 'Try again — $amount' : 'Pay $amount',
@@ -137,6 +163,37 @@ class MatchFeeCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// "Opponent (Team X): Paid / Still hasn't paid" -- null when the summary
+  /// hasn't loaded (or payments are disabled), so the card never claims a
+  /// status it doesn't actually have.
+  Widget? _opponentLine(BuildContext context) {
+    final name = opponentTeamName;
+    final theirsPaid = opponentPaid;
+    if (name == null || theirsPaid == null) return null;
+
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(
+          theirsPaid ? Icons.check_circle_rounded : Icons.schedule_rounded,
+          size: AppIconSize.sm,
+          color: theirsPaid ? AppColors.success : AppColors.muted(context),
+        ),
+        const SizedBox(width: AppSemantic.iconGap),
+        Expanded(
+          child: Text(
+            theirsPaid
+                ? '$name has paid their share.'
+                : "$name hasn't paid their share yet.",
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.muted(context),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

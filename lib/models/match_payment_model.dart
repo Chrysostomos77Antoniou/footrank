@@ -101,6 +101,45 @@ class PaymentResult {
   bool get isCancelled => outcome == PaymentOutcome.cancelled;
 }
 
+/// Both teams' fee status for one match, from the participant-safe
+/// `match_payment_summary` RPC.
+///
+/// This is deliberately the ONLY opponent payment information ever exposed
+/// to a client: it's a paid/unpaid summary, not the opponent's actual
+/// match_payments row (RLS keeps that private to their own captain). Lets a
+/// captain see whether the other side has paid without loosening RLS at all.
+class MatchPaymentSummary {
+  final String homeTeamId;
+  final String awayTeamId;
+
+  /// unpaid | pending | succeeded | failed | refunded (the RPC coalesces a
+  /// missing row to 'unpaid').
+  final String homeStatus;
+  final String awayStatus;
+
+  const MatchPaymentSummary({
+    required this.homeTeamId,
+    required this.awayTeamId,
+    required this.homeStatus,
+    required this.awayStatus,
+  });
+
+  bool get homePaid => homeStatus == 'succeeded';
+  bool get awayPaid => awayStatus == 'succeeded';
+
+  /// Whether [teamId]'s fee has been paid. Callers must pass either
+  /// [homeTeamId] or [awayTeamId] -- there is no third team to look up.
+  bool paidFor(String teamId) => teamId == homeTeamId ? homePaid : awayPaid;
+
+  factory MatchPaymentSummary.fromJson(Map<String, dynamic> json) =>
+      MatchPaymentSummary(
+        homeTeamId: json['home_team_id'] as String,
+        awayTeamId: json['away_team_id'] as String,
+        homeStatus: json['home_status'] as String,
+        awayStatus: json['away_status'] as String,
+      );
+}
+
 /// Message shown to the captain for a given outcome.
 ///
 /// Pulled out as a top-level pure function — like [scoreSubmitMessage] in
