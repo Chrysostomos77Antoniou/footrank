@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/services/notification_router.dart';
 import 'package:footrank/services/supabase_service.dart';
 
@@ -69,6 +70,15 @@ class NotificationService {
     FirebaseMessaging.onMessage.listen((message) {
       debugPrint('FG message: ${message.notification?.title}');
       if (Platform.isAndroid) _showForegroundBanner(message);
+      // Previously only handleNotificationTap() (on an actual tap) refetched
+      // data, so if the OTHER captain confirmed a fixture (or paid) while
+      // this device had the app open, nothing here updated until the user
+      // tapped the banner or manually pulled to refresh -- e.g. the "Pay €2"
+      // prompt wouldn't appear the moment the match became confirmed. A push
+      // arriving at all means server state changed, so refresh unconditionally
+      // rather than waiting for a tap that may never come while the app is
+      // already in front of the user.
+      triggerAppRefresh();
     });
 
     // Tapped a notification that opened the app from background -- sync and

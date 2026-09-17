@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:footrank/core/constants/app_constants.dart';
@@ -238,6 +240,24 @@ class PaymentRepository {
           // Stripe's sheet follows the device, which is right: it's a system
           // payment surface, not part of our themed UI.
           style: ThemeMode.system,
+          // Offers Apple Pay / Google Pay inside the same sheet when the
+          // platform and the device both support it -- Stripe silently
+          // omits the option otherwise (e.g. a device with no card added to
+          // Wallet), so this is safe to pass unconditionally per-platform.
+          // Guarded with kIsWeb/defaultTargetPlatform rather than
+          // dart:io's Platform, since this repository is also compiled into
+          // the web build, where dart:io is unavailable.
+          applePay: (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
+              ? const PaymentSheetApplePay(merchantCountryCode: 'CY')
+              : null,
+          googlePay:
+              (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+                  ? const PaymentSheetGooglePay(
+                      merchantCountryCode: 'CY',
+                      currencyCode: 'EUR',
+                      testEnv: false,
+                    )
+                  : null,
         ),
       );
       await Stripe.instance.presentPaymentSheet();

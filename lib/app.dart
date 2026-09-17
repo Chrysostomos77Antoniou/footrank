@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_theme.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/video_splash_overlay.dart';
@@ -13,13 +14,14 @@ class FootRankApp extends StatefulWidget {
   State<FootRankApp> createState() => _FootRankAppState();
 }
 
-class _FootRankAppState extends State<FootRankApp> {
+class _FootRankAppState extends State<FootRankApp> with WidgetsBindingObserver {
   /// Cold-start branded video splash; removed from the tree once it finishes.
   bool _splashDone = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Cold-start via a tapped push notification: getInitialMessage() is
     // called from main() before the router exists, so the actual navigation
     // happens here once it's safe to do so (after the first frame).
@@ -32,6 +34,26 @@ class _FootRankAppState extends State<FootRankApp> {
         );
       }
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The common case this closes: captain A confirms the fixture while
+    // captain B has FootRank backgrounded. B gets the push, but until now
+    // nothing re-fetched until they happened to pull-to-refresh or land on a
+    // screen whose initState re-queries -- so "Pay €2" could sit missing
+    // from Home/Matches for a signed-in, foregrounded captain indefinitely.
+    // Resuming from background/inactive is exactly the moment B is most
+    // likely to be acting on that notification, so refresh right then.
+    if (state == AppLifecycleState.resumed) {
+      triggerAppRefresh();
+    }
   }
 
   @override

@@ -79,7 +79,11 @@ class _PayFeeButtonState extends State<PayFeeButton> {
           : (widget.compact ? 'Pay $amount' : 'Pay $amount now'),
       icon: Icons.lock_rounded,
       loading: _paying,
-      variant: widget.compact ? AppButtonVariant.secondary : AppButtonVariant.primary,
+      // Always filled, even in the compact (list-card) placement. This used
+      // to be an outlined secondary button there, which read as low-priority
+      // next to the surrounding light-green UI and was easy for a captain to
+      // miss entirely -- a solid fill is the point when real money is due.
+      variant: AppButtonVariant.primary,
       fullWidth: !widget.compact,
       onPressed: _pay,
     );
