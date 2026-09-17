@@ -15,106 +15,42 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET");
-const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
 
 /// Reject events older than this to blunt replay attempts (Stripe's own
 /// recommended tolerance).
 const TOLERANCE_SECONDS = 300;
 
 function formatAmount(cents: number, currency: string): string {
-  const symbol = currency?.toLowerCase() === "eur" ? "\u20ac" : "";
+  const symbol = currency?.toLowerCase() === "eur" ? "€" : "";
   return symbol
     ? `${symbol}${(cents / 100).toFixed(2)}`
     : `${(cents / 100).toFixed(2)} ${String(currency).toUpperCase()}`;
 }
 
-
-/// Posts a "both teams paid" summary straight to Telegram.
-///
-/// Deliberately NOT routed through the mission-control app. That deployment is
-/// disabled on Vercel -- it answers 402 DEPLOYMENT_DISABLED -- which is what
-/// silently killed the existing fixture-confirmed message even though the
-/// database was posting correctly. Talking to api.telegram.org directly drops
-/// that dependency, so this keeps working regardless of mission-control.
-///
-/// Sends plain text rather than Markdown on purpose: a team name containing
-/// *, _ or [ would make Telegram reject a Markdown message outright, and a
-/// delivered plain message beats a bold one that 400s.
+/// Tells notify-telegram to send the single, combined "match confirmed & fee
+/// paid" alert. This is the ONLY Telegram path now -- confirm_fixture() and
+/// accept_match_proposal() no longer send an alert at confirmation time, so
+/// captains get exactly one Telegram message per match, once both fees are in,
+/// instead of the old confirm-time + paid-time pair.
 ///
 /// Never throws. The money has already moved and the rows are already correct,
 /// so a Telegram outage must not push the webhook into a non-2xx and make
 /// Stripe retry a payment that is fully recorded.
-async function sendMatchPaidTelegram(
-  supa: ReturnType<typeof createClient>,
-  matchId: string,
-): Promise<void> {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-    console.log("Telegram not configured (TELEGRAM_BOT_TOKEN/CHAT_ID unset); skipping");
-    return;
-  }
+async function notifyTelegramBothPaid(matchId: string): Promise<void> {
   try {
-    const { data: match } = await supa
-      .from("matches")
-      .select(
-        "city, scheduled_at, match_type, format, " +
-          "home_team:home_team_id(name), away_team:away_team_id(name), " +
-          "suggested_court:suggested_court_id(name, address)",
-      )
-      .eq("id", matchId)
-      .maybeSingle();
-    if (!match) return;
-
-    const { data: payments } = await supa
-      .from("match_payments")
-      .select("amount_cents, currency")
-      .eq("match_id", matchId)
-      .eq("status", "succeeded");
-
-    const rows = payments ?? [];
-    const total = rows.reduce(
-      (sum: number, p: { amount_cents?: number }) => sum + (p.amount_cents ?? 0),
-      0,
-    );
-    const currency = rows[0]?.currency ?? "eur";
-
-    // Cyprus local time -- the fixture is in Cyprus and so is whoever reads this.
-    const kickoff = new Date(match.scheduled_at as string).toLocaleString("en-GB", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Asia/Nicosia",
-    });
-
-    const court = (match.suggested_court as { name?: string } | null)?.name;
-    const home = (match.home_team as { name?: string } | null)?.name ?? "Home";
-    const away = (match.away_team as { name?: string } | null)?.name ?? "Away";
-
-    const text = [
-      "\u2705 Both teams paid",
-      "",
-      `${home} vs ${away}`,
-      `\ud83d\uddd3 ${kickoff}`,
-      `\ud83d\udccd ${court ? court + ", " : ""}${match.city}`,
-      `\ud83d\udcb6 ${formatAmount(total, currency)} collected (${rows.length} of 2 teams)`,
-      `${match.match_type} \u00b7 ${match.format}`,
-    ].join("\n");
-
-    const res = await fetch(
-      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text }),
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/notify-telegram`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SERVICE_ROLE}`,
       },
-    );
+      body: JSON.stringify({ match_id: matchId, kind: "both_paid" }),
+    });
     if (!res.ok) {
-      console.error("Telegram sendMessage failed:", res.status, await res.text());
+      console.error("notify-telegram call failed:", res.status, await res.text());
     }
   } catch (e) {
-    console.error("Telegram send threw:", e);
+    console.error("notify-telegram call threw:", e);
   }
 }
 
@@ -145,10 +81,29 @@ async function hmacSha256Hex(secret: string, payload: string): Promise<string> {
   return Array.from(sig).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/// A short, irreversible fingerprint of the configured secret -- never the
+/// secret itself -- so a failed verification's logs can show "the secret
+/// Deno.env has right now hashes to X" without ever printing anything
+/// recoverable. Comparing this value before/after re-pasting the secret in
+/// the dashboard is the fastest way to confirm an edit actually took effect.
+async function fingerprint(secret: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 12);
+}
+
 /// Verifies Stripe's `t=...,v1=...` signature header against the raw body.
 /// Returns the parsed event, or null if the signature doesn't check out.
+///
+/// On failure this logs WHY (missing header, stale timestamp, or a mismatch)
+/// plus a fingerprint of the secret actually loaded -- every failure used to
+/// come back as an opaque 400 with nothing in the logs to diagnose, which is
+/// exactly what let a wrong STRIPE_WEBHOOK_SECRET silently reject 100% of
+/// deliveries for a live test session before anyone noticed.
 async function verify(rawBody: string, header: string | null, secret: string) {
-  if (!header) return null;
+  if (!header) {
+    console.error("stripe-webhook: rejected -- no Stripe-Signature header on request");
+    return null;
+  }
 
   let timestamp = "";
   const candidates: string[] = [];
@@ -158,17 +113,39 @@ async function verify(rawBody: string, header: string | null, secret: string) {
     // Stripe may send several v1 signatures during a secret rotation.
     if (k?.trim() === "v1" && v) candidates.push(v.trim());
   }
-  if (!timestamp || candidates.length === 0) return null;
+  if (!timestamp || candidates.length === 0) {
+    console.error(
+      "stripe-webhook: rejected -- signature header missing t= or v1=",
+      { hasTimestamp: Boolean(timestamp), v1Count: candidates.length },
+    );
+    return null;
+  }
 
   const age = Math.abs(Math.floor(Date.now() / 1000) - Number(timestamp));
-  if (!Number.isFinite(age) || age > TOLERANCE_SECONDS) return null;
+  if (!Number.isFinite(age) || age > TOLERANCE_SECONDS) {
+    console.error("stripe-webhook: rejected -- event outside tolerance window", {
+      ageSeconds: age,
+      toleranceSeconds: TOLERANCE_SECONDS,
+    });
+    return null;
+  }
 
   const expected = await hmacSha256Hex(secret, `${timestamp}.${rawBody}`);
-  if (!candidates.some((c) => timingSafeEqual(c, expected))) return null;
+  if (!candidates.some((c) => timingSafeEqual(c, expected))) {
+    console.error(
+      "stripe-webhook: rejected -- signature mismatch. STRIPE_WEBHOOK_SECRET almost " +
+        "certainly doesn't match this endpoint's signing secret in the Stripe dashboard " +
+        "(Developers > Webhooks > this endpoint > reveal signing secret). Configured-secret " +
+        "fingerprint (not the secret itself, just to tell 'changed' from 'same value again'):",
+      await fingerprint(secret),
+    );
+    return null;
+  }
 
   try {
     return JSON.parse(rawBody);
   } catch {
+    console.error("stripe-webhook: rejected -- signature verified but body is not valid JSON");
     return null;
   }
 }
@@ -243,7 +220,7 @@ Deno.serve(async (req) => {
         // announced -- the second fee is what flips the match to 'paid', and
         // only one delivery can do that.
         if (row && matchId && matchPaymentStatus === "paid") {
-          await sendMatchPaidTelegram(supa, matchId);
+          await notifyTelegramBothPaid(matchId);
         }
         break;
       }
@@ -282,7 +259,7 @@ Deno.serve(async (req) => {
       }
 
       case "charge.dispute.created": {
-        // A chargeback costs far more than the €2 fee, so it needs a human.
+        // A chargeback costs far more than the EUR2 fee, so it needs a human.
         // Recorded rather than auto-actioned: refunding or re-charging on a
         // dispute is a judgement call, not something a webhook should decide.
         const dispute = event.data.object;

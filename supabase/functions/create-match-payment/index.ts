@@ -1,4 +1,4 @@
-// Creates (or resumes) the €2 platform-fee PaymentIntent for one team on a
+// Creates (or resumes) the EUR2 platform-fee PaymentIntent for one team on a
 // confirmed match, and returns its client_secret for the app's Stripe
 // PaymentSheet.
 //
@@ -25,6 +25,35 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: { "Content-Type": "application/json" },
   });
+
+/// Tells notify-telegram to send the single, combined "match confirmed & fee
+/// paid" alert. Mirrors stripe-webhook's helper of the same name: that's the
+/// normal path this fires from, but when a live webhook delivery gets
+/// rejected (e.g. a mismatched STRIPE_WEBHOOK_SECRET) the reconcile branch
+/// below is what actually flips a match to "paid" -- and until this existed,
+/// that path fixed the payment record but never told Telegram, so a match
+/// could reach paid_at="paid" and no one ever heard about it.
+///
+/// Never throws: the row is already correct by the time this runs, so a
+/// Telegram outage must not turn into an error surfaced to the captain who
+/// just confirmed their payment went through.
+async function notifyTelegramBothPaid(matchId: string): Promise<void> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/notify-telegram`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SERVICE_ROLE}`,
+      },
+      body: JSON.stringify({ match_id: matchId, kind: "both_paid" }),
+    });
+    if (!res.ok) {
+      console.error("notify-telegram call failed:", res.status, await res.text());
+    }
+  } catch (e) {
+    console.error("notify-telegram call threw:", e);
+  }
+}
 
 /// A PaymentIntent in one of these states can still be completed by the app,
 /// so an interrupted attempt is resumed rather than duplicated.
@@ -135,14 +164,22 @@ Deno.serve(async (req) => {
           resumed: true,
         });
       }
-      // Stripe says it already succeeded but our row didn't catch the webhook.
-      // Reconcile now instead of charging the captain twice.
+      // Stripe says it already succeeded but our row didn't catch the webhook
+      // (e.g. a live webhook delivery that failed signature verification --
+      // check stripe-webhook's logs if this keeps happening). Reconcile now
+      // instead of charging the captain twice, and -- same as the webhook
+      // path -- tell Telegram if this is the payment that completes the pair.
       if (pi.status === "succeeded") {
         await supa
           .from("match_payments")
           .update({ status: "succeeded", paid_at: new Date().toISOString() })
           .eq("id", existing.id);
-        await supa.rpc("recalc_match_payment_status", { p_match_id: match_id });
+        const { data: recalced } = await supa.rpc("recalc_match_payment_status", {
+          p_match_id: match_id,
+        });
+        if (recalced === "paid") {
+          await notifyTelegramBothPaid(match_id);
+        }
         return json({ already_paid: true, amount_cents: pi.amount, reconciled: true });
       }
       // Anything else (canceled, or a decline we recorded as failed) falls
@@ -161,10 +198,8 @@ Deno.serve(async (req) => {
     });
     if (receiptEmail) body.set("receipt_email", receiptEmail);
 
-    // Scoped to this row's current attempt count so a double-tap collapses into
-    // one PaymentIntent, while a genuine retry after a decline still gets a new
-    // one. (A declined row is left with its old intent id until we overwrite it
-    // below, so including it here keys the retry distinctly.)
+    // Scoped to this row's current attempt so a double-tap collapses into one
+    // PaymentIntent, while a genuine retry after a decline still gets a new one.
     const attemptKey = existing?.stripe_payment_intent_id ?? "first";
     const pi = await stripe("payment_intents", {
       method: "POST",
