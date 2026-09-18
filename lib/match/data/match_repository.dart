@@ -424,13 +424,6 @@ class MatchRepository {
     return result as String;
   }
 
-  /// The other captain confirms. Returns 'completed' or 'pending'.
-  Future<String> confirmScore(String matchId) async {
-    final result = await SupabaseService.client
-        .rpc('confirm_match_score', params: {'p_match_id': matchId});
-    return result as String;
-  }
-
   // ---- Team rating (Task 7.2) ----
 
   /// ELOs of the active (attended) players for [teamId] in [matchId].
