@@ -21,7 +21,7 @@ dependencies:
   firebase_messaging: ^15.1.5
   flutter_local_notifications: ^18.0.1
   shared_preferences: ^2.3.3
-  image_picker: ^1.1.2
+  image_picker: ^1.2.3
   image_picker_android: ^0.8.12
   image_picker_platform_interface: ^2.10.0
   video_player: ^2.9.2
