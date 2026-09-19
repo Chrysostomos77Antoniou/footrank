@@ -14,6 +14,11 @@ class UserModel {
   final bool flagged;
   final DateTime createdAt;
 
+  /// Null until the player finishes the "determine your Pwr" onboarding
+  /// quiz. Existing accounts were grandfathered in when this shipped, so
+  /// this only ever blocks brand-new signups.
+  final DateTime? pwrAssessmentCompletedAt;
+
   const UserModel({
     required this.id,
     required this.name,
@@ -29,7 +34,10 @@ class UserModel {
     this.disputeCount = 0,
     this.flagged = false,
     required this.createdAt,
+    this.pwrAssessmentCompletedAt,
   });
+
+  bool get hasCompletedPwrAssessment => pwrAssessmentCompletedAt != null;
 
   /// Human-readable behavior rating based on positive/negative ratio.
   String get behaviorLabel {
@@ -57,6 +65,9 @@ class UserModel {
         disputeCount: (json['dispute_count'] as int?) ?? 0,
         flagged: (json['flagged'] as bool?) ?? false,
         createdAt: DateTime.parse(json['created_at'] as String),
+        pwrAssessmentCompletedAt: json['pwr_assessment_completed_at'] != null
+            ? DateTime.parse(json['pwr_assessment_completed_at'] as String)
+            : null,
       );
 
   Map<String, dynamic> toInsertJson() => {

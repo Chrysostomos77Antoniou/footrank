@@ -30,6 +30,34 @@ String friendlyError(Object error) {
   if (lower.contains('attendance_required')) {
     return 'Mark at least 5 attended players for your team before submitting a score.';
   }
+  if (lower.contains('rating_gap_too_large')) {
+    // Server message looks like "rating_gap_too_large: 2100 vs 1500 (max 200
+    // right now)" -- pull the numbers out for a specific, useful message,
+    // but degrade to a generic one if the format ever changes server-side.
+    final match =
+        RegExp(r'rating_gap_too_large:\s*(\d+)\s*vs\s*(\d+)\s*\(max\s*(\d+)')
+            .firstMatch(msg);
+    if (match != null) {
+      final gap =
+          (int.parse(match.group(1)!) - int.parse(match.group(2)!)).abs();
+      final limit = match.group(3);
+      return 'This team\'s Pitch Power is too far from yours right now '
+          '($gap points apart, limit is $limit). This opens up automatically '
+          'closer to kick-off, or try a more evenly matched team.';
+    }
+    return 'This team\'s Pitch Power is too far from yours right now. This '
+        'opens up automatically closer to kick-off, or try a more evenly '
+        'matched team.';
+  }
+  if (lower.contains('pwr_assessment_required')) {
+    return "Finish your Pitch Power quiz before creating or joining a team.";
+  }
+  if (lower.contains('assessment_already_completed')) {
+    return "You've already completed the Pitch Power quiz.";
+  }
+  if (lower.contains('incomplete_assessment')) {
+    return 'Please answer every question before continuing.';
+  }
   if (lower.contains('teams_name_lower_unique')) {
     return 'A team with that name already exists. Please pick another name.';
   }

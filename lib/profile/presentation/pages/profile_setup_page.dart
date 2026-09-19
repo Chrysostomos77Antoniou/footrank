@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/widgets/premium.dart';
-import 'package:footrank/onboarding/onboarding_prefs.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/services/supabase_service.dart';
@@ -90,29 +89,14 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     }
   }
 
-  /// A brand-new user has no team yet, so honour the intent they chose during
-  /// onboarding: take them straight into creating a team (or the free-agents
-  /// board) on top of Home, rather than dropping them on an empty Home screen.
-  /// The intent is consumed once. When none was set we keep the old behaviour.
+  /// The Pwr assessment quiz is still ahead -- it's the last mandatory step
+  /// before the app lets a brand-new account in (a team can't be created or
+  /// joined until it's done). The onboarding intent (create a team / free
+  /// agent) stays saved and is honoured there once the quiz finishes, not
+  /// here, so a user is never pushed straight into create-team before they've
+  /// cleared the server-side gate.
   void _routeAfterSetup() {
-    final intent = OnboardingPrefs.postSetupIntent;
-    // Clear so it never triggers again on later setups/sessions.
-    OnboardingPrefs.setPostSetupIntent(null);
-
-    context.go(AppRoutes.home);
-
-    String? target;
-    if (intent == OnboardingIntent.createTeam) {
-      target = AppRoutes.createTeam;
-    } else if (intent == OnboardingIntent.freeAgent) {
-      target = AppRoutes.freeAgents;
-    }
-    if (target == null) return;
-
-    // Push after Home has settled so the user can back out to Home.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.push(target!);
-    });
+    context.go(AppRoutes.pwrAssessment);
   }
 
   @override

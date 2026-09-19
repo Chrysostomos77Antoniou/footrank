@@ -17,13 +17,25 @@ class ProfileRepository {
   static const _publicColumns =
       'id,name,username,city,position,elo,reliability,'
       'behavior_positive,behavior_negative,matches_played,avatar_url,'
-      'dispute_count,flagged,created_at';
+      'dispute_count,flagged,created_at,pwr_assessment_completed_at';
 
   /// Cached "does the current user have a profile" flag, to avoid hitting the
   /// database on every navigation. Reset on sign-out / sign-in.
   static bool? _cachedHasProfile;
 
-  static void invalidateCache() => _cachedHasProfile = null;
+  /// Cached "has the current user finished the Pwr assessment quiz" flag,
+  /// same reasoning as [_cachedHasProfile].
+  static bool? _cachedHasCompletedPwr;
+
+  static void invalidateCache() {
+    _cachedHasProfile = null;
+    _cachedHasCompletedPwr = null;
+  }
+
+  /// Marks the Pwr assessment as done without a round-trip, right after
+  /// [PwrAssessmentRepository.submit] succeeds -- the server has already
+  /// confirmed it, so there's nothing left to check.
+  static void markPwrAssessmentComplete() => _cachedHasCompletedPwr = true;
 
   /// Returns the current user's profile, or null if it hasn't been created yet.
   Future<UserModel?> fetchMyProfile() async {
@@ -73,6 +85,16 @@ class ProfileRepository {
     final exists = (await fetchMyProfile()) != null;
     _cachedHasProfile = exists;
     return exists;
+  }
+
+  /// Whether the current user has finished the "determine your Pwr"
+  /// onboarding quiz. False for a brand-new profile that hasn't reached that
+  /// step yet; true (permanently) for every grandfathered pre-existing user.
+  Future<bool> hasCompletedPwrAssessment() async {
+    if (_cachedHasCompletedPwr == true) return true;
+    final done = (await fetchMyProfile())?.hasCompletedPwrAssessment ?? false;
+    _cachedHasCompletedPwr = done;
+    return done;
   }
 
   /// Creates the user record after signup.

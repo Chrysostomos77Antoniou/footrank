@@ -20,6 +20,7 @@ import 'package:footrank/match/presentation/pages/matches_page.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/profile/presentation/pages/edit_profile_page.dart';
 import 'package:footrank/profile/presentation/pages/profile_page.dart';
+import 'package:footrank/pwr_assessment/presentation/pages/pwr_assessment_page.dart';
 import 'package:footrank/models/user_model.dart';
 import 'package:footrank/rankings/presentation/pages/rankings_page.dart';
 import 'package:footrank/profile/presentation/pages/profile_setup_page.dart';
@@ -36,6 +37,7 @@ class AppRoutes {
   static const login = '/login';
   static const register = '/register';
   static const profileSetup = '/profile-setup';
+  static const pwrAssessment = '/pwr-assessment';
   static const resetPassword = '/reset-password';
   static const home = '/';
   static const team = '/team';
@@ -163,8 +165,24 @@ GoRouter buildRouter() => GoRouter(
       return isSetupRoute ? null : AppRoutes.profileSetup;
     }
 
-    // Has a profile: keep them out of auth/setup screens.
-    if (isAuthRoute || isSetupRoute) return AppRoutes.home;
+    // Has a profile: still needs the "determine your Pwr" quiz before doing
+    // anything else -- creating/joining a team is blocked server-side until
+    // it's done, so gate the route too rather than let them hit that error.
+    final isPwrRoute = loc == AppRoutes.pwrAssessment;
+    bool hasPwr;
+    try {
+      hasPwr = await _profileRepo.hasCompletedPwrAssessment().timeout(
+        const Duration(seconds: 6),
+      );
+    } catch (_) {
+      return (isAuthRoute || isSetupRoute) ? AppRoutes.home : null;
+    }
+    if (!hasPwr) {
+      return isPwrRoute ? null : AppRoutes.pwrAssessment;
+    }
+
+    // Fully set up: keep them out of auth/setup/quiz screens.
+    if (isAuthRoute || isSetupRoute || isPwrRoute) return AppRoutes.home;
     return null;
   },
   refreshListenable: Listenable.merge([
@@ -192,6 +210,11 @@ GoRouter buildRouter() => GoRouter(
       path: AppRoutes.profileSetup,
       pageBuilder: (context, state) =>
           _animatedPage(const ProfileSetupPage(), state),
+    ),
+    GoRoute(
+      path: AppRoutes.pwrAssessment,
+      pageBuilder: (context, state) =>
+          _animatedPage(const PwrAssessmentPage(), state),
     ),
     GoRoute(
       path: AppRoutes.teamDetail,
