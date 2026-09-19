@@ -192,8 +192,17 @@ class AuthRepository {
       _client.auth.updateUser(UserAttributes(password: newPassword));
 
   /// Permanently deletes the current user's account and all their data.
+  ///
+  /// Routed through the delete-account Edge Function rather than calling the
+  /// delete_my_account RPC directly, so the auth.users row is removed via the
+  /// Auth Admin API (proper session/refresh-token revocation) instead of raw
+  /// SQL.
   Future<void> deleteAccount() async {
-    await _client.rpc('delete_my_account');
+    final res = await _client.functions.invoke('delete-account');
+    final data = res.data;
+    if (data is Map && data['error'] != null) {
+      throw AuthException(data['error'].toString());
+    }
     await _client.auth.signOut();
   }
 

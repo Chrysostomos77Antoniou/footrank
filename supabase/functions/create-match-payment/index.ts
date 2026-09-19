@@ -110,8 +110,29 @@ Deno.serve(async (req) => {
     // receipt is the authoritative record and needs no maintenance.
     const receiptEmail = userData?.user?.email ?? undefined;
 
+    // --- Rate limit + validate input ----------------------------------------
+    // Caps Stripe API cost/abuse from a captain double-tapping or a script
+    // hammering this endpoint (idempotency already prevents duplicate
+    // *charges*, but each call still costs a Stripe API round trip).
+    const { data: allowed } = await supa.rpc("check_rate_limit", {
+      p_key: `create-match-payment:${uid}`,
+      p_max_count: 10,
+      p_window_seconds: 60,
+    });
+    if (!allowed) {
+      await supa.rpc("log_security_alert", {
+        p_source: "create-match-payment",
+        p_severity: "warning",
+        p_detail: { reason: "rate_limit_exceeded", uid },
+      }).catch(() => {});
+      return json({ error: "rate_limited" }, 429);
+    }
+
     const { match_id } = await req.json().catch(() => ({}));
-    if (!match_id) return json({ error: "match_id required" }, 400);
+    if (!match_id || typeof match_id !== "string" ||
+        !/^[0-9a-f-]{36}$/i.test(match_id)) {
+      return json({ error: "match_id required" }, 400);
+    }
 
     // --- Load the match and work out which side the caller captains --------
     const { data: match, error: matchErr } = await supa
@@ -136,7 +157,17 @@ Deno.serve(async (req) => {
     if (teamErr) throw teamErr;
 
     const teamId = captainedTeams?.[0]?.id as string | undefined;
-    if (!teamId) return json({ error: "not_a_captain_of_this_match" }, 403);
+    if (!teamId) {
+      // A non-captain trying to pay for someone else's match is either a
+      // confused client or an IDOR probe (manipulated match_id) -- worth a
+      // record either way.
+      await supa.rpc("log_security_alert", {
+        p_source: "create-match-payment",
+        p_severity: "warning",
+        p_detail: { reason: "not_a_captain_of_this_match", uid, match_id },
+      }).catch(() => {});
+      return json({ error: "not_a_captain_of_this_match" }, 403);
+    }
 
     // --- Resume an in-flight attempt rather than double-charging -----------
     const { data: existing, error: existingErr } = await supa

@@ -64,11 +64,53 @@ Deno.serve(async (req) => {
     return ok({ sent: false, reason: "telegram not configured" });
   }
 
+  const supa = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+  // --- Caller must be OUR own service-role call, not just any signed-in user.
+  // Platform verify_jwt=true only checks that *some* valid Supabase JWT was
+  // presented -- a normal authenticated user's JWT passes that check too. The
+  // caller comment above says "verify_jwt = true keeps it service-role only",
+  // which was never actually enforced in code: any signed-in user could hit
+  // this endpoint with an arbitrary match_id and get a captain's name+phone
+  // for a match they have no relationship to, or spam the real Telegram chat.
+  // Require the exact service-role key as the bearer token.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const jwt = authHeader.replace(/^Bearer\s+/i, "");
+  if (jwt !== SERVICE_ROLE) {
+    await supa.rpc("log_security_alert", {
+      p_source: "notify-telegram",
+      p_severity: "warning",
+      p_detail: { reason: "non_service_role_caller" },
+    }).catch(() => {});
+    return new Response(JSON.stringify({ error: "forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const { match_id } = await req.json().catch(() => ({}));
-    if (!match_id) return ok({ sent: false, reason: "match_id required" });
+    if (!match_id || typeof match_id !== "string" ||
+        !/^[0-9a-f-]{36}$/i.test(match_id)) {
+      return ok({ sent: false, reason: "match_id required" });
+    }
 
-    const supa = createClient(SUPABASE_URL, SERVICE_ROLE);
+    // Rate limit: at most 60 Telegram sends per 10-minute window. This is an
+    // internal/service-only endpoint, so hitting this means either a bug in
+    // the calling triggers or a leaked service-role key -- either way, log it.
+    const { data: allowed } = await supa.rpc("check_rate_limit", {
+      p_key: "notify-telegram",
+      p_max_count: 60,
+      p_window_seconds: 600,
+    });
+    if (!allowed) {
+      await supa.rpc("log_security_alert", {
+        p_source: "notify-telegram",
+        p_severity: "critical",
+        p_detail: { reason: "rate_limit_exceeded", match_id },
+      }).catch(() => {});
+      return ok({ sent: false, reason: "rate_limited" });
+    }
 
     const { data: m } = await supa
       .from("matches")
