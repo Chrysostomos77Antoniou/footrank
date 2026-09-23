@@ -27,9 +27,15 @@ class ProfileRepository {
   /// same reasoning as [_cachedHasProfile].
   static bool? _cachedHasCompletedPwr;
 
+  /// Id of the user whose profile, fetched by [hasProfile], already showed the
+  /// Pwr assessment as done. The router always asks [hasCompletedPwrAssessment]
+  /// straight after [hasProfile], and that used to re-fetch the very same row.
+  static String? _pwrDoneSeenFor;
+
   static void invalidateCache() {
     _cachedHasProfile = null;
     _cachedHasCompletedPwr = null;
+    _pwrDoneSeenFor = null;
   }
 
   /// Marks the Pwr assessment as done without a round-trip, right after
@@ -59,9 +65,10 @@ class ProfileRepository {
     if (profile == null) return null;
 
     // One light query of every player's elo, to compute rank + total locally.
-    // Rank = how many players sit strictly above this elo, +1.
+    // Rank = how many players sit strictly above this elo, +1. Only `elo` is
+    // read below, so only `elo` is fetched -- the same rows either way.
     final rows =
-        await SupabaseService.client.from(_table).select('id, elo') as List;
+        await SupabaseService.client.from(_table).select('elo') as List;
     final higher = rows
         .where((r) => ((r as Map)['elo'] as int? ?? 1500) > profile.elo)
         .length;
@@ -82,8 +89,14 @@ class ProfileRepository {
 
   Future<bool> hasProfile() async {
     if (_cachedHasProfile == true) return true;
-    final exists = (await fetchMyProfile()) != null;
+    final profile = await fetchMyProfile();
+    final exists = profile != null;
     _cachedHasProfile = exists;
+    // Completion is permanent, so a "done" seen here is still true when
+    // hasCompletedPwrAssessment() asks moments later -- for this same user.
+    if (profile != null && profile.hasCompletedPwrAssessment) {
+      _pwrDoneSeenFor = profile.id;
+    }
     return exists;
   }
 
@@ -92,6 +105,11 @@ class ProfileRepository {
   /// step yet; true (permanently) for every grandfathered pre-existing user.
   Future<bool> hasCompletedPwrAssessment() async {
     if (_cachedHasCompletedPwr == true) return true;
+    final uid = SupabaseService.client.auth.currentUser?.id;
+    if (uid != null && uid == _pwrDoneSeenFor) {
+      _cachedHasCompletedPwr = true;
+      return true;
+    }
     final done = (await fetchMyProfile())?.hasCompletedPwrAssessment ?? false;
     _cachedHasCompletedPwr = done;
     return done;

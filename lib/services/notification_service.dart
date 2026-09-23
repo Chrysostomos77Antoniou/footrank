@@ -35,9 +35,11 @@ class NotificationService {
     importance: Importance.max,
   );
 
-  /// Call after Firebase.initializeApp(). Requests permission, wires handlers,
-  /// and returns the device FCM token (null if unavailable / denied).
-  static Future<String?> initialize() async {
+  /// Call after Firebase.initializeApp(). Requests permission and wires every
+  /// handler. Fetching the token is the separate [fetchInitialToken] step,
+  /// so main() can run that network-bound half without holding back the
+  /// first frame.
+  static Future<void> initialize() async {
     // iOS / Android 13+ runtime permission
     final settings = await _messaging.requestPermission(
       alert: true,
@@ -89,7 +91,11 @@ class NotificationService {
         referenceId: message.data['reference_id'] as String?,
       );
     });
+  }
 
+  /// The launch-time token fetch that used to end [initialize]: returns the
+  /// device FCM token (null if unavailable / denied). Call after [initialize].
+  static Future<String?> fetchInitialToken() async {
     final token = await currentToken();
     debugPrint('FCM token: $token');
     return token;

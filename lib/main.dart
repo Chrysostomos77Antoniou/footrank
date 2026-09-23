@@ -57,7 +57,25 @@ Future<void> main() async {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       return true;
     };
+    // Permission prompt, foreground presentation and every FCM/local
+    // notification handler -- all still in place before the first frame.
     await NotificationService.initialize();
+    // The token half (iOS's APNs wait, getToken(), the fcm_tokens upsert) is
+    // network-bound and nothing on screen reads it, so it runs alongside the
+    // first frames instead of in front of them -- same steps, same order.
+    // Sign-out waits for it (see FcmTokenService.remove).
+    FcmTokenService.trackLaunchSync(_syncPushToken());
+  } catch (e, st) {
+    await _reportPushInitFailure(e, st);
+  }
+
+  runApp(const FootRankApp());
+}
+
+/// Launch-time token registration; see the call site in [main].
+Future<void> _syncPushToken() async {
+  try {
+    await NotificationService.fetchInitialToken();
     // This half touches FirebaseMessaging.instance immediately and must not
     // run until Firebase is actually ready (see its doc comment).
     FcmTokenService.initTokenRefreshListener();
@@ -66,19 +84,21 @@ Future<void> main() async {
     // obtainable (it isn't until Firebase/APNs init above has completed).
     await FcmTokenService.sync();
   } catch (e, st) {
-    debugPrint('Firebase/notifications init failed: $e');
-    // Best-effort: only reports if Firebase.initializeApp() itself succeeded
-    // (Crashlytics needs that to be ready). Without this, push-registration
-    // failures were invisible in production -- just a local debugPrint.
-    try {
-      await FirebaseCrashlytics.instance.recordError(
-        e,
-        st,
-        fatal: false,
-        reason: 'push notification init failed',
-      );
-    } catch (_) {}
+    await _reportPushInitFailure(e, st);
   }
+}
 
-  runApp(const FootRankApp());
+Future<void> _reportPushInitFailure(Object e, StackTrace st) async {
+  debugPrint('Firebase/notifications init failed: $e');
+  // Best-effort: only reports if Firebase.initializeApp() itself succeeded
+  // (Crashlytics needs that to be ready). Without this, push-registration
+  // failures were invisible in production -- just a local debugPrint.
+  try {
+    await FirebaseCrashlytics.instance.recordError(
+      e,
+      st,
+      fatal: false,
+      reason: 'push notification init failed',
+    );
+  } catch (_) {}
 }

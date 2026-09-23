@@ -9,6 +9,15 @@ import 'package:footrank/services/supabase_service.dart';
 class FcmTokenService {
   static String? _lastToken;
 
+  /// The launch-time token work from main(). It used to finish before
+  /// runApp(), so anything the user could do was guaranteed to see its
+  /// result; it now runs alongside the first frames instead, and [remove]
+  /// waits for it to keep that guarantee.
+  static Future<void>? _launchSync;
+
+  /// Registers main()'s launch-time token work (see [_launchSync]).
+  static void trackLaunchSync(Future<void> work) => _launchSync = work;
+
   /// Upsert this device's token for the current user.
   static Future<void> sync() async {
     final user = SupabaseService.client.auth.currentUser;
@@ -32,6 +41,10 @@ class FcmTokenService {
 
   /// Remove this device's token (call before signing out, while still authed).
   static Future<void> remove() async {
+    // A sign-out straight after launch must still know this device's token,
+    // or its fcm_tokens row would survive the sign-out.
+    final launchSync = _launchSync;
+    if (launchSync != null) await launchSync;
     final user = SupabaseService.client.auth.currentUser;
     final token = _lastToken;
     if (user == null || token == null) return;
