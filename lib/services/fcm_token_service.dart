@@ -18,6 +18,14 @@ class FcmTokenService {
   /// Registers main()'s launch-time token work (see [_launchSync]).
   static void trackLaunchSync(Future<void> work) => _launchSync = work;
 
+  /// Completes once main()'s launch-time token work has finished (at once if
+  /// there was none), for callers that must not overlap it -- account
+  /// deletion, for the same reason [remove] waits for it.
+  static Future<void> launchSyncDone() async {
+    final launchSync = _launchSync;
+    if (launchSync != null) await launchSync;
+  }
+
   /// Upsert this device's token for the current user.
   static Future<void> sync() async {
     final user = SupabaseService.client.auth.currentUser;

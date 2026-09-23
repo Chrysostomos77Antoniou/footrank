@@ -198,6 +198,10 @@ class AuthRepository {
   /// Auth Admin API (proper session/refresh-token revocation) instead of raw
   /// SQL.
   Future<void> deleteAccount() async {
+    // The launch-time push token sync can still be running when the UI is
+    // first usable; let it finish so its fcm_tokens upsert can never land
+    // after this account has been deleted.
+    await FcmTokenService.launchSyncDone();
     final res = await _client.functions.invoke('delete-account');
     final data = res.data;
     if (data is Map && data['error'] != null) {
