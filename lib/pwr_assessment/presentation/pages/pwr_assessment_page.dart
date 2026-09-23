@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
@@ -148,7 +149,7 @@ class _PwrAssessmentPageState extends State<PwrAssessmentPage> {
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.xs),
                 FadeSlideIn(
                   delay: const Duration(milliseconds: 40),
                   child: Text(
@@ -160,7 +161,7 @@ class _PwrAssessmentPageState extends State<PwrAssessmentPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSemantic.sectionGap),
                 for (var i = 0; i < _dropdownQuestions.length; i++) ...[
                   FadeSlideIn(
                     delay: Duration(milliseconds: 60 + i * 40),
@@ -171,7 +172,7 @@ class _PwrAssessmentPageState extends State<PwrAssessmentPage> {
                           setState(() => _answers[_dropdownQuestions[i].key] = v!),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
                 ],
                 for (var i = 0; i < _ratingQuestions.length; i++) ...[
                   FadeSlideIn(
@@ -184,9 +185,9 @@ class _PwrAssessmentPageState extends State<PwrAssessmentPage> {
                           setState(() => _answers[_ratingQuestions[i].key] = v),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
                 ],
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 FadeSlideIn(
                   delay: Duration(milliseconds: 60 + _totalQuestions * 40),
                   child: FilledButton(
@@ -227,7 +228,7 @@ class _DropdownQuestionCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(question.title, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           DropdownButtonFormField<String>(
             value: value,
             isExpanded: true,
@@ -262,11 +263,11 @@ class _RatingQuestionCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(question.title, style: theme.textTheme.titleSmall),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               for (var n = 1; n <= 5; n++) ...[
-                if (n > 1) const SizedBox(width: 8),
+                if (n > 1) const SizedBox(width: AppSpacing.xs),
                 Expanded(
                   child: _RatingChip(
                     label: '$n',
@@ -317,16 +318,16 @@ class _RatingChip extends StatelessWidget {
     final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: AppMotion.micro,
         padding: const EdgeInsets.symmetric(vertical: 10),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected
               ? theme.colorScheme.primary
               : theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
         child: Text(
           label,
