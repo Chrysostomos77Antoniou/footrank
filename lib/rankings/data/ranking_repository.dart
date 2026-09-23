@@ -1,5 +1,6 @@
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/models/user_model.dart';
+import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/services/supabase_service.dart';
 
 class RankingRepository {
@@ -9,9 +10,11 @@ class RankingRepository {
   /// Ranked players (>= [minMatches] matches), ordered by ELO (desc),
   /// optionally filtered by position.
   Future<List<UserModel>> fetchPlayers({String? position}) async {
+    // Explicit column list, never a bare `.select()` -- see
+    // ProfileRepository.publicColumns for why.
     var query = SupabaseService.client
         .from('users')
-        .select()
+        .select(ProfileRepository.publicColumns)
         .gte('matches_played', minMatches);
     if (position != null) {
       query = query.eq('position', position);
