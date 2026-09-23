@@ -13,8 +13,9 @@ class ProfileRepository {
   /// return every column the RLS policy allows for the row, so any future column
   /// added to `users` (email, auth metadata, internal flags, etc.) would be
   /// silently exposed to every viewer. Keep this list to exactly the fields
-  /// `UserModel.fromJson` consumes.
-  static const _publicColumns =
+  /// `UserModel.fromJson` consumes. Public so every other `users` read that
+  /// builds a [UserModel] (e.g. the leaderboard) shares this one list.
+  static const publicColumns =
       'id,name,username,city,position,elo,reliability,'
       'behavior_positive,behavior_negative,matches_played,avatar_url,'
       'dispute_count,flagged,created_at,pwr_assessment_completed_at';
@@ -44,7 +45,7 @@ class ProfileRepository {
 
     final data = await SupabaseService.client
         .from(_table)
-        .select(_publicColumns)
+        .select(publicColumns)
         .eq('id', userId)
         .maybeSingle();
 
@@ -73,7 +74,7 @@ class ProfileRepository {
   Future<UserModel?> fetchUserById(String id) async {
     final data = await SupabaseService.client
         .from(_table)
-        .select(_publicColumns)
+        .select(publicColumns)
         .eq('id', id)
         .maybeSingle();
     if (data == null) return null;
@@ -127,7 +128,7 @@ class ProfileRepository {
 
     final inserted = await SupabaseService.client
         .from(_table)
-        .select(_publicColumns)
+        .select(publicColumns)
         .eq('id', userId)
         .single();
 
@@ -177,7 +178,7 @@ class ProfileRepository {
           if (avatarUrl != null) 'avatar_url': avatarUrl,
         })
         .eq('id', userId)
-        .select(_publicColumns)
+        .select(publicColumns)
         .single();
 
     return UserModel.fromJson(updated);
