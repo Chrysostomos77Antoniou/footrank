@@ -17,6 +17,7 @@ import 'package:footrank/models/team_member_model.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/match/presentation/widgets/match_fee_card.dart';
 import 'package:footrank/payment/data/payment_repository.dart';
+import 'package:footrank/payment/data/promo_repository.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
@@ -81,6 +82,9 @@ class _MatchDetailPageState extends State<MatchDetailPage>
   /// "don't show that line" rather than guessing a status.
   MatchPaymentSummary? _paymentSummary;
 
+  /// A promo code covers this team's fee (server-decided, best effort).
+  bool _feeWaived = false;
+
   // Information / Contact / Attendance.
   int _tab = 0;
 
@@ -142,6 +146,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
       // an error screen.
       MatchPaymentModel? myPayment;
       MatchPaymentSummary? paymentSummary;
+      bool feeWaived = false;
       if (isCaptain && myTeamId != null && PaymentRepository.isEnabled) {
         try {
           myPayment = await _paymentRepo.fetchMyPayment(
@@ -156,6 +161,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         // participant check is relevant for), and it must never be able to
         // fail the page -- the repo already swallows its own errors.
         paymentSummary = await _paymentRepo.fetchPaymentSummary(match.id);
+        feeWaived = await PromoRepository().isTeamFeeWaived(myTeamId);
       }
 
       if (!mounted) return;
@@ -164,6 +170,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         _isCaptain = isCaptain;
         _myPayment = myPayment;
         _paymentSummary = paymentSummary;
+        _feeWaived = feeWaived;
         _myTeamId = myTeamId;
         _opponentTeamId = opponentTeamId;
         _homeTeam = home;
@@ -726,6 +733,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
               payment: _myPayment,
               paying: _paying,
               onPay: _payMatchFee,
+              feeWaived: _feeWaived,
               opponentTeamName: _opponentTeamName(match),
               opponentPaid: _opponentTeamId == null
                   ? null

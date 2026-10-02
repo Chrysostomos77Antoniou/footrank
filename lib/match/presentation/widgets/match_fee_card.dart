@@ -32,6 +32,10 @@ class MatchFeeCard extends StatelessWidget {
   /// [opponentTeamName] -- the two are only ever set together.
   final bool? opponentPaid;
 
+  /// A promo code covers this team's fee but it hasn't been confirmed yet:
+  /// show "Free" and a confirm button instead of a price.
+  final bool feeWaived;
+
   const MatchFeeCard({
     super.key,
     required this.payment,
@@ -39,12 +43,14 @@ class MatchFeeCard extends StatelessWidget {
     required this.onPay,
     this.opponentTeamName,
     this.opponentPaid,
+    this.feeWaived = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final paid = payment?.isPaid ?? false;
+    final waivedRow = payment?.isWaived ?? false;
     final failed = payment?.hasFailed ?? false;
     final refunded = payment?.isRefunded ?? false;
 
@@ -72,7 +78,7 @@ class MatchFeeCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Match fee paid',
+                        waivedRow ? 'Match fee waived' : 'Match fee paid',
                         style: theme.textTheme.titleSmall,
                       ),
                       const SizedBox(height: AppSemantic.labelGap),
@@ -86,7 +92,7 @@ class MatchFeeCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  amount,
+                  waivedRow ? 'Free' : amount,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                     fontFeatures: const [FontFeature.tabularFigures()],
@@ -122,7 +128,7 @@ class MatchFeeCard extends StatelessWidget {
                 ),
               ),
               Text(
-                amount,
+                feeWaived ? 'Free' : amount,
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                   fontFeatures: const [FontFeature.tabularFigures()],
@@ -132,7 +138,10 @@ class MatchFeeCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            refunded
+            feeWaived
+                ? 'Your promo code covers your team\'s share. Tap to confirm — the '
+                    'pitch itself is still paid at the venue.'
+                : refunded
                 ? 'This fee was refunded. Pay again to confirm your team for '
                     'this match.'
                 : 'Each team pays its own share. The pitch itself is booked and '
@@ -156,8 +165,12 @@ class MatchFeeCard extends StatelessWidget {
           ],
           const SizedBox(height: AppSpacing.sm),
           AppButton(
-            label: failed ? 'Try again — $amount' : 'Pay $amount',
-            icon: Icons.lock_rounded,
+            label: feeWaived
+                ? 'Confirm — fee waived'
+                : (failed ? 'Try again — $amount' : 'Pay $amount'),
+            icon: feeWaived
+                ? Icons.check_circle_outline_rounded
+                : Icons.lock_rounded,
             loading: paying,
             onPressed: onPay,
           ),

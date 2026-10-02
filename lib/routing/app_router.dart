@@ -13,6 +13,7 @@ import 'package:footrank/home/presentation/pages/home_page.dart';
 import 'package:footrank/notifications/presentation/pages/notifications_page.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
 import 'package:footrank/onboarding/presentation/pages/onboarding_page.dart';
+import 'package:footrank/payment/presentation/pages/promo_code_page.dart';
 import 'package:footrank/match/presentation/pages/courts_page.dart';
 import 'package:footrank/match/presentation/pages/create_match_request_page.dart';
 import 'package:footrank/match/presentation/pages/match_detail_page.dart';
@@ -38,6 +39,7 @@ class AppRoutes {
   static const register = '/register';
   static const profileSetup = '/profile-setup';
   static const pwrAssessment = '/pwr-assessment';
+  static const promoCode = '/promo-code';
   static const resetPassword = '/reset-password';
   static const home = '/';
   static const team = '/team';
@@ -215,6 +217,11 @@ GoRouter buildRouter() => GoRouter(
       path: AppRoutes.pwrAssessment,
       pageBuilder: (context, state) =>
           _animatedPage(const PwrAssessmentPage(), state),
+    ),
+    GoRoute(
+      path: AppRoutes.promoCode,
+      pageBuilder: (context, state) =>
+          _animatedPage(const PromoCodePage(), state),
     ),
     GoRoute(
       path: AppRoutes.teamDetail,

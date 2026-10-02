@@ -14,6 +14,7 @@ import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/user_model.dart';
+import 'package:footrank/payment/data/promo_repository.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/team/data/team_repository.dart';
@@ -232,6 +233,19 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
                     child: GlassCard(
                       child: Column(
                         children: [
+                          if (PromoRepository.isOpen) ...[
+                            ListTile(
+                              leading: Icon(
+                                Icons.confirmation_number_outlined,
+                                color: AppColors.iconAccent(context),
+                              ),
+                              title: const Text('Promo code'),
+                              trailing:
+                                  const Icon(Icons.chevron_right, size: 18),
+                              onTap: () => context.push(AppRoutes.promoCode),
+                            ),
+                            const Divider(height: 1),
+                          ],
                           ListTile(
                             leading: Icon(
                               Icons.privacy_tip_outlined,

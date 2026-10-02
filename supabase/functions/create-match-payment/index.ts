@@ -178,8 +178,54 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (existingErr) throw existingErr;
 
-    if (existing?.status === "succeeded") {
+    if (existing?.status === "succeeded" || existing?.status === "waived") {
       return json({ already_paid: true, amount_cents: existing.amount_cents });
+    }
+
+    // --- Promo: waive the fee when any member of this team holds an active
+    // promo code (e.g. WELCOME). Decided here, server-side, so a client can
+    // never waive its own fee. No money moves, so nothing is sent to Stripe.
+    const { data: waived } = await supa.rpc("team_fee_waived", {
+      p_team_id: teamId,
+    });
+    if (waived === true) {
+      // If an earlier attempt left a PaymentIntent open, cancel it so the
+      // captain can't be charged for a fee that is now waived. Best effort:
+      // a PaymentIntent that has already succeeded can't be cancelled, and
+      // the webhook will then record it as a normal paid fee.
+      if (existing?.stripe_payment_intent_id) {
+        try {
+          await stripe(
+            `payment_intents/${existing.stripe_payment_intent_id}/cancel`,
+            { method: "POST", body: new URLSearchParams() },
+          );
+        } catch (e) {
+          console.error("cancel PaymentIntent for waived fee failed:", e);
+        }
+      }
+
+      const { error: waiveErr } = await supa.from("match_payments").upsert(
+        {
+          match_id,
+          team_id: teamId,
+          captain_id: uid,
+          amount_cents: FEE_CENTS,
+          currency: CURRENCY,
+          status: "waived",
+          failure_reason: null,
+          paid_at: new Date().toISOString(),
+        },
+        { onConflict: "match_id,team_id" },
+      );
+      if (waiveErr) throw waiveErr;
+
+      const { data: recalced } = await supa.rpc("recalc_match_payment_status", {
+        p_match_id: match_id,
+      });
+      if (recalced === "paid") {
+        await notifyTelegramBothPaid(match_id);
+      }
+      return json({ waived: true, amount_cents: 0 });
     }
 
     if (existing?.stripe_payment_intent_id) {

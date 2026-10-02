@@ -86,7 +86,11 @@ class _PendingFeeBannerState extends State<PendingFeeBanner> {
                 const SizedBox(width: AppSemantic.iconGap),
                 Expanded(
                   child: Text(
-                    fee.previouslyFailed ? 'Payment failed' : 'Action needed',
+                    fee.waived
+                        ? 'Fee waived'
+                        : (fee.previouslyFailed
+                            ? 'Payment failed'
+                            : 'Action needed'),
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: brand,
                       fontWeight: FontWeight.w900,
@@ -118,10 +122,13 @@ class _PendingFeeBannerState extends State<PendingFeeBanner> {
             ),
             const SizedBox(height: AppSemantic.labelGap),
             Text(
-              fee.previouslyFailed
-                  ? 'Your card was declined. Try again to confirm your team.'
-                  : 'Your match is confirmed. Pay your team\'s share to be all '
-                      'set — the pitch itself is still paid at the venue.',
+              fee.waived
+                  ? 'Your promo code covers this match fee. Tap to confirm — the '
+                      'pitch itself is still paid at the venue.'
+                  : fee.previouslyFailed
+                      ? 'Your card was declined. Try again to confirm your team.'
+                      : 'Your match is confirmed. Pay your team\'s share to be all '
+                          'set — the pitch itself is still paid at the venue.',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: AppColors.muted(context)),
             ),

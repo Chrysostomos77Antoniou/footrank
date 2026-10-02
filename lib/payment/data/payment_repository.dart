@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:footrank/core/constants/app_constants.dart';
 import 'package:footrank/models/match_payment_model.dart';
+import 'package:footrank/payment/data/promo_repository.dart';
 import 'package:footrank/services/supabase_service.dart';
 
 
@@ -23,6 +24,11 @@ class PendingFee {
   /// Null when nothing has been started yet.
   final MatchPaymentModel? payment;
 
+  /// True when a promo code covers this team's fee. The captain still taps
+  /// once to confirm (that's what records the waiver on the server), but is
+  /// never asked for money.
+  final bool waived;
+
   const PendingFee({
     required this.matchId,
     required this.teamId,
@@ -31,12 +37,14 @@ class PendingFee {
     required this.scheduledAt,
     required this.city,
     this.payment,
+    this.waived = false,
   });
 
   String get fixture => '$homeTeamName vs $awayTeamName';
   bool get previouslyFailed => payment?.hasFailed ?? false;
-  String get amountLabel =>
-      payment?.amountLabel ?? MatchPaymentModel.formatAmount(200, 'eur');
+  String get amountLabel => waived
+      ? 'Free'
+      : (payment?.amountLabel ?? MatchPaymentModel.formatAmount(200, 'eur'));
 }
 
 /// The €2 platform fee one team owes for a confirmed match.
@@ -168,6 +176,14 @@ class PaymentRepository {
         if (p.isPaid) paid.add('${p.matchId}:${p.teamId}');
       }
 
+      // Which of the captain's teams currently have their fee waived by a
+      // promo code (best effort: false on any error keeps the normal flow).
+      final promo = PromoRepository();
+      final waivedTeams = <String>{};
+      for (final id in teamIds) {
+        if (await promo.isTeamFeeWaived(id)) waivedTeams.add(id);
+      }
+
       final result = <PendingFee>[];
       for (final m in rows) {
         final matchId = m['id'] as String;
@@ -191,6 +207,7 @@ class PaymentRepository {
           scheduledAt: DateTime.parse(m['scheduled_at'] as String),
           city: m['city'] as String? ?? '',
           payment: existing[key],
+          waived: waivedTeams.contains(myTeamId),
         ));
       }
       return result;
@@ -231,6 +248,12 @@ class PaymentRepository {
 
     if (body['already_paid'] == true) {
       return const PaymentResult(PaymentOutcome.alreadyPaid);
+    }
+
+    // A promo code covered the fee: the server recorded it as waived and no
+    // card is involved, so there is no PaymentSheet to show.
+    if (body['waived'] == true) {
+      return const PaymentResult(PaymentOutcome.waived);
     }
 
     final clientSecret = body['client_secret'] as String?;

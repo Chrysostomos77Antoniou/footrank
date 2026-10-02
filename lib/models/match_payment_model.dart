@@ -11,8 +11,9 @@ class MatchPaymentModel {
   final int amountCents;
   final String currency;
 
-  /// pending | succeeded | failed | refunded. Only the Stripe webhook can move
-  /// a row to `succeeded`, so this is trustworthy as a display value.
+  /// pending | succeeded | failed | refunded | waived. Only the Stripe webhook
+  /// can move a row to `succeeded`, and only the server can set `waived` (a
+  /// promo code covered the fee), so this is trustworthy as a display value.
   final String status;
 
   /// Stripe's decline message, when [status] is `failed`.
@@ -36,7 +37,12 @@ class MatchPaymentModel {
     this.refundedAt,
   });
 
-  bool get isPaid => status == 'succeeded';
+  /// Settled: either paid through Stripe or waived by a promo code. Both mean
+  /// the team owes nothing more for this match.
+  bool get isPaid => status == 'succeeded' || status == 'waived';
+
+  /// Settled because a promo code covered the fee (no money moved).
+  bool get isWaived => status == 'waived';
   bool get isPending => status == 'pending';
   bool get hasFailed => status == 'failed';
   bool get isRefunded => status == 'refunded';
@@ -88,6 +94,9 @@ enum PaymentOutcome {
   /// Already paid (a duplicate tap, or another device got there first).
   alreadyPaid,
 
+  /// A promo code covered the fee; nothing was charged.
+  waived,
+
   /// Card declined or the sheet failed. [PaymentResult.message] says why.
   failed,
 }
@@ -112,7 +121,7 @@ class MatchPaymentSummary {
   final String homeTeamId;
   final String awayTeamId;
 
-  /// unpaid | pending | succeeded | failed | refunded (the RPC coalesces a
+  /// unpaid | pending | succeeded | failed | refunded | waived (the RPC coalesces a
   /// missing row to 'unpaid').
   final String homeStatus;
   final String awayStatus;
@@ -124,8 +133,8 @@ class MatchPaymentSummary {
     required this.awayStatus,
   });
 
-  bool get homePaid => homeStatus == 'succeeded';
-  bool get awayPaid => awayStatus == 'succeeded';
+  bool get homePaid => homeStatus == 'succeeded' || homeStatus == 'waived';
+  bool get awayPaid => awayStatus == 'succeeded' || awayStatus == 'waived';
 
   /// Whether [teamId]'s fee has been paid. Callers must pass either
   /// [homeTeamId] or [awayTeamId] -- there is no third team to look up.
@@ -148,6 +157,8 @@ class MatchPaymentSummary {
 String paymentResultMessage(PaymentResult result) => switch (result.outcome) {
       PaymentOutcome.succeeded => 'Fee paid — your team is all set.',
       PaymentOutcome.alreadyPaid => 'This fee has already been paid.',
+      PaymentOutcome.waived =>
+        'Fee waived by your promo code — your team is all set.',
       PaymentOutcome.failed =>
         result.message ?? 'Payment failed. Please try again.',
       // Never surfaced: the caller returns early on a cancellation so the

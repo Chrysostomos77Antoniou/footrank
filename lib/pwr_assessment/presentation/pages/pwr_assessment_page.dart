@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
+import 'package:footrank/payment/data/promo_repository.dart';
 import 'package:footrank/pwr_assessment/data/pwr_assessment_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 
@@ -112,7 +113,10 @@ class _PwrAssessmentPageState extends State<PwrAssessmentPage> {
     final intent = OnboardingPrefs.postSetupIntent;
     OnboardingPrefs.setPostSetupIntent(null);
 
-    context.go(AppRoutes.home);
+    // Grab the router before navigating: this page is torn down by go(), and
+    // the promo prompt and intent target below run after that.
+    final router = GoRouter.of(context);
+    router.go(AppRoutes.home);
 
     String? target;
     if (intent == OnboardingIntent.createTeam) {
@@ -120,10 +124,18 @@ class _PwrAssessmentPageState extends State<PwrAssessmentPage> {
     } else if (intent == OnboardingIntent.freeAgent) {
       target = AppRoutes.freeAgents;
     }
-    if (target == null) return;
+    // First sign-in: offer the promo code field before the intent target, so
+    // the code is on the account before they create or join a team. Skipped
+    // once the promo has ended.
+    final offerPromo = PromoRepository.isOpen;
+    final dest = target;
+    if (dest == null && !offerPromo) return;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.push(target!);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (offerPromo) {
+        await router.push<void>(AppRoutes.promoCode);
+      }
+      if (dest != null) router.push(dest);
     });
   }
 

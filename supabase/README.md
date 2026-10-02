@@ -137,3 +137,21 @@ Use `sk_test_…` keys and Stripe's test cards. Worth exercising specifically:
   webhook is idempotent — a replay must not change an already-`succeeded` row.
 - Refund a test payment and confirm `payment_status` drops back to
   `awaiting_payment`.
+
+## Promo codes (WELCOME)
+
+`WELCOME` waives the €2 match fee until the end of 15 Nov 2026 (Cyprus time).
+Migration: `20261002120000_promo_codes.sql`.
+
+- A redemption belongs to a **user**; a team's fee is waived while **any current
+  member** holds an active redemption (`team_fee_waived`). New users with no team
+  yet can redeem, and the benefit follows them into their first team.
+- Redeem via the `redeem_promo_code` RPC only (no client writes). Case-insensitive,
+  one redemption per user per code, rate-limited.
+- `create-match-payment` checks `team_fee_waived` and records the fee as
+  `status = 'waived'` (no Stripe call). `recalc_match_payment_status` counts
+  `waived` as settled.
+- To change the end date: `update promo_codes set valid_until = ... where code = 'WELCOME'`.
+  The client mirror in `PromoRepository.promoDeadline` only controls whether the
+  prompt is shown.
+- Deploy order: apply the migration, deploy `create-match-payment`, then ship the app.

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:footrank/models/match_payment_model.dart';
+import 'package:footrank/payment/data/promo_repository.dart';
 
 MatchPaymentModel payment({
   String status = 'pending',
@@ -55,6 +56,64 @@ void main() {
       // A refunded fee must not read as paid -- the fee card decides whether to
       // ask for money again off exactly this.
       expect(payment(status: 'refunded').isPaid, isFalse);
+    });
+
+    test('a waived fee counts as settled but is distinguishable from paid', () {
+      final waived = payment(status: 'waived');
+      expect(waived.isPaid, isTrue, reason: 'team owes nothing more');
+      expect(waived.isWaived, isTrue);
+      expect(payment(status: 'succeeded').isWaived, isFalse);
+      expect(waived.hasFailed, isFalse);
+      expect(waived.isPending, isFalse);
+    });
+  });
+
+  group('MatchPaymentSummary', () {
+    MatchPaymentSummary summary(String home, String away) =>
+        MatchPaymentSummary.fromJson({
+          'home_team_id': 'h',
+          'away_team_id': 'a',
+          'home_status': home,
+          'away_status': away,
+        });
+
+    test('treats waived like paid for either side', () {
+      final s = summary('waived', 'succeeded');
+      expect(s.homePaid, isTrue);
+      expect(s.awayPaid, isTrue);
+      expect(s.paidFor('h'), isTrue);
+    });
+
+    test('unpaid and pending are not paid', () {
+      final s = summary('unpaid', 'pending');
+      expect(s.homePaid, isFalse);
+      expect(s.awayPaid, isFalse);
+    });
+  });
+
+  group('promo messages', () {
+    test('covers every status', () {
+      for (final status in PromoStatus.values) {
+        expect(promoResultMessage(PromoResult(status)), isNotEmpty,
+            reason: 'missing message for $status');
+      }
+    });
+
+    test('names the last free day, not the day after', () {
+      // Server stores the end as 16 Nov 00:00 Cyprus (= 15 Nov 22:00 UTC).
+      final until = DateTime.utc(2026, 11, 15, 22);
+      expect(promoDateLabel(until), '15 Nov 2026');
+      expect(
+        promoResultMessage(PromoResult(PromoStatus.ok, until)),
+        'Code applied. No booking fees until 15 Nov 2026.',
+      );
+    });
+
+    test('active only when the code is applied', () {
+      expect(const PromoResult(PromoStatus.ok).isActive, isTrue);
+      expect(const PromoResult(PromoStatus.alreadyRedeemed).isActive, isTrue);
+      expect(const PromoResult(PromoStatus.invalid).isActive, isFalse);
+      expect(const PromoResult(PromoStatus.expired).isActive, isFalse);
     });
   });
 
