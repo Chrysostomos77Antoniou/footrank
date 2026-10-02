@@ -91,7 +91,9 @@ class NotificationService {
     });
 
     final token = await currentToken();
-    debugPrint('FCM token: $token');
+    // Never print the device token in release builds: debugPrint still writes
+    // to the system log there, and the token identifies this device.
+    if (kDebugMode) debugPrint('FCM token: $token');
     return token;
   }
 

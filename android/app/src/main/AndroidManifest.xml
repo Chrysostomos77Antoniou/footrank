@@ -8,6 +8,7 @@
     <application
         android:label="footrank"
         android:name="${applicationName}"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher">
         <!-- Default icon for FCM notification messages shown while the app is
              backgrounded or killed. No custom channel id is set here, FCM
