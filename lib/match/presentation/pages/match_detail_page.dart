@@ -84,6 +84,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
 
   /// A promo code covers this team's fee (server-decided, best effort).
   bool _feeWaived = false;
+  bool _feeCredited = false;
 
   // Information / Contact / Attendance.
   int _tab = 0;
@@ -147,6 +148,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
       MatchPaymentModel? myPayment;
       MatchPaymentSummary? paymentSummary;
       bool feeWaived = false;
+      bool feeCredited = false;
       if (isCaptain && myTeamId != null && PaymentRepository.isEnabled) {
         try {
           myPayment = await _paymentRepo.fetchMyPayment(
@@ -162,6 +164,9 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         // fail the page -- the repo already swallows its own errors.
         paymentSummary = await _paymentRepo.fetchPaymentSummary(match.id);
         feeWaived = await PromoRepository().isTeamFeeWaived(myTeamId);
+        if (!feeWaived) {
+          feeCredited = await _paymentRepo.teamFeeCredits(myTeamId) > 0;
+        }
       }
 
       if (!mounted) return;
@@ -171,6 +176,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         _myPayment = myPayment;
         _paymentSummary = paymentSummary;
         _feeWaived = feeWaived;
+        _feeCredited = feeCredited;
         _myTeamId = myTeamId;
         _opponentTeamId = opponentTeamId;
         _homeTeam = home;
@@ -734,6 +740,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
               paying: _paying,
               onPay: _payMatchFee,
               feeWaived: _feeWaived,
+              feeCredited: _feeCredited,
               opponentTeamName: _opponentTeamName(match),
               opponentPaid: _opponentTeamId == null
                   ? null

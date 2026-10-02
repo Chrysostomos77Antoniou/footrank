@@ -182,15 +182,14 @@ Deno.serve(async (req) => {
       return json({ already_paid: true, amount_cents: existing.amount_cents });
     }
 
-    // --- Promo: waive the fee when any member of this team holds an active
-    // promo code (e.g. WELCOME). Decided here, server-side, so a client can
-    // never waive its own fee. No money moves, so nothing is sent to Stripe.
-    const { data: waived } = await supa.rpc("team_fee_waived", {
-      p_team_id: teamId,
-    });
-    if (waived === true) {
+    // --- No-money settlements: a promo code or a saved credit -------------
+    // Both are decided here, server-side, so a client can never waive its own
+    // fee. The fee row is recorded as 'waived' (the same "settled" state the
+    // webhook, the deadline sweep, reminders and the app already understand),
+    // with waiver_source saying why.
+    const settleWithoutPayment = async (source: "promo" | "credit") => {
       // If an earlier attempt left a PaymentIntent open, cancel it so the
-      // captain can't be charged for a fee that is now waived. Best effort:
+      // captain can't be charged for a fee that is now covered. Best effort:
       // a PaymentIntent that has already succeeded can't be cancelled, and
       // the webhook will then record it as a normal paid fee.
       if (existing?.stripe_payment_intent_id) {
@@ -200,7 +199,7 @@ Deno.serve(async (req) => {
             { method: "POST", body: new URLSearchParams() },
           );
         } catch (e) {
-          console.error("cancel PaymentIntent for waived fee failed:", e);
+          console.error("cancel PaymentIntent for covered fee failed:", e);
         }
       }
 
@@ -212,6 +211,7 @@ Deno.serve(async (req) => {
           amount_cents: FEE_CENTS,
           currency: CURRENCY,
           status: "waived",
+          waiver_source: source,
           failure_reason: null,
           paid_at: new Date().toISOString(),
         },
@@ -225,7 +225,36 @@ Deno.serve(async (req) => {
       if (recalced === "paid") {
         await notifyTelegramBothPaid(match_id);
       }
+    };
+
+    // Promo: any member of this team holds an active promo code (WELCOME).
+    const { data: waived } = await supa.rpc("team_fee_waived", {
+      p_team_id: teamId,
+    });
+    if (waived === true) {
+      await settleWithoutPayment("promo");
       return json({ waived: true, amount_cents: 0 });
+    }
+
+    // Credit: a fee this team already paid for a match that was then cancelled
+    // is kept as credit and covers this one (see match_fee_credits).
+    const { data: credited } = await supa.rpc("consume_match_fee_credit", {
+      p_team_id: teamId,
+      p_match_id: match_id,
+    });
+    if (credited === true) {
+      try {
+        await settleWithoutPayment("credit");
+      } catch (e) {
+        // Don't burn the credit if recording the fee failed.
+        await supa
+          .from("match_fee_credits")
+          .update({ used_at: null, used_match_id: null })
+          .eq("team_id", teamId)
+          .eq("used_match_id", match_id);
+        throw e;
+      }
+      return json({ waived: true, credit: true, amount_cents: 0 });
     }
 
     if (existing?.stripe_payment_intent_id) {

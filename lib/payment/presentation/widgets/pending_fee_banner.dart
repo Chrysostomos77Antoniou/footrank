@@ -86,8 +86,8 @@ class _PendingFeeBannerState extends State<PendingFeeBanner> {
                 const SizedBox(width: AppSemantic.iconGap),
                 Expanded(
                   child: Text(
-                    fee.waived
-                        ? 'Fee waived'
+                    fee.covered
+                        ? (fee.credited ? 'Credit ready' : 'Fee waived')
                         : (fee.previouslyFailed
                             ? 'Payment failed'
                             : 'Action needed'),
@@ -122,9 +122,12 @@ class _PendingFeeBannerState extends State<PendingFeeBanner> {
             ),
             const SizedBox(height: AppSemantic.labelGap),
             Text(
-              fee.waived
-                  ? 'Your promo code covers this match fee. Tap to confirm — the '
-                      'pitch itself is still paid at the venue.'
+              fee.covered
+                  ? (fee.credited
+                      ? 'Your saved €2 credit covers this match fee. Tap to '
+                          'confirm — the pitch itself is still paid at the venue.'
+                      : 'Your promo code covers this match fee. Tap to confirm — '
+                          'the pitch itself is still paid at the venue.')
                   : fee.previouslyFailed
                       ? 'Your card was declined. Try again to confirm your team.'
                       : 'Your match is confirmed. Pay your team\'s share to be all '

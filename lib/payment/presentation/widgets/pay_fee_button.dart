@@ -73,14 +73,16 @@ class _PayFeeButtonState extends State<PayFeeButton> {
   Widget build(BuildContext context) {
     final failed = widget.fee.previouslyFailed;
     final amount = widget.fee.amountLabel;
-    final waived = widget.fee.waived;
+    final covered = widget.fee.covered;
     return AppButton(
-      label: waived
-          ? 'Confirm — fee waived'
+      label: covered
+          ? (widget.fee.credited
+              ? 'Confirm — use your credit'
+              : 'Confirm — fee waived')
           : failed
               ? 'Try again — $amount'
               : (widget.compact ? 'Pay $amount' : 'Pay $amount now'),
-      icon: waived ? Icons.check_circle_outline_rounded : Icons.lock_rounded,
+      icon: covered ? Icons.check_circle_outline_rounded : Icons.lock_rounded,
       loading: _paying,
       // Always filled, even in the compact (list-card) placement. This used
       // to be an outlined secondary button there, which read as low-priority

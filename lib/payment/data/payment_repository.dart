@@ -29,6 +29,10 @@ class PendingFee {
   /// never asked for money.
   final bool waived;
 
+  /// True when the team has a saved credit (a fee it paid for a cancelled
+  /// match) that will cover this fee. Same one-tap confirm as [waived].
+  final bool credited;
+
   const PendingFee({
     required this.matchId,
     required this.teamId,
@@ -38,11 +42,14 @@ class PendingFee {
     required this.city,
     this.payment,
     this.waived = false,
+    this.credited = false,
   });
 
   String get fixture => '$homeTeamName vs $awayTeamName';
   bool get previouslyFailed => payment?.hasFailed ?? false;
-  String get amountLabel => waived
+  /// Nothing will be charged: a promo code or a saved credit covers it.
+  bool get covered => waived || credited;
+  String get amountLabel => covered
       ? 'Free'
       : (payment?.amountLabel ?? MatchPaymentModel.formatAmount(200, 'eur'));
 }
@@ -120,6 +127,22 @@ class PaymentRepository {
   }
 
 
+  /// How many unused fee credits [teamId] has (a fee it paid for a match that
+  /// was then cancelled is kept as credit for its next match). Never throws:
+  /// 0 on any error so the normal pay flow stays available.
+  Future<int> teamFeeCredits(String teamId) async {
+    try {
+      final data = await SupabaseService.client.rpc(
+        'my_team_fee_credits',
+        params: {'p_team_id': teamId},
+      );
+      return (data as num?)?.toInt() ?? 0;
+    } catch (e) {
+      debugPrint('my_team_fee_credits failed: $e');
+      return 0;
+    }
+  }
+
   /// Every confirmed match where the signed-in user captains a team that has
   /// not paid yet, soonest first.
   ///
@@ -184,6 +207,14 @@ class PaymentRepository {
         if (await promo.isTeamFeeWaived(id)) waivedTeams.add(id);
       }
 
+      // ...and which have a saved credit from a cancelled match.
+      final creditedTeams = <String>{};
+      for (final id in teamIds) {
+        if (!waivedTeams.contains(id) && await teamFeeCredits(id) > 0) {
+          creditedTeams.add(id);
+        }
+      }
+
       final result = <PendingFee>[];
       for (final m in rows) {
         final matchId = m['id'] as String;
@@ -208,6 +239,7 @@ class PaymentRepository {
           city: m['city'] as String? ?? '',
           payment: existing[key],
           waived: waivedTeams.contains(myTeamId),
+          credited: creditedTeams.contains(myTeamId),
         ));
       }
       return result;
@@ -253,7 +285,9 @@ class PaymentRepository {
     // A promo code covered the fee: the server recorded it as waived and no
     // card is involved, so there is no PaymentSheet to show.
     if (body['waived'] == true) {
-      return const PaymentResult(PaymentOutcome.waived);
+      return body['credit'] == true
+          ? const PaymentResult(PaymentOutcome.credited)
+          : const PaymentResult(PaymentOutcome.waived);
     }
 
     final clientSecret = body['client_secret'] as String?;

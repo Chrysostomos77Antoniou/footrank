@@ -19,6 +19,10 @@ class MatchPaymentModel {
   /// Stripe's decline message, when [status] is `failed`.
   final String? failureReason;
 
+  /// Why a `waived` fee was waived: `promo` (a promo code) or `credit` (a fee
+  /// paid for an earlier, cancelled match was carried over). Null otherwise.
+  final String? waiverSource;
+
   final DateTime createdAt;
   final DateTime? paidAt;
   final DateTime? refundedAt;
@@ -32,6 +36,7 @@ class MatchPaymentModel {
     this.currency = 'eur',
     required this.status,
     this.failureReason,
+    this.waiverSource,
     required this.createdAt,
     this.paidAt,
     this.refundedAt,
@@ -43,6 +48,9 @@ class MatchPaymentModel {
 
   /// Settled because a promo code covered the fee (no money moved).
   bool get isWaived => status == 'waived';
+
+  /// Settled with a saved credit from a cancelled match (no money moved).
+  bool get isCredit => isWaived && waiverSource == 'credit';
   bool get isPending => status == 'pending';
   bool get hasFailed => status == 'failed';
   bool get isRefunded => status == 'refunded';
@@ -71,6 +79,7 @@ class MatchPaymentModel {
         currency: (json['currency'] as String?) ?? 'eur',
         status: json['status'] as String,
         failureReason: json['failure_reason'] as String?,
+        waiverSource: json['waiver_source'] as String?,
         createdAt: DateTime.parse(json['created_at'] as String),
         paidAt: json['paid_at'] != null
             ? DateTime.parse(json['paid_at'] as String)
@@ -96,6 +105,10 @@ enum PaymentOutcome {
 
   /// A promo code covered the fee; nothing was charged.
   waived,
+
+  /// A saved credit (from a cancelled match) covered the fee; nothing was
+  /// charged.
+  credited,
 
   /// Card declined or the sheet failed. [PaymentResult.message] says why.
   failed,
@@ -159,6 +172,8 @@ String paymentResultMessage(PaymentResult result) => switch (result.outcome) {
       PaymentOutcome.alreadyPaid => 'This fee has already been paid.',
       PaymentOutcome.waived =>
         'Fee waived by your promo code — your team is all set.',
+      PaymentOutcome.credited =>
+        'Your saved credit covered this fee — your team is all set.',
       PaymentOutcome.failed =>
         result.message ?? 'Payment failed. Please try again.',
       // Never surfaced: the caller returns early on a cancellation so the
