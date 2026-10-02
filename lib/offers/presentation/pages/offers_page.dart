@@ -37,15 +37,25 @@ class OffersPage extends StatelessWidget {
                   onTap: () => showNemorinOffer(context),
                   child: Row(
                     children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(AppRadius.lg - 4),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadius.lg - 4),
+                        child: Image.asset(
+                          'assets/branding/nemorin_preview.png',
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          // Falls back to the tag icon if the image is missing.
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 48,
+                            height: 48,
+                            color: accent.withValues(alpha: 0.14),
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.local_offer_outlined,
+                              color: accent,
+                            ),
+                          ),
                         ),
-                        alignment: Alignment.center,
-                        child: Icon(Icons.local_offer_outlined, color: accent),
                       ),
                       const SizedBox(width: AppSpacing.md),
                       Expanded(
