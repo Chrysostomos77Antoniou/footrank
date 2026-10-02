@@ -1255,7 +1255,12 @@ class _MatchCard extends StatelessWidget {
                             fontSize: 12)),
                   )
                 else
-                  Text(MatchStatus.fromString(match.status).label,
+                  Text(
+                      matchStatusLabel(
+                        MatchStatus.fromString(match.status),
+                        paymentStatus: match.paymentStatus,
+                        paymentsEnabled: PaymentRepository.isEnabled,
+                      ),
                       style: Theme.of(context).textTheme.labelLarge),
               ],
             ),
@@ -1284,6 +1289,28 @@ class _MatchCard extends StatelessWidget {
                     fee: pendingFee!,
                     compact: true,
                     onPaid: onPaid,
+                  ),
+                ],
+              ),
+            ] else if (match.status == 'confirmed' &&
+                PaymentRepository.isEnabled &&
+                match.paymentStatus != 'paid') ...[
+              // Nothing owed by me, but the match isn't settled: the other
+              // team (or my captain) still has to pay.
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  Icon(Icons.hourglass_top_rounded,
+                      size: AppIconSize.sm,
+                      color: AppColors.muted(context)),
+                  const SizedBox(width: AppSpacing.xxs),
+                  Expanded(
+                    child: Text(
+                      'Match is secured once both teams have paid',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.muted(context),
+                          ),
+                    ),
                   ),
                 ],
               ),

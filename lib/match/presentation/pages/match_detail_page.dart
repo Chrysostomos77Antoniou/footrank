@@ -885,7 +885,14 @@ class _MatchDetailPageState extends State<MatchDetailPage>
               ListTile(
                 leading: const Icon(Icons.flag),
                 title: const Text('Status'),
-                trailing: _StatusChip(status: status),
+                trailing: _StatusChip(
+                  status: status,
+                  label: matchStatusLabel(
+                    status,
+                    paymentStatus: match.paymentStatus,
+                    paymentsEnabled: PaymentRepository.isEnabled,
+                  ),
+                ),
               ),
               ListTile(
                 leading: const Icon(Icons.groups),
@@ -1005,7 +1012,8 @@ class _TeamHeader extends StatelessWidget {
 
 class _StatusChip extends StatelessWidget {
   final MatchStatus status;
-  const _StatusChip({required this.status});
+  final String label;
+  const _StatusChip({required this.status, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -1019,7 +1027,7 @@ class _StatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        status.label,
+        label,
         style: TextStyle(color: color, fontWeight: FontWeight.bold),
       ),
     );
