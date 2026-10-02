@@ -214,16 +214,32 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    PressableScale(
-                      onTap: () => context.push(AppRoutes.offers),
-                      child: GlassCard(
-                        padding: const EdgeInsets.all(12),
-                        radius: AppRadius.lg,
-                        child: Icon(
-                          Icons.local_offer_outlined,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
+                    // Header bell opens Notifications and carries the unread
+                    // badge; Offers lives in the MANAGE grid below.
+                    FutureBuilder<int>(
+                      future: _unread,
+                      builder: (context, snapshot) {
+                        final unread = snapshot.data ?? 0;
+                        return PressableScale(
+                          onTap: () async {
+                            await context.push(AppRoutes.notifications);
+                            _refreshUnread();
+                          },
+                          child: GlassCard(
+                            padding: const EdgeInsets.all(12),
+                            radius: AppRadius.lg,
+                            child: Badge(
+                              isLabelVisible: unread > 0,
+                              label: Text('$unread'),
+                              backgroundColor: AppColors.danger,
+                              child: Icon(
+                                Icons.notifications_none_rounded,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -280,20 +296,11 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                   crossAxisSpacing: AppSpacing.sm,
                   childAspectRatio: 1.05,
                   children: [
-                    // The unread count used to sit on the header bell; the
-                    // header now opens Offers, so the badge lives here.
-                    FutureBuilder<int>(
-                      future: _unread,
-                      builder: (context, snapshot) => _ActionGridCard(
-                        icon: Icons.notifications_active_outlined,
-                        title: 'Notifications',
-                        subtitle: 'Match & team updates',
-                        badgeCount: snapshot.data ?? 0,
-                        onTap: () async {
-                          await context.push(AppRoutes.notifications);
-                          _refreshUnread();
-                        },
-                      ),
+                    _ActionGridCard(
+                      icon: Icons.local_offer_outlined,
+                      title: 'Offers',
+                      subtitle: 'Partner deals & codes',
+                      onTap: () => context.push(AppRoutes.offers),
                     ),
                     _ActionGridCard(
                       icon: Icons.sports_soccer,

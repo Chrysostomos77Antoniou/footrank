@@ -166,7 +166,7 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard>
                             ? 'No ranked players yet'
                             : 'No players match "$q"',
                         hint: q.isEmpty
-                            ? 'Players appear here after playing 5+ matches.'
+                            ? 'Players appear here after playing ${RankingRepository.minMatches}+ matches.'
                             : null,
                       ),
                     ],

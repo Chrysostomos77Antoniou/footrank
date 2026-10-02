@@ -1394,10 +1394,7 @@ class _RequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Kick-off already passed: this request can never be matched now, so warn
-    // the captain to cancel/recreate (the hourly cleanup also removes it soon).
-    final passed = request.scheduledAt.isBefore(DateTime.now());
-    final warn = Colors.orange.shade800;
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: GlassCard(
@@ -1405,82 +1402,74 @@ class _RequestCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Top row: format + team rating, title/date, then actions.
+            // Keeping the chips off this row gives the title the full width,
+            // so the city, format and date no longer wrap letter by letter.
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 CircleAvatar(
-                  radius: 22,
+                  radius: 20,
                   child: Text(request.format.split('v').first),
                 ),
                 const SizedBox(width: 8),
-                LevelBadge(value: request.teamRating ?? 0, size: 32),
+                LevelBadge(value: request.teamRating ?? 0, size: 30),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('${request.city} · ${request.format}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w800)),
                       const SizedBox(height: 2),
-                      if (passed) ...[
-                        Text(_when,
-                            style: Theme.of(context).textTheme.bodySmall),
-                        const SizedBox(height: 3),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.warning_amber_rounded,
-                                size: 14, color: warn),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                  'Kick-off passed — cancel or recreate',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: warn)),
-                            ),
-                          ],
-                        ),
-                      ] else
-                        Text(_when,
-                            style: Theme.of(context).textTheme.bodySmall),
+                      Text(_when,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall),
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    _Chip(
-                      label: request.matchType,
-                      color: request.isRanked
-                          ? Theme.of(context).colorScheme.tertiary
-                          : Theme.of(context).colorScheme.secondary,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(MatchStatus.fromString(request.status).label,
-                        style: Theme.of(context).textTheme.bodySmall),
-                  ],
                 ),
                 if (onInvite != null)
                   IconButton(
                     tooltip: 'Invite a rival team',
                     icon: const Icon(Icons.share_outlined),
                     color: AppColors.iconAccent(context),
+                    visualDensity: VisualDensity.compact,
                     onPressed: onInvite,
                   ),
                 if (onCancel != null)
                   IconButton(
                     tooltip: 'Cancel request',
                     icon: const Icon(Icons.delete_outline),
-                    color: Theme.of(context).colorScheme.error,
+                    color: theme.colorScheme.error,
+                    visualDensity: VisualDensity.compact,
                     onPressed: onCancel,
                   ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Second row: match type + status, on one line.
+            Row(
+              children: [
+                _Chip(
+                  label: request.matchType,
+                  color: request.isRanked
+                      ? theme.colorScheme.tertiary
+                      : theme.colorScheme.secondary,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    MatchStatus.fromString(request.status).label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.muted(context)),
+                  ),
+                ),
               ],
             ),
             if (proposals.isNotEmpty) ...[
