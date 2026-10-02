@@ -214,29 +214,16 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    FutureBuilder<int>(
-                      future: _unread,
-                      builder: (context, snapshot) {
-                        final count = snapshot.data ?? 0;
-                        return PressableScale(
-                          onTap: () async {
-                            await context.push(AppRoutes.notifications);
-                            _refreshUnread();
-                          },
-                          child: GlassCard(
-                            padding: const EdgeInsets.all(12),
-                            radius: AppRadius.lg,
-                            child: Badge(
-                              isLabelVisible: count > 0,
-                              label: Text('$count'),
-                              child: Icon(
-                                Icons.notifications_outlined,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+                    PressableScale(
+                      onTap: () => context.push(AppRoutes.offers),
+                      child: GlassCard(
+                        padding: const EdgeInsets.all(12),
+                        radius: AppRadius.lg,
+                        child: Icon(
+                          Icons.local_offer_outlined,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -293,14 +280,20 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                   crossAxisSpacing: AppSpacing.sm,
                   childAspectRatio: 1.05,
                   children: [
-                    _ActionGridCard(
-                      icon: Icons.notifications_active_outlined,
-                      title: 'Notifications',
-                      subtitle: 'Match & team updates',
-                      onTap: () async {
-                        await context.push(AppRoutes.notifications);
-                        _refreshUnread();
-                      },
+                    // The unread count used to sit on the header bell; the
+                    // header now opens Offers, so the badge lives here.
+                    FutureBuilder<int>(
+                      future: _unread,
+                      builder: (context, snapshot) => _ActionGridCard(
+                        icon: Icons.notifications_active_outlined,
+                        title: 'Notifications',
+                        subtitle: 'Match & team updates',
+                        badgeCount: snapshot.data ?? 0,
+                        onTap: () async {
+                          await context.push(AppRoutes.notifications);
+                          _refreshUnread();
+                        },
+                      ),
                     ),
                     _ActionGridCard(
                       icon: Icons.sports_soccer,
