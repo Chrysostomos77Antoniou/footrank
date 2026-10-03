@@ -42,6 +42,9 @@ jobs:
       # No signing secrets needed: build.gradle.kts falls back to debug signing
       # when key.properties is absent.
       - name: Build release APK (validates R8 + AOT)
+        env:
+          # Throwaway build, never distributed: opt in to debug signing.
+          ALLOW_DEBUG_SIGNED_RELEASE: "true"
         run: flutter build apk --release
 
   build-ios:

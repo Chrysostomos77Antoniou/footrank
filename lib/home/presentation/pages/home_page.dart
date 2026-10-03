@@ -95,9 +95,16 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   }
 
   Future<void> _createMatch() async {
+    // Only a team's captain can open a match request (enforced server-side).
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    final captained = _teams.where((t) => t.captainId == uid).toList();
+    if (captained.isEmpty) {
+      showError(context, 'Only a team captain can create a match request.');
+      return;
+    }
     final team = await chooseTeam(
       context,
-      _teams,
+      captained,
       title: 'Create a match for…',
     );
     if (!mounted || team == null) return;
