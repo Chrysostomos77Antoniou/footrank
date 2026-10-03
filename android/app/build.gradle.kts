@@ -66,8 +66,10 @@ android {
 
     buildTypes {
         release {
-            // Use the real upload key when key.properties exists, else fall back
-            // to debug signing so `flutter run --release` still works locally.
+            // Real upload key when key.properties exists. Without it this falls
+            // back to debug signing ONLY so configuration succeeds for debug
+            // builds; the guard at the bottom of this file refuses to build a
+            // release task in that state.
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {
@@ -94,4 +96,27 @@ dependencies {
     // Stripe payment sheet requires it), and a resource-not-found there would
     // fail the build, so the dependency that provides it shouldn't be implicit.
     implementation("androidx.appcompat:appcompat:1.7.0")
+}
+
+// A release build must never be debug-signed by accident. Only fires when a
+// release assemble/bundle task is actually scheduled, so `flutter run` and
+// debug builds work without key.properties. For a throwaway release build that
+// is never distributed (e.g. CI validating R8 + AOT) set
+// ALLOW_DEBUG_SIGNED_RELEASE=true.
+gradle.taskGraph.whenReady {
+    val releaseBuild = allTasks.any {
+        it.name.contains("Release", ignoreCase = true) &&
+            (it.name.startsWith("assemble") || it.name.startsWith("bundle") ||
+                it.name.startsWith("package"))
+    }
+    if (releaseBuild &&
+        !keystorePropertiesFile.exists() &&
+        System.getenv("ALLOW_DEBUG_SIGNED_RELEASE") != "true"
+    ) {
+        throw GradleException(
+            "android/key.properties is missing: refusing to build a release " +
+                "signed with the debug key. Add key.properties, or set " +
+                "ALLOW_DEBUG_SIGNED_RELEASE=true for a non-distributable build."
+        )
+    }
 }
