@@ -1,0 +1,79 @@
+name: Android release (signed AAB)
+
+# Manual only. Builds the Play Store bundle (.aab) signed with YOUR upload key,
+# which lives in GitHub repository secrets, never in git.
+# Setup and the Play Console checklist: docs/ANDROID_RELEASE.md
+on:
+  workflow_dispatch:
+
+jobs:
+  aab:
+    name: Build signed AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      # Optional. Leave unset to ship Android with the payment UI hidden.
+      STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required secrets
+        run: |
+          missing=0
+          for v in KEYSTORE_B64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD SUPABASE_URL SUPABASE_ANON_KEY; do
+            if [ -z "${!v}" ]; then echo "::error::Missing repository secret for $v"; missing=1; fi
+          done
+          exit $missing
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.32.6
+          cache: true
+
+      - name: Write signing config
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
+          cat > android/key.properties <<PROPS
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=upload-keystore.jks
+          PROPS
+
+      - run: flutter pub get
+
+      - name: Build release AAB
+        run: |
+          flutter build appbundle --release \
+            --obfuscate --split-debug-info=build/symbols \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+            --dart-define=STRIPE_PUBLISHABLE_KEY="$STRIPE_PUBLISHABLE_KEY"
+
+      - name: Show signing certificate (SHA-1 should match Play Console)
+        run: keytool -printcert -jarfile build/app/outputs/bundle/release/app-release.aab | grep -E "Owner|SHA1|SHA256" || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: footrank-release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      # Keep these: needed to de-obfuscate Crashlytics stack traces.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: footrank-dart-symbols
+          path: build/symbols
+          if-no-files-found: error
