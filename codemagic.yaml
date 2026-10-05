@@ -42,11 +42,12 @@ workflows:
       - name: Flutter build ipa (release, live Stripe key)
         script: |
           # Build number comes from Codemagic's own build counter (always goes
-          # up), offset past every number already uploaded, so App Store
+          # up), offset past every number already uploaded (212 was the highest
+          # seen, so index 111 + 200 = 311), so App Store
           # Connect can never reject a build as "already used" again. The
           # +N in pubspec.yaml is ignored for this workflow.
           flutter build ipa --release \
-            --build-number=$((BUILD_NUMBER + 100)) \
+            --build-number=$((BUILD_NUMBER + 200)) \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
             --dart-define=STRIPE_PUBLISHABLE_KEY="$STRIPE_PUBLISHABLE_KEY" \
