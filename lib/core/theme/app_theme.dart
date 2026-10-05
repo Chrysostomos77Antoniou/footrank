@@ -96,6 +96,7 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: isDark ? _darkBg : _lightBg,
+      canvasColor: cardColor,
       visualDensity: VisualDensity.adaptivePlatformDensity,
       fontFamily: AppFonts.body,
       textTheme: _textTheme(onSurface),
@@ -124,6 +125,7 @@ class AppTheme {
         elevation: AppElevation.flat,
         scrolledUnderElevation: AppElevation.flat,
         centerTitle: false,
+        titleSpacing: AppSemantic.screenPadding,
         backgroundColor: isDark ? _darkBg : _lightBg,
         foregroundColor: scheme.onSurface,
         titleTextStyle: TextStyle(

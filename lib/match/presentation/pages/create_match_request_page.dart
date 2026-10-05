@@ -471,6 +471,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                   FadeSlideIn(
                     delay: const Duration(milliseconds: 60),
                     child: DropdownButtonFormField<String>(
+ icon: Icon(Icons.keyboard_arrow_down, size: 20, color: AppColors.muted(context)),
                       value: _city,
                       isExpanded: true,
                       decoration: const InputDecoration(

@@ -31,7 +31,10 @@ class _RankingsPageState extends State<RankingsPage> with ThemeRepaintMixin {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                child: Column(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -58,6 +61,7 @@ class _RankingsPageState extends State<RankingsPage> with ThemeRepaintMixin {
                         ),
                       ),
                   ],
+                  ),
                 ),
               ),
               Padding(

@@ -694,8 +694,8 @@ class _ProfileHero extends StatelessWidget {
                 ],
               ),
               Positioned(
-                top: -2,
-                right: -4,
+                top: 0,
+                right: 0,
                 child: Tooltip(
                   message: 'Edit Profile',
                   child: PressableScale(
@@ -906,29 +906,37 @@ class _StatCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (value == null && animateTo != null)
-                AnimatedCount(
-                  animateTo!,
-                  suffix: suffix,
-                  style: numStyle,
-                  duration: reduceMotion(context)
-                      ? Duration.zero
-                      : const Duration(milliseconds: 900),
-                )
-              else
-                // A text label (e.g. "Unrated") is wider than a short number,
-                // so it shrinks to fit on one line instead of wrapping.
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    value ?? '',
-                    maxLines: 1,
-                    softWrap: false,
-                    style: numStyle.copyWith(
-                      fontSize: animateTo == null && value!.length > 4 ? 19 : 22,
-                    ),
-                  ),
+              // Fixed-height value row so every card's label sits on the
+              // same baseline whatever the value's font size.
+              SizedBox(
+                height: 30,
+                child: Center(
+                  child: (value == null && animateTo != null)
+                      ? AnimatedCount(
+                          animateTo!,
+                          suffix: suffix,
+                          style: numStyle,
+                          duration: reduceMotion(context)
+                              ? Duration.zero
+                              : const Duration(milliseconds: 900),
+                        )
+                      // A text label (e.g. "Unrated") is wider than a short
+                      // number, so it shrinks to fit on one line.
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            value ?? '',
+                            maxLines: 1,
+                            softWrap: false,
+                            style: numStyle.copyWith(
+                              fontSize: animateTo == null && value!.length > 4
+                                  ? 19
+                                  : 22,
+                            ),
+                          ),
+                        ),
                 ),
+              ),
               const SizedBox(height: 4),
               Text(
                 label,

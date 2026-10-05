@@ -15,6 +15,15 @@ const nemorinAppStoreUrl =
 /// The promo code shown in the Nemorin offer.
 const nemorinPromoCode = 'FOOTRANK';
 
+/// Short tagline shown on the listing card and in the popup.
+const nemorinTagline = 'Save it. Forget it. Find it.';
+
+/// What the app is, shown in the popup. Edit the copy here.
+const nemorinDescription =
+    'Nemorin keeps everything worth remembering in one place. Save it in '
+    'seconds, forget about it, and find it again when you need it. It can even '
+    'remind you based on where you are.';
+
 /// "Offers" -- a small list of deals from other apps. For now it has one
 /// listing, Nemorin; tapping it opens a popup with the promo code and a
 /// button that goes to the App Store.
@@ -104,10 +113,23 @@ class OffersPage extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      'Tap to see your offer',
+                                      nemorinTagline,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: AppColors.muted(context),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      '1 month free  \u00b7  Tap to see offer',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: accent,
                                       ),
                                     ),
                                   ],
@@ -239,7 +261,7 @@ class _NemorinOfferDialog extends StatelessWidget {
               : AppColors.lightBorder,
         ),
       ),
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -247,18 +269,57 @@ class _NemorinOfferDialog extends StatelessWidget {
           children: [
             Align(
               alignment: Alignment.center,
-              child: Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: wellFill,
-                  borderRadius: BorderRadius.circular(20),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Image.asset(
+                  'assets/branding/nemorin_preview.png',
+                  width: 64,
+                  height: 64,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 64,
+                    height: 64,
+                    color: wellFill,
+                    alignment: Alignment.center,
+                    child:
+                        Icon(Icons.local_offer_outlined, size: 32, color: accent),
+                  ),
                 ),
-                alignment: Alignment.center,
-                child: Icon(Icons.local_offer_outlined, size: 32, color: accent),
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Nemorin',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppFonts.display,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.2,
+                color: onSurface,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              nemorinTagline,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: accent,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              nemorinDescription,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.45,
+                color: AppColors.muted(context),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
             Text(
               'Use Promo Code For One Month:',
               textAlign: TextAlign.center,

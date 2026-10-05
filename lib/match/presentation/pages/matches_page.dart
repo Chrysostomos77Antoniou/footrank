@@ -2083,6 +2083,7 @@ class _OpponentFiltersState extends State<_OpponentFilters> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DropdownButtonFormField<String>(
+ icon: Icon(Icons.keyboard_arrow_down, size: 20, color: AppColors.muted(context)),
             value: city,
             isExpanded: true,
             decoration: const InputDecoration(
@@ -2102,6 +2103,7 @@ class _OpponentFiltersState extends State<_OpponentFilters> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
+ icon: Icon(Icons.keyboard_arrow_down, size: 20, color: AppColors.muted(context)),
                   value: courtId,
                   isExpanded: true,
                   decoration: const InputDecoration(
@@ -2121,6 +2123,7 @@ class _OpponentFiltersState extends State<_OpponentFilters> {
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonFormField<String>(
+ icon: Icon(Icons.keyboard_arrow_down, size: 20, color: AppColors.muted(context)),
                   value: matchType,
                   isExpanded: true,
                   decoration: const InputDecoration(

@@ -1,3 +1,4 @@
+import 'package:footrank/core/widgets/back_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
@@ -99,9 +100,9 @@ class _FreeAgentsPageState extends State<FreeAgentsPage>
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 68,
-        leadingWidth: 64,
+        leadingWidth: kBackChipLeadingWidth,
         titleSpacing: 0,
-        leading: Navigator.of(context).canPop() ? const _BackChip() : null,
+        leading: Navigator.of(context).canPop() ? const BackChip() : null,
         title: Text(
           'Free Agents',
           style: TextStyle(
@@ -164,46 +165,6 @@ class _FreeAgentsPageState extends State<FreeAgentsPage>
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BackChip extends StatelessWidget {
-  const _BackChip();
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.only(left: AppSemantic.screenPadding),
-      child: Center(
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Semantics(
-            button: true,
-            label: 'Back',
-            excludeSemantics: true,
-            child: Material(
-              color: isDark ? AppColors.darkCard : AppColors.lightCard,
-              shape: RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(AppSemantic.controlRadius),
-                side: BorderSide(color: AppColors.border(context)),
-              ),
-              child: InkWell(
-                customBorder: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppSemantic.controlRadius),
-                ),
-                onTap: () => Navigator.of(context).maybePop(),
-                child: Icon(Icons.chevron_left_rounded,
-                    size: 26, color: Theme.of(context).colorScheme.onSurface),
-              ),
-            ),
           ),
         ),
       ),

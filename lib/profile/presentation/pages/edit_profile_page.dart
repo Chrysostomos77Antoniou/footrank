@@ -17,6 +17,35 @@ import 'package:footrank/core/widgets/feedback.dart';
 
 const _positions = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'];
 
+/// Maps stored values (full names or abbreviations like "MID") onto a value
+/// that exists in [_positions]; unknown values become null so the dropdown
+/// never asserts.
+String? _normalizePosition(String? raw) {
+  if (raw == null) return null;
+  final v = raw.trim().toLowerCase();
+  if (v.isEmpty) return null;
+  for (final p in _positions) {
+    if (p.toLowerCase() == v) return p;
+  }
+  switch (v) {
+    case 'gk':
+    case 'gkp':
+      return 'Goalkeeper';
+    case 'def':
+    case 'df':
+      return 'Defender';
+    case 'mid':
+    case 'mf':
+      return 'Midfielder';
+    case 'fwd':
+    case 'fw':
+    case 'att':
+    case 'st':
+      return 'Forward';
+  }
+  return null;
+}
+
 class EditProfilePage extends StatefulWidget {
   final UserModel user;
   const EditProfilePage({super.key, required this.user});
@@ -33,7 +62,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late final _usernameCtrl = TextEditingController(text: widget.user.username);
   final _phoneCtrl = TextEditingController();
   late String? _city = canonicalCity(widget.user.city);
-  late String? _position = widget.user.position;
+  late String? _position = _normalizePosition(widget.user.position);
 
   List<int>? _pickedBytes;
   String? _pickedExt;

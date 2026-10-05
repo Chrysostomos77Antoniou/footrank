@@ -160,6 +160,7 @@ class _CreateTeamPageState extends State<CreateTeamPage> {
                             children: [
                               const TeamFieldLabel('City'),
                               DropdownButtonFormField<String>(
+ icon: Icon(Icons.keyboard_arrow_down, size: 20, color: AppColors.muted(context)),
                                 value: _city,
                                 isExpanded: true,
                                 style: TextStyle(

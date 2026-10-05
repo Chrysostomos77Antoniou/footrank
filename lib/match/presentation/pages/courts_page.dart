@@ -1,3 +1,4 @@
+import 'package:footrank/core/widgets/back_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/maps_launcher.dart';
@@ -35,7 +36,13 @@ class _CourtsPageState extends State<CourtsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Courts')),
+      appBar: AppBar(
+        toolbarHeight: 68,
+        leadingWidth: kBackChipLeadingWidth,
+        titleSpacing: 0,
+        leading: Navigator.of(context).canPop() ? const BackChip() : null,
+        title: const Text('Courts'),
+      ),
       body: AmbientBackground(
         child: SafeArea(
           child: FutureBuilder<List<CourtModel>>(
@@ -133,6 +140,8 @@ class _CourtRow extends StatelessWidget {
                       width: 72,
                       height: 72,
                       fit: BoxFit.cover,
+                      loadingBuilder: (context, child, progress) =>
+                          progress == null ? child : _placeholder(context),
                       errorBuilder: (_, __, ___) => _placeholder(context),
                     )
                   : _placeholder(context),
