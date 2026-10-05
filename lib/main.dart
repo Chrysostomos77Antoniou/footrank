@@ -31,15 +31,25 @@ Future<void> main() async {
   // and the router's redirect reads Supabase's auth state immediately -- so
   // this batch still fully completes before runApp(), it just takes as long
   // as the slowest one instead of the sum of all four.
+  // Each init is guarded so one failure can never leave the app on a blank
+  // screen before runApp().
+  Future<void> guarded(Future<void> Function() f, String name) async {
+    try {
+      await f();
+    } catch (e) {
+      debugPrint('$name init failed: $e');
+    }
+  }
+
   await Future.wait([
-    themeController.load(),
-    OnboardingPrefs.load(),
-    SupabaseService.initialize(),
+    guarded(themeController.load, 'theme'),
+    guarded(OnboardingPrefs.load, 'onboarding'),
+    guarded(SupabaseService.initialize, 'supabase'),
     // Stripe SDK setup for the match fee. No-ops when STRIPE_PUBLISHABLE_KEY
     // isn't defined, so debug builds and tests need no Stripe account. Must
     // complete before any PaymentSheet is presented, which is nowhere near
     // this early, but it's cheap and safe to ride along in this same batch.
-    PaymentRepository.initialize(),
+    guarded(PaymentRepository.initialize, 'payments'),
   ]);
 
   // Must be registered right after Supabase itself initializes -- it fires
@@ -48,10 +58,13 @@ Future<void> main() async {
   // it forever for anyone whose session is being restored rather than
   // freshly signed in, so their FCM token would never get synced at all.
   // This half is safe to call before Firebase exists -- see its doc comment.
-  FcmTokenService.initAuthListener();
-
-  // Watch for the password-recovery deep link so we can route to the reset page.
-  initPasswordRecoveryListener();
+  try {
+    FcmTokenService.initAuthListener();
+    // Watch for the password-recovery deep link so we can route to the reset page.
+    initPasswordRecoveryListener();
+  } catch (e) {
+    debugPrint('Auth listeners failed: $e');
+  }
 
   // Only the bare app-initialization call needs to finish before runApp():
   // app.dart's very first post-frame callback calls
@@ -67,7 +80,7 @@ Future<void> main() async {
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
-    );
+    ).timeout(const Duration(seconds: 10));
     // Crash reporting: route Flutter + platform errors to Crashlytics.
     FlutterError.onError =
         FirebaseCrashlytics.instance.recordFlutterFatalError;

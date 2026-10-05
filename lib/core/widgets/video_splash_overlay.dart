@@ -28,6 +28,8 @@ class _VideoSplashOverlayState extends State<VideoSplashOverlay>
   void initState() {
     super.initState();
     _init();
+    // Hard cap: whatever the video does, the app appears within 8 seconds.
+    Future.delayed(const Duration(seconds: 8), _dismiss);
   }
 
   Future<void> _init() async {
@@ -35,7 +37,8 @@ class _VideoSplashOverlayState extends State<VideoSplashOverlay>
       final c = VideoPlayerController.asset(
         'assets/video/splash_intro.mp4',
       );
-      await c.initialize();
+      // A stalled decoder must never strand the user on the splash.
+      await c.initialize().timeout(const Duration(seconds: 4));
       if (!mounted) {
         c.dispose();
         return;

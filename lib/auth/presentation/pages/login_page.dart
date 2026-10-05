@@ -34,12 +34,18 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  /// Google Play's reviewer account is given as the plain username
+  /// `app_reviewer` (the Play Console field isn't email-validated), so map
+  /// it to the real account email.
+  static String _resolveLoginId(String id) =>
+      id.toLowerCase() == 'app_reviewer' ? 'app_reviewer@footrank.app' : id;
+
   Future<void> _signInWithEmail() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
       await _repo.signIn(
-        email: _emailCtrl.text.trim(),
+        email: _resolveLoginId(_emailCtrl.text.trim()),
         password: _passwordCtrl.text,
       );
       if (mounted) context.go(AppRoutes.home);
@@ -202,7 +208,10 @@ class _LoginPageState extends State<LoginPage> {
                                     onFieldSubmitted: (_) =>
                                         _passwordFocus.requestFocus(),
                                     validator: (v) =>
-                                        v == null || !v.contains('@')
+                                        v == null ||
+                                            !(v.contains('@') ||
+                                                v.trim().toLowerCase() ==
+                                                    'app_reviewer')
                                         ? 'Enter a valid email'
                                         : null,
                                   ),
