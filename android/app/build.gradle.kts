@@ -1,3 +1,4 @@
+import java.util.Base64
 import java.util.Properties
 import java.io.FileInputStream
 
@@ -118,5 +119,42 @@ gradle.taskGraph.whenReady {
                 "signed with the debug key. Add key.properties, or set " +
                 "ALLOW_DEBUG_SIGNED_RELEASE=true for a non-distributable build."
         )
+    }
+
+    // A distributable (properly signed) release built without the backend
+    // config silently talks to the placeholder `https://localhost.supabase.co`
+    // from AppConstants: it installs and opens fine, but nothing loads and no
+    // login can ever work -- exactly what a store reviewer would then report.
+    // Flutter hands --dart-define values to Gradle as a comma-separated list
+    // of base64-encoded KEY=value pairs in the `dart-defines` property.
+    if (releaseBuild &&
+        keystorePropertiesFile.exists() &&
+        System.getenv("ALLOW_PLACEHOLDER_BACKEND") != "true"
+    ) {
+        fun dartDefine(name: String): String? {
+            val raw = project.findProperty("dart-defines") as String? ?: return null
+            return raw.split(',')
+                .mapNotNull {
+                    runCatching { String(Base64.getDecoder().decode(it)) }
+                        .getOrNull()
+                }
+                .firstOrNull { it.startsWith("$name=") }
+                ?.substringAfter("=")
+        }
+        val url = dartDefine("SUPABASE_URL")
+        val anonKey = dartDefine("SUPABASE_ANON_KEY")
+        if (url.isNullOrBlank() || url.contains("localhost") ||
+            anonKey.isNullOrBlank() || anonKey == "public-anon-key"
+        ) {
+            throw GradleException(
+                "Refusing to build a distributable release without the " +
+                    "backend config: pass --dart-define=SUPABASE_URL=... and " +
+                    "--dart-define=SUPABASE_ANON_KEY=... (or " +
+                    "--dart-define-from-file). Without them the app ships " +
+                    "pointing at a placeholder server and login can never " +
+                    "work. Set ALLOW_PLACEHOLDER_BACKEND=true only for a " +
+                    "throwaway build."
+            )
+        }
     }
 }

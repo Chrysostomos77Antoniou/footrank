@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -15,6 +16,7 @@ import 'package:footrank/payment/data/payment_repository.dart';
 import 'package:footrank/services/fcm_token_service.dart';
 import 'package:footrank/services/notification_service.dart';
 import 'package:footrank/services/supabase_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -114,6 +116,7 @@ Future<void> _finishNotificationSetup() async {
     // caught the right event -- explicitly sync once the token is actually
     // obtainable (it isn't until Firebase/APNs init has completed).
     await FcmTokenService.sync();
+    if (Platform.isAndroid) _scheduleAndroidNotificationPrompt();
   } catch (e, st) {
     debugPrint('Push notification init failed: $e');
     // Best-effort: only reports if Firebase.initializeApp() itself succeeded
@@ -127,5 +130,37 @@ Future<void> _finishNotificationSetup() async {
         reason: 'push notification init failed',
       );
     } catch (_) {}
+  }
+}
+
+bool _androidPromptScheduled = false;
+
+/// Android 13+: ask for notification permission only once the user is signed
+/// in and has had a few seconds on the first real screen -- never over the
+/// splash/first frame. Runs at most once per process.
+void _scheduleAndroidNotificationPrompt() {
+  if (_androidPromptScheduled) return;
+  _androidPromptScheduled = true;
+
+  var asked = false;
+  Future<void> ask() async {
+    if (asked) return;
+    asked = true;
+    await Future<void>.delayed(const Duration(seconds: 4));
+    try {
+      await NotificationService.requestPermission();
+    } catch (e) {
+      debugPrint('Notification permission request failed: $e');
+    }
+  }
+
+  try {
+    final auth = SupabaseService.client.auth;
+    if (auth.currentUser != null) unawaited(ask());
+    auth.onAuthStateChange.listen((state) {
+      if (state.event == AuthChangeEvent.signedIn) unawaited(ask());
+    });
+  } catch (e) {
+    debugPrint('Notification prompt scheduling failed: $e');
   }
 }

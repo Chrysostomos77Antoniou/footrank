@@ -38,19 +38,12 @@ class NotificationService {
   /// Call after Firebase.initializeApp(). Requests permission, wires handlers,
   /// and returns the device FCM token (null if unavailable / denied).
   static Future<String?> initialize() async {
-    // iOS / Android 13+ runtime permission
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-    debugPrint('Notification permission: ${settings.authorizationStatus}');
-    if (settings.authorizationStatus != AuthorizationStatus.authorized &&
-        settings.authorizationStatus != AuthorizationStatus.provisional) {
-      await logTokenIssue(
-        'Permission not granted: ${settings.authorizationStatus}',
-      );
-    }
+    // iOS keeps prompting at launch as before. On Android 13+ the system
+    // permission dialog is deferred until the user is signed in and looking
+    // at the app (see requestPermission() and main.dart): a cold start that
+    // opens with a system dialog over an unpainted first frame can look like
+    // "the app doesn't open" to a store reviewer.
+    if (!Platform.isAndroid) await requestPermission();
 
     // iOS already banners foreground messages natively once this is set --
     // no local-notifications plugin needed on that platform.
@@ -95,6 +88,23 @@ class NotificationService {
     // to the system log there, and the token identifies this device.
     if (kDebugMode) debugPrint('FCM token: $token');
     return token;
+  }
+
+  /// Shows the OS notification-permission prompt when the user hasn't decided
+  /// yet. Safe to call repeatedly: it returns immediately once decided.
+  static Future<void> requestPermission() async {
+    final settings = await _messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    debugPrint('Notification permission: ${settings.authorizationStatus}');
+    if (settings.authorizationStatus != AuthorizationStatus.authorized &&
+        settings.authorizationStatus != AuthorizationStatus.provisional) {
+      await logTokenIssue(
+        'Permission not granted: ${settings.authorizationStatus}',
+      );
+    }
   }
 
   /// The push that launched the app from a fully terminated state, if any.

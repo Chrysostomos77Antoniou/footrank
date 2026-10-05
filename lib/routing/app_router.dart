@@ -127,10 +127,28 @@ class _SwipeBackWrapper extends StatelessWidget {
   }
 }
 
+Listenable _routerRefreshListenable() {
+  try {
+    return Listenable.merge([
+      RouterRefreshStream(Supabase.instance.client.auth.onAuthStateChange),
+      passwordRecovery,
+    ]);
+  } catch (_) {
+    return passwordRecovery;
+  }
+}
+
 GoRouter buildRouter() => GoRouter(
   initialLocation: AppRoutes.home,
   redirect: (context, state) async {
-    final isLoggedIn = _authRepo.currentUser != null;
+    // If Supabase isn't usable (failed init), treat as signed out so the
+    // user lands on onboarding/login instead of a blank route.
+    bool isLoggedIn;
+    try {
+      isLoggedIn = _authRepo.currentUser != null;
+    } catch (_) {
+      isLoggedIn = false;
+    }
     final loc = state.matchedLocation;
 
     // Password-recovery deep link takes priority over everything: keep the
@@ -189,10 +207,7 @@ GoRouter buildRouter() => GoRouter(
     if (isAuthRoute || isSetupRoute || isPwrRoute) return AppRoutes.home;
     return null;
   },
-  refreshListenable: Listenable.merge([
-    RouterRefreshStream(Supabase.instance.client.auth.onAuthStateChange),
-    passwordRecovery,
-  ]),
+  refreshListenable: _routerRefreshListenable(),
   routes: [
     GoRoute(
       path: AppRoutes.onboarding,

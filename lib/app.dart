@@ -26,12 +26,18 @@ class _FootRankAppState extends State<FootRankApp> with WidgetsBindingObserver {
     // called from main() before the router exists, so the actual navigation
     // happens here once it's safe to do so (after the first frame).
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final initial = await NotificationService.getInitialMessage();
-      if (initial != null) {
-        handleNotificationTap(
-          type: initial.data['type'] as String?,
-          referenceId: initial.data['reference_id'] as String?,
-        );
+      try {
+        final initial = await NotificationService.getInitialMessage();
+        if (initial != null) {
+          handleNotificationTap(
+            type: initial.data['type'] as String?,
+            referenceId: initial.data['reference_id'] as String?,
+          );
+        }
+      } catch (e) {
+        // Firebase may be unavailable (init failed/timed out); never let a
+        // missing push get in the way of the app itself.
+        debugPrint('getInitialMessage failed: $e');
       }
     });
   }
