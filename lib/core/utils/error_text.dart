@@ -1,3 +1,6 @@
+import 'dart:async' show TimeoutException;
+import 'dart:io' show SocketException;
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Converts an exception into a concise, user-friendly message.
@@ -6,6 +9,14 @@ String friendlyError(Object error) {
   // "Invalid login credentials") -- error.toString() instead dumps the raw
   // "AuthApiException(message: ..., statusCode: ..., code: ...)" wrapper,
   // which is what every auth screen was actually showing users.
+  // No connection / unreachable server: Supabase wraps the raw socket error
+  // in AuthRetryableFetchException, whose message is technical noise.
+  if (error is TimeoutException) {
+    return 'The request timed out. Check your connection and try again.';
+  }
+  if (error is SocketException || error is AuthRetryableFetchException) {
+    return 'Network error. Check your connection and try again.';
+  }
   if (error is AuthException) return error.message;
 
   var msg = error.toString();

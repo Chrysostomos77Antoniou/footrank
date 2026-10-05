@@ -175,9 +175,14 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
     return Scaffold(
       body: AmbientBackground(
         child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 108),
+          child: LayoutBuilder(builder: (context, constraints) {
+          // Everything on Home is sized to fit one screen on a normal phone
+          // (no scrolling). Short screens get a tighter layout; anything
+          // smaller still (or very large text) falls back to scrolling.
+          final compact = constraints.maxHeight < 700;
+          return ListView(
+            padding: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm,
+                AppSpacing.lg, compact ? 88 : 96),
             children: [
               FadeSlideIn(child: _buildHeader(context)),
               const SizedBox(height: AppSpacing.sm),
@@ -188,14 +193,14 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
               const PendingFeeBanner(),
               FadeSlideIn(
                 delay: const Duration(milliseconds: 60),
-                child: _HeroBanner(future: _rankFuture),
+                child: _HeroBanner(future: _rankFuture, compact: compact),
               ),
               const SizedBox(height: AppSpacing.sm),
               // Nudge players who aren't on a team yet into the core loop.
               if (_teamLoaded && _teams.isEmpty) ...[
                 FadeSlideIn(
                   delay: const Duration(milliseconds: 120),
-                  child: _NoTeamCard(onChanged: _loadTeam),
+                  child: _NoTeamCard(onChanged: _loadTeam, compact: compact),
                 ),
                 const SizedBox(height: AppSpacing.sm),
               ],
@@ -227,11 +232,11 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                 child: GridView(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: AppSpacing.sm,
                     crossAxisSpacing: AppSpacing.sm,
-                    mainAxisExtent: 104,
+                    mainAxisExtent: compact ? 90 : 100,
                   ),
                   children: [
                     _ManageTile(
@@ -266,7 +271,8 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                 ),
               ),
             ],
-          ),
+          );
+          }),
         ),
       ),
     );
@@ -476,7 +482,8 @@ class _HeaderButton extends StatelessWidget {
 /// The rank hero card: the one green surface, with lime numbers in both themes.
 class _HeroBanner extends StatelessWidget {
   final Future<({UserModel profile, int rank, int total})?> future;
-  const _HeroBanner({required this.future});
+  final bool compact;
+  const _HeroBanner({required this.future, this.compact = false});
 
   /// 1623 -> "1,623"
   static String _fmt(int n) => n.toString().replaceAllMapped(
@@ -516,7 +523,7 @@ class _HeroBanner extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(compact ? 14 : 16),
               child: FutureBuilder<({UserModel profile, int rank, int total})?>(
                 future: future,
                 builder: (context, snapshot) {
@@ -540,9 +547,9 @@ class _HeroBanner extends StatelessWidget {
                           children: [
                             Text(
                               '#${data.rank}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: AppFonts.display,
-                                fontSize: 68,
+                                fontSize: compact ? 44 : 54,
                                 fontWeight: FontWeight.w800,
                                 height: 1,
                                 letterSpacing: -1.36,
@@ -592,7 +599,8 @@ class _HeroBanner extends StatelessWidget {
                       ],
                       Container(
                         height: 1,
-                        margin: const EdgeInsets.only(top: 16, bottom: 14),
+                        margin: EdgeInsets.only(
+                            top: compact ? 8 : 12, bottom: compact ? 8 : 10),
                         color: Colors.white.withValues(alpha: 0.18),
                       ),
                       Row(
@@ -688,7 +696,8 @@ class _PitchMarkingsPainter extends CustomPainter {
 /// biggest blocker to playing matches. Gives a direct path to create or join.
 class _NoTeamCard extends StatelessWidget {
   final VoidCallback onChanged;
-  const _NoTeamCard({required this.onChanged});
+  final bool compact;
+  const _NoTeamCard({required this.onChanged, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
@@ -698,8 +707,9 @@ class _NoTeamCard extends StatelessWidget {
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
     );
+    final btnHeight = compact ? 42.0 : 46.0;
     return GlassCard(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(compact ? 14 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -721,21 +731,21 @@ class _NoTeamCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Create your own squad or join one with an invite code to start '
-            'playing ranked matches and climbing the leaderboard.',
+            'Create a squad or join one with an invite code to start playing '
+            'ranked matches.',
             style: TextStyle(
               fontSize: 13,
-              height: 1.5,
+              height: 1.4,
               color: AppColors.muted(context),
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: compact ? 10 : 12),
           Row(
             children: [
               Expanded(
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
+                    minimumSize: Size.fromHeight(btnHeight),
                     backgroundColor: AppColors.action,
                     foregroundColor: AppColors.onAction(context),
                     shape: shape,
@@ -753,7 +763,7 @@ class _NoTeamCard extends StatelessWidget {
               Expanded(
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
+                    minimumSize: Size.fromHeight(btnHeight),
                     foregroundColor: isDark ? onSurface : AppColors.limeDeep,
                     side: isDark
                         ? BorderSide(
@@ -947,8 +957,8 @@ class _ManageTileState extends State<_ManageTile>
     Widget well = AnimatedContainer(
       duration: fade,
       curve: _ease,
-      width: 36,
-      height: 36,
+      width: 32,
+      height: 32,
       decoration: BoxDecoration(
         color: _active ? AppColors.action : AppColors.chip(context),
         borderRadius: BorderRadius.circular(11),
@@ -991,7 +1001,7 @@ class _ManageTileState extends State<_ManageTile>
             child: AnimatedContainer(
               duration: fade,
               curve: _ease,
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkCard : AppColors.lightCard,
                 borderRadius: BorderRadius.circular(_radius),

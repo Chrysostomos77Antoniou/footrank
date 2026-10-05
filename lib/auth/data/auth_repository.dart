@@ -32,6 +32,9 @@ String _sha256Hex(String input) =>
 class AuthRepository {
   SupabaseClient get _client => SupabaseService.client;
 
+  /// Fail fast with a clear message instead of spinning forever offline.
+  static const _requestTimeout = Duration(seconds: 20);
+
   static const _redirectUrl = 'io.supabase.footrank://login-callback';
 
   // iOS-registered OAuth client, required for the native picker to launch
@@ -63,12 +66,16 @@ class AuthRepository {
   Future<AuthResponse> signIn({
     required String email,
     required String password,
-  }) => _client.auth.signInWithPassword(email: email, password: password);
+  }) => _client.auth
+      .signInWithPassword(email: email, password: password)
+      .timeout(_requestTimeout);
 
   Future<AuthResponse> signUp({
     required String email,
     required String password,
-  }) => _client.auth.signUp(email: email, password: password);
+  }) => _client.auth
+      .signUp(email: email, password: password)
+      .timeout(_requestTimeout);
 
   /// Sign in with Google. On iOS/Android this uses Google's native account
   /// picker (no browser, no OS "open this app?" prompt) -- how every
@@ -183,8 +190,9 @@ class AuthRepository {
   /// Sends a password reset email to [email] so the user can recover access.
   /// The email link deep-links back into the app (the recovery event then routes
   /// to the "set a new password" screen).
-  Future<void> resetPassword(String email) =>
-      _client.auth.resetPasswordForEmail(email, redirectTo: _redirectUrl);
+  Future<void> resetPassword(String email) => _client.auth
+      .resetPasswordForEmail(email, redirectTo: _redirectUrl)
+      .timeout(_requestTimeout);
 
   /// Sets a new password for the user during an active recovery session
   /// (after they followed the reset link from their email).
