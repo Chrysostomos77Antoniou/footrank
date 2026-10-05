@@ -81,7 +81,11 @@ class _CourtsPageState extends State<CourtsPage>
                         child: Text(
                           city,
                           style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                              ?.copyWith(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.17,
+                              ),
                         ),
                       ),
                     ),
@@ -141,32 +145,52 @@ class _CourtRow extends StatelessWidget {
               children: [
                 Text(
                   court.name,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
                 ),
                 if (court.address != null) ...[
                   const SizedBox(height: 2),
                   Text(
                     court.address!,
-                    style: Theme.of(context).textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.muted(context),
+                        ),
                   ),
                 ],
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
+                      horizontal: 14,
                       vertical: 6,
                     ),
                     minimumSize: const Size(0, 44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: Theme.of(context).brightness == Brightness.dark
+                        ? BorderSide(
+                            color: Colors.white.withValues(alpha: 0.24))
+                        : const BorderSide(
+                            color: AppColors.limeDeep, width: 1.5),
+                    textStyle: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700),
                   ),
                   onPressed: () => openInMaps(
                     name: court.name,
                     address: court.address,
                     city: court.city,
                   ),
-                  icon: const Icon(Icons.directions, size: 18),
+                  icon: Icon(Icons.near_me_outlined,
+                      size: 18, color: AppColors.brand(context)),
                   label: const Text('Get Directions'),
                 ),
               ],
@@ -180,10 +204,11 @@ class _CourtRow extends StatelessWidget {
   Widget _placeholder(BuildContext context) => Container(
     width: 72,
     height: 72,
-    color: AppColors.iconAccent(context).withValues(alpha: 0.08),
+    color: AppColors.chip(context),
     child: Icon(
       Icons.sports_soccer,
-      color: AppColors.iconAccent(context).withValues(alpha: 0.5),
+      size: 28,
+      color: AppColors.brand(context).withValues(alpha: 0.75),
     ),
   );
 }

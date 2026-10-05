@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
-import 'package:footrank/core/widgets/brand_widgets.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/core/widgets/feedback.dart';
@@ -117,55 +117,40 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       body: AuthVideoBackground(
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // Compresses spacing/sizing to fit shorter phone screens
-              // (e.g. iPhone 13) without scrolling, instead of a single
-              // fixed layout that only fits the tallest devices.
-              final compact = constraints.maxHeight < 820;
-              final logoSize = compact ? 68.0 : 100.0;
-              final titleSize = compact ? 28.0 : 36.0;
-              final gapXl = compact ? 16.0 : 34.0;
-              final gapLg = compact ? 10.0 : 22.0;
-              final gapSm = compact ? 3.0 : 6.0;
-              final gapMd = compact ? 10.0 : 18.0;
+              // Tightens the header on short phones; the page scrolls if the
+              // content is still taller than the screen.
+              final compact = constraints.maxHeight < 700;
+              final topPad = compact ? 4.0 : 12.0;
+              final gapHeader = compact ? 12.0 : 24.0;
+              final gapSocial = compact ? 6.0 : 10.0;
               return SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  topPad,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - topPad - AppSpacing.md,
+                  ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SizedBox(height: compact ? 4 : 16),
-                      FadeSlideIn(child: BrandLogo(size: logoSize)),
-                      SizedBox(height: gapLg),
                       FadeSlideIn(
-                        delay: const Duration(milliseconds: 80),
-                        child: GradientText(
-                          'FootRank',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: titleSize,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
-                          ),
+                        child: AuthBrandBlock(
+                          title: 'FootRank',
+                          subtitle: 'Rank up. Find matches. Play.',
+                          badgeSize: compact ? 52 : 64,
                         ),
                       ),
-                      SizedBox(height: gapSm),
-                      FadeSlideIn(
-                        delay: const Duration(milliseconds: 140),
-                        child: Text(
-                          'Rank up. Find matches. Play.',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: gapXl),
+                      SizedBox(height: gapHeader),
                       FadeSlideIn(
                         delay: const Duration(milliseconds: 200),
                         child: AuthCard(
@@ -173,97 +158,138 @@ class _LoginPageState extends State<LoginPage> {
                           child: Form(
                             key: _formKey,
                             child: AutofillGroup(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  AuthGoogleButton(
-                                    loading: _googleLoading,
-                                    label: 'Continue with Google',
-                                    onPressed: _signInWithGoogle,
-                                  ),
-                                  SizedBox(height: compact ? 6 : 10),
-                                  AuthGoogleButton(
-                                    loading: _appleLoading,
-                                    label: 'Continue with Apple',
-                                    icon: Icons.apple,
-                                    onPressed: _signInWithApple,
-                                  ),
-                                  SizedBox(height: compact ? 6 : 10),
-                                  AuthGoogleButton(
-                                    loading: _facebookLoading,
-                                    label: 'Continue with Facebook',
-                                    icon: Icons.facebook,
-                                    onPressed: _signInWithFacebook,
-                                  ),
-                                  SizedBox(height: gapMd),
-                                  const AuthOrDivider(),
-                                  SizedBox(height: gapMd),
-                                  AuthField(
-                                    controller: _emailCtrl,
-                                    label: 'Email',
-                                    icon: Icons.email_outlined,
-                                    keyboardType: TextInputType.emailAddress,
-                                    autofillHints: const [AutofillHints.email],
-                                    textInputAction: TextInputAction.next,
-                                    onFieldSubmitted: (_) =>
-                                        _passwordFocus.requestFocus(),
-                                    validator: (v) =>
-                                        v == null ||
-                                            !(v.contains('@') ||
-                                                v.trim().toLowerCase() ==
-                                                    'app_reviewer')
-                                        ? 'Enter a valid email'
-                                        : null,
-                                  ),
-                                  SizedBox(height: compact ? 8 : 14),
-                                  AuthField(
-                                    controller: _passwordCtrl,
-                                    focusNode: _passwordFocus,
-                                    label: 'Password',
-                                    icon: Icons.lock_outline,
-                                    obscure: true,
-                                    autofillHints: const [
-                                      AutofillHints.password,
-                                    ],
-                                    textInputAction: TextInputAction.done,
-                                    onFieldSubmitted: (_) => _signInWithEmail(),
-                                    validator: (v) => v == null || v.length < 6
-                                        ? 'Min 6 characters'
-                                        : null,
-                                  ),
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: TextButton(
-                                      onPressed: _sendPasswordReset,
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: Colors.white70,
+                              child: Builder(
+                                builder: (context) {
+                                  final tone = AuthTone.of(context);
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      AuthGoogleButton(
+                                        loading: _googleLoading,
+                                        label: 'Continue with Google',
+                                        onPressed: _signInWithGoogle,
                                       ),
-                                      child: const Text('Forgot password?'),
-                                    ),
-                                  ),
-                                  SizedBox(height: compact ? 2 : 8),
-                                  AuthPrimaryButton(
-                                    loading: _loading,
-                                    label: 'Login',
-                                    onPressed: _signInWithEmail,
-                                  ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        context.go(AppRoutes.register),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Colors.white,
-                                    ),
-                                    child: const Text(
-                                      "Don't have an account? Sign Up",
-                                    ),
-                                  ),
-                                ],
+                                      SizedBox(height: gapSocial),
+                                      AuthGoogleButton(
+                                        loading: _appleLoading,
+                                        label: 'Continue with Apple',
+                                        icon: Icons.apple,
+                                        onPressed: _signInWithApple,
+                                      ),
+                                      SizedBox(height: gapSocial),
+                                      AuthGoogleButton(
+                                        loading: _facebookLoading,
+                                        label: 'Continue with Facebook',
+                                        icon: Icons.facebook,
+                                        onPressed: _signInWithFacebook,
+                                      ),
+                                      const SizedBox(height: 14),
+                                      const AuthOrDivider(),
+                                      const SizedBox(height: 14),
+                                      AuthField(
+                                        controller: _emailCtrl,
+                                        label: 'Email',
+                                        icon: Icons.email_outlined,
+                                        keyboardType:
+                                            TextInputType.emailAddress,
+                                        autofillHints: const [
+                                          AutofillHints.email,
+                                        ],
+                                        textInputAction: TextInputAction.next,
+                                        onFieldSubmitted: (_) =>
+                                            _passwordFocus.requestFocus(),
+                                        validator: (v) =>
+                                            v == null ||
+                                                !(v.contains('@') ||
+                                                    v.trim().toLowerCase() ==
+                                                        'app_reviewer')
+                                            ? 'Enter a valid email'
+                                            : null,
+                                      ),
+                                      const SizedBox(height: AppSpacing.sm),
+                                      AuthField(
+                                        controller: _passwordCtrl,
+                                        focusNode: _passwordFocus,
+                                        label: 'Password',
+                                        icon: Icons.lock_outline,
+                                        obscure: true,
+                                        autofillHints: const [
+                                          AutofillHints.password,
+                                        ],
+                                        textInputAction: TextInputAction.done,
+                                        onFieldSubmitted: (_) =>
+                                            _signInWithEmail(),
+                                        validator: (v) =>
+                                            v == null || v.length < 6
+                                            ? 'Min 6 characters'
+                                            : null,
+                                      ),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: TextButton(
+                                          onPressed: _sendPasswordReset,
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: dark
+                                                ? tone.secondary
+                                                : tone.link,
+                                            minimumSize: const Size(44, 44),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: AppSpacing.xxs,
+                                            ),
+                                            textStyle: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: dark
+                                                  ? FontWeight.w600
+                                                  : FontWeight.w700,
+                                            ),
+                                          ),
+                                          child: const Text('Forgot password?'),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      AuthPrimaryButton(
+                                        loading: _loading,
+                                        label: 'Login',
+                                        onPressed: _signInWithEmail,
+                                      ),
+                                      const SizedBox(height: AppSpacing.xxs),
+                                      TextButton(
+                                        onPressed: () =>
+                                            context.go(AppRoutes.register),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: tone.secondary,
+                                          minimumSize: const Size(44, 44),
+                                        ),
+                                        child: Text.rich(
+                                          TextSpan(
+                                            text: "Don't have an account? ",
+                                            style: TextStyle(
+                                              color: tone.secondary,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            children: [
+                                              TextSpan(
+                                                text: 'Sign Up',
+                                                style: TextStyle(
+                                                  color: tone.link,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
                             ),
                           ),
                         ),
                       ),
-                      SizedBox(height: gapMd),
+                      const SizedBox(height: AppSpacing.md),
                       FadeSlideIn(
                         delay: const Duration(milliseconds: 280),
                         child: Row(
@@ -272,13 +298,17 @@ class _LoginPageState extends State<LoginPage> {
                             Icon(
                               Icons.lock_outline,
                               size: 14,
-                              color: Colors.white.withValues(alpha: 0.6),
+                              color: dark
+                                  ? const Color(0xFFC5CED6)
+                                  : Colors.white,
                             ),
                             const SizedBox(width: 6),
                             Text(
                               'Encrypted & secure sign-in',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.6),
+                                color: dark
+                                    ? const Color(0xFFC5CED6)
+                                    : Colors.white,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -286,7 +316,6 @@ class _LoginPageState extends State<LoginPage> {
                           ],
                         ),
                       ),
-                      SizedBox(height: compact ? 4 : 8),
                     ],
                   ),
                 ),

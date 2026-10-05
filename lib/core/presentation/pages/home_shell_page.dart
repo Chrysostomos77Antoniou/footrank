@@ -152,32 +152,24 @@ class _HomeShellPageState extends State<HomeShellPage>
           },
         ),
       ),
-      bottomNavigationBar: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(28),
-          topRight: Radius.circular(28),
-        ),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.limeDeep, AppColors.limeDeeper],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 16,
-                offset: Offset(0, -4),
+      bottomNavigationBar: Builder(builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkNav : Colors.white,
+            border: Border(
+              top: BorderSide(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.07)
+                    : AppColors.ink.withValues(alpha: 0.08),
               ),
-            ],
+            ),
           ),
           child: SafeArea(
             top: false,
-            child: SizedBox(
-              height: 64,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   for (var i = 0; i < _items.length; i++)
                     _NavItem(
@@ -190,8 +182,8 @@ class _HomeShellPageState extends State<HomeShellPage>
               ),
             ),
           ),
-        ),
-      ),
+        );
+      }),
     );
   }
 }
@@ -211,31 +203,52 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // White on the fixed green bar, not the theme-flipping accent color —
-    // this bar is solid green in both themes now, so its content needs to
-    // contrast against green specifically, not the page's own accent.
-    // Selection is shown by the icon alone now (no indicator line, and the
-    // label stays the same muted tone whether selected or not).
-    const mutedWhite = Colors.white70;
-    final iconColor = selected ? Colors.white : mutedWhite;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = AppColors.muted(context);
+    final ink = Theme.of(context).colorScheme.onSurface;
+    final pillColor = selected
+        ? (isDark ? AppColors.lime.withValues(alpha: 0.16) : AppColors.lime)
+        : Colors.transparent;
+    final iconColor =
+        selected ? (isDark ? AppColors.lime : AppColors.ink) : muted;
     return Expanded(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: iconColor, size: 23),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: mutedWhite,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                fontSize: 11,
-              ),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  width: 56,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: pillColor,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, color: iconColor, size: 22),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: selected ? ink : muted,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

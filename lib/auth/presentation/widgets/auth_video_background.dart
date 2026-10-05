@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/utils/motion.dart';
 
 /// Full-screen looping, muted video background for the auth screens, with a
-/// dark gradient overlay so foreground text/inputs stay readable.
-/// Falls back to the brand navy gradient until the video is ready (or if it
-/// fails to load).
+/// neutral dark gradient scrim (identical in light and dark themes) so
+/// foreground text and the frosted card stay readable.
+/// Falls back to the flat dark gradient until the video is ready, if it fails
+/// to load, or when the user asks for reduced motion.
 class AuthVideoBackground extends StatefulWidget {
   final Widget child;
   const AuthVideoBackground({super.key, required this.child});
@@ -17,11 +19,15 @@ class AuthVideoBackground extends StatefulWidget {
 class _AuthVideoBackgroundState extends State<AuthVideoBackground> {
   VideoPlayerController? _controller;
   bool _ready = false;
+  bool _started = false;
 
   @override
-  void initState() {
-    super.initState();
-    _init();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    // Decorative video is skipped under reduced motion.
+    if (decorativeVideoAllowed(context)) _init();
   }
 
   Future<void> _init() async {
@@ -56,7 +62,7 @@ class _AuthVideoBackgroundState extends State<AuthVideoBackground> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Base brand gradient (also the fallback)
+        // Base gradient (also the fallback)
         const DecoratedBox(
           decoration: BoxDecoration(gradient: AppColors.authGradient),
         ),
@@ -70,19 +76,19 @@ class _AuthVideoBackgroundState extends State<AuthVideoBackground> {
               child: VideoPlayer(_controller!),
             ),
           ),
-        // Dark overlay for contrast/readability -- kept light so the video
-        // shows through brightly, darkening only slightly toward the
-        // bottom where the form card needs a bit more contrast.
+        // Neutral scrim: lighter at the top so the video reads, heavier at
+        // the bottom where the form card sits.
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withValues(alpha: 0.22),
-                Colors.black.withValues(alpha: 0.32),
-                Colors.black.withValues(alpha: 0.42),
+                AppColors.darkBg.withValues(alpha: 0.42),
+                AppColors.darkBg.withValues(alpha: 0.50),
+                AppColors.darkBg.withValues(alpha: 0.82),
               ],
+              stops: const [0, 0.35, 1],
             ),
           ),
         ),

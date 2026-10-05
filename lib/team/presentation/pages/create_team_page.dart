@@ -3,7 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
+import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
+import 'package:footrank/team/presentation/widgets/team_ui.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/core/widgets/feedback.dart';
@@ -70,12 +73,19 @@ class _CreateTeamPageState extends State<CreateTeamPage> {
               children: [
                 Expanded(
                   child: Text(code,
-                      style: const TextStyle(
+                      style: TextStyle(
+                          fontFamily: AppFonts.display,
                           fontSize: 22,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.brand(context),
                           letterSpacing: 3)),
                 ),
-                IconButton.filledTonal(
+                IconButton(
+                  tooltip: 'Copy invite code',
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppColors.chip(context),
+                    foregroundColor: AppColors.onChip(context),
+                  ),
                   icon: const Icon(Icons.copy),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: code));
@@ -99,88 +109,90 @@ class _CreateTeamPageState extends State<CreateTeamPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Team')),
       body: AmbientBackground(
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 8),
-                  FadeSlideIn(
-                    child: Center(
-                        child: Icon(Icons.shield_outlined,
-                            size: 52, color: AppColors.iconAccent(context))),
-                  ),
-                  const SizedBox(height: 8),
-                  const FadeSlideIn(
-                    delay: Duration(milliseconds: 80),
-                    child: Center(
-                      child: GradientText('Start your squad',
-                          style: TextStyle(
-                              fontSize: 22, fontWeight: FontWeight.w900)),
+          child: Column(
+            children: [
+              const TeamPageHeader(title: 'Create Team'),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 36, 20, 24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const FadeSlideIn(
+                          child: TeamHero(
+                            icon: Icons.shield_outlined,
+                            title: 'Start your squad',
+                            subtitle:
+                                'You\'ll be the captain. Add a logo later from the team page.',
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        FadeSlideIn(
+                          delay: const Duration(milliseconds: 120),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const TeamFieldLabel('Team Name'),
+                              TextFormField(
+                                controller: _nameCtrl,
+                                textCapitalization: TextCapitalization.words,
+                                style: const TextStyle(
+                                    fontSize: 15, fontWeight: FontWeight.w600),
+                                decoration: teamFieldDecoration(context,
+                                    hint: 'Team Name',
+                                    icon: Icons.shield_outlined),
+                                validator: (v) => v == null || v.trim().isEmpty
+                                    ? 'Team name is required'
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        FadeSlideIn(
+                          delay: const Duration(milliseconds: 160),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const TeamFieldLabel('City'),
+                              DropdownButtonFormField<String>(
+                                value: _city,
+                                isExpanded: true,
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface),
+                                decoration: teamFieldDecoration(context,
+                                    hint: 'City', icon: Icons.place_outlined),
+                                items: kCities
+                                    .map((c) => DropdownMenuItem(
+                                        value: c, child: Text(c)))
+                                    .toList(),
+                                onChanged: (v) => setState(() => _city = v),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 120),
-                    child: Text(
-                        'You\'ll be the captain. Add a logo later from the team page.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall),
-                  ),
-                  const SizedBox(height: 24),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 160),
-                    child: TextFormField(
-                      controller: _nameCtrl,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(
-                        labelText: 'Team Name',
-                        prefixIcon: Icon(Icons.shield_outlined),
-                      ),
-                      validator: (v) => v == null || v.trim().isEmpty
-                          ? 'Team name is required'
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 200),
-                    child: DropdownButtonFormField<String>(
-                      value: _city,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'City',
-                        prefixIcon: Icon(Icons.place_outlined),
-                      ),
-                      items: kCities
-                          .map((c) =>
-                              DropdownMenuItem(value: c, child: Text(c)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _city = v),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 240),
-                    child: FilledButton(
-                      onPressed: _loading ? null : _submit,
-                      child: _loading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Create Team'),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: BrandButton(
+                  label: 'Create Team',
+                  loading: _loading,
+                  onPressed: _submit,
+                ),
+              ),
+            ],
           ),
         ),
       ),

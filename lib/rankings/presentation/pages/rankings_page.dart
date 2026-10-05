@@ -4,13 +4,12 @@ import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/async_views.dart';
-import 'package:footrank/core/widgets/brand_widgets.dart';
-import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/rankings/data/ranking_repository.dart';
 import 'package:footrank/rankings/presentation/widgets/player_leaderboard.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
+import 'package:footrank/rankings/presentation/widgets/rank_row_parts.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 
 class RankingsPage extends StatefulWidget {
@@ -32,26 +31,29 @@ class _RankingsPageState extends State<RankingsPage> with ThemeRepaintMixin {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const GradientText(
+                    Text(
                       'Rankings',
-                      style:
-                          TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
+                      style: TextStyle(
+                        fontFamily: AppFonts.display,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                        letterSpacing: -0.26,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
-                    const SizedBox(width: 10),
                     if (_tab == 0)
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Text(
-                            'Min. ${RankingRepository.minMatches} matches played to be ranked',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.muted(context),
-                            ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          'Min. ${RankingRepository.minMatches} matches played to be ranked',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.muted(context),
                           ),
                         ),
                       ),
@@ -59,14 +61,14 @@ class _RankingsPageState extends State<RankingsPage> with ThemeRepaintMixin {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: GlassTabs(
                   index: _tab,
                   tabs: const ['Players', 'Teams'],
                   onChanged: (i) => setState(() => _tab = i),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Expanded(
                 // Not const: these must rebuild when the page repaints (theme
                 // change / tab visit) so their colours update. The leaderboards
@@ -133,16 +135,21 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
           child: TextField(
             controller: _cityCtrl,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
             decoration: InputDecoration(
               hintText: 'Search teams by name or city…',
-              prefixIcon: const Icon(Icons.search),
+              constraints: const BoxConstraints(minHeight: 52, maxHeight: 52),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              prefixIcon: const Icon(Icons.search, size: 20),
               suffixIcon: _cityCtrl.text.isEmpty
                   ? null
                   : IconButton(
-                      icon: const Icon(Icons.clear),
+                      tooltip: 'Clear search',
+                      icon: const Icon(Icons.clear, size: 20),
                       onPressed: () => _cityCtrl.clear()),
             ),
           ),
@@ -186,7 +193,7 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard>
               return RefreshIndicator(
                 onRefresh: () async => _applyCity(),
                 child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
                 itemCount: teams.length,
                 itemBuilder: (context, i) {
                   final t = teams[i];
@@ -194,43 +201,42 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard>
                     delay: AppMotion.staggerFor(i),
                     animateOnceId: t.id,
                     child: Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: GlassCard(
-                        padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: RankRowCard(
                         onTap: () => showTeamSheet(context, t),
                         child: Row(
                           children: [
-                            RankBadge(rank: i + 1),
+                            RankDisc(rank: i + 1),
                             const SizedBox(width: 10),
-                            GradientAvatar(
-                                name: t.name,
-                                imageUrl: t.logoUrl,
-                                radius: 20),
-                            const SizedBox(width: 12),
+                            GreenAvatar(name: t.name, imageUrl: t.logoUrl),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Column(
+                                mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   // Colour comes from the TextTheme, which is
                                   // rebuilt with the ThemeData on every theme
-                                  // change — matching how team_page and the
-                                  // other working screens do it. Reading
-                                  // colorScheme.onSurface into a raw TextStyle
-                                  // here left this page showing the previous
-                                  // mode's text colour after a theme toggle.
+                                  // change, so it follows a runtime toggle.
                                   Text(t.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: Theme.of(context)
                                           .textTheme
                                           .titleMedium
                                           ?.copyWith(
+                                              fontSize: 15,
+                                              height: 1.25,
+                                              letterSpacing: -0.15,
                                               fontWeight: FontWeight.w800)),
-                                  const SizedBox(height: 2),
                                   Text.rich(
                                     TextSpan(
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
                                           ?.copyWith(
+                                              fontSize: 12,
+                                              height: 1.3,
                                               fontWeight: FontWeight.w600,
                                               color: AppColors.muted(context)),
                                       children: [
@@ -243,11 +249,14 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard>
                                         ),
                                       ],
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
                             ),
-                            LevelBadge(value: t.rating, size: 46, showLabel: true),
+                            const SizedBox(width: 10),
+                            PwrScoreBadge(value: t.rating),
                           ],
                         ),
                       ),

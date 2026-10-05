@@ -4,13 +4,12 @@ import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/widgets/async_views.dart';
-import 'package:footrank/core/widgets/brand_widgets.dart';
-import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/models/user_model.dart';
 import 'package:footrank/rankings/data/ranking_repository.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
+import 'package:footrank/rankings/presentation/widgets/rank_row_parts.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/team/presentation/widgets/team_picker.dart';
@@ -98,28 +97,44 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
           child: TextField(
             controller: _searchCtrl,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
             decoration: InputDecoration(
               hintText: 'Search players by name…',
-              prefixIcon: const Icon(Icons.search),
+              constraints: const BoxConstraints(minHeight: 52, maxHeight: 52),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              prefixIcon: const Icon(Icons.search, size: 20),
               suffixIcon: _searchCtrl.text.isEmpty
                   ? null
                   : IconButton(
-                      icon: const Icon(Icons.clear),
+                      tooltip: 'Clear search',
+                      icon: const Icon(Icons.clear, size: 20),
                       onPressed: () => _searchCtrl.clear()),
             ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
           child: DropdownButtonFormField<String>(
             value: _position,
             isExpanded: true,
+            borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
+            icon: Icon(Icons.keyboard_arrow_down_rounded,
+                color: AppColors.muted(context)),
+            style: TextStyle(
+              fontFamily: AppFonts.body,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
             decoration: const InputDecoration(
               labelText: 'Position',
-              prefixIcon: Icon(Icons.sports_handball_outlined),
+              constraints: BoxConstraints(minHeight: 52),
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
             ),
             items: [
               const DropdownMenuItem<String>(
@@ -176,71 +191,87 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard>
               return RefreshIndicator(
                 onRefresh: () async => _refresh(),
                 child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
                 itemCount: players.length,
                 itemBuilder: (context, i) {
                   final p = players[i];
+                  final isMe = p.id == _uid;
                   return FadeSlideIn(
                     delay: AppMotion.staggerFor(i),
                     animateOnceId: p.id,
                     child: Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: GlassCard(
-                        padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: RankRowCard(
+                        highlight: isMe,
                         onTap: () => showPlayerSheet(context, p),
                         child: Row(
                           children: [
-                            RankBadge(rank: i + 1),
+                            RankDisc(rank: i + 1, highlight: isMe),
                             const SizedBox(width: 10),
-                            GradientAvatar(
-                                name: p.name,
-                                imageUrl: p.avatarUrl,
-                                radius: 20),
-                            const SizedBox(width: 12),
+                            GreenAvatar(name: p.name, imageUrl: p.avatarUrl),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Column(
+                                mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   // Sourced from the TextTheme (rebuilt with
-                                  // the ThemeData) rather than from a raw
-                                  // TextStyle holding colorScheme.onSurface —
-                                  // the latter kept the previous mode's colour
-                                  // after a theme toggle.
-                                  Text(p.name,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.w800)),
-                                  const SizedBox(height: 2),
+                                  // the ThemeData) so it follows a runtime
+                                  // theme toggle.
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(p.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium
+                                                ?.copyWith(
+                                                    fontSize: 15,
+                                                    height: 1.25,
+                                                    letterSpacing: -0.15,
+                                                    fontWeight:
+                                                        FontWeight.w800)),
+                                      ),
+                                      if (isMe) ...[
+                                        const SizedBox(width: 6),
+                                        const YouTag(),
+                                      ],
+                                    ],
+                                  ),
                                   Text(
                                     '@${p.username}'
                                     '${p.position != null ? '  ·  ${p.position}' : ''}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context)
                                         .textTheme
                                         .bodySmall
                                         ?.copyWith(
+                                            fontSize: 12,
+                                            height: 1.3,
                                             fontWeight: FontWeight.w600,
                                             color: AppColors.muted(context)),
                                   ),
                                 ],
                               ),
                             ),
-                            LevelBadge(value: p.elo, size: 46, showLabel: true),
+                            const SizedBox(width: 10),
+                            PwrScoreBadge(value: p.elo),
                             if (_captainTeams.isNotEmpty) ...[
-                              const SizedBox(width: 2),
                               // Reserve the button's footprint even when it's
                               // hidden (viewer's own row) so the PWR badge
                               // lands at the same x-position on every row.
                               Visibility(
-                                visible: p.id != _uid,
+                                visible: !isMe,
                                 maintainSize: true,
                                 maintainAnimation: true,
                                 maintainState: true,
                                 child: IconButton(
                                   tooltip: 'Invite to a team',
                                   icon: Icon(Icons.person_add_alt_1_outlined,
-                                      color: AppColors.iconAccent(context)),
+                                      color: AppColors.brand(context)),
                                   onPressed: () => _invite(p),
                                 ),
                               ),

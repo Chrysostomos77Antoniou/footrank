@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
+import 'package:footrank/core/utils/motion.dart';
+import 'package:footrank/match/presentation/widgets/match_surfaces.dart';
 import 'package:footrank/core/utils/maps_launcher.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/court_image_preview.dart';
@@ -197,23 +200,26 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
     }
     if (_courts.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppColors.iconAccent(context).withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
+          color: AppColors.chip(context),
+          borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
         ),
         child: Text(
           _city == null
               ? 'Select a city to see courts.'
               : 'No courts listed yet for $_city.',
-          style: Theme.of(context).textTheme.bodySmall,
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: AppColors.muted(context)),
         ),
       );
     }
     return Column(
       children: [
         SizedBox(
-          height: 380,
+          height: 330,
           child: PageView.builder(
             controller: _courtPageController,
             onPageChanged: (i) => setState(() => _courtPage = i),
@@ -227,7 +233,9 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
           children: List.generate(_courts.length, (i) {
             final active = i == _courtPage;
             return AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: reduceMotion(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 200),
               margin: const EdgeInsets.symmetric(horizontal: 3),
               width: active ? 18 : 6,
               height: 6,
@@ -235,7 +243,10 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                 borderRadius: BorderRadius.circular(3),
                 color: active
                     ? AppColors.brand(context)
-                    : AppColors.iconAccent(context).withValues(alpha: 0.25),
+                    : AppColors.onChip(context).withValues(
+                        alpha: Theme.of(context).brightness == Brightness.dark
+                            ? 0.35
+                            : 0.25),
               ),
             );
           }),
@@ -246,73 +257,87 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
 
   Widget _buildCourtCard(CourtModel c) {
     final picked = c.id == _selectedCourtId;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final fill = picked
+        ? Color.alphaBlend(
+            AppColors.action.withValues(alpha: isDark ? 0.08 : 0.2), base)
+        : base;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Card(
+      child: Container(
         clipBehavior: Clip.antiAlias,
-        margin: EdgeInsets.zero,
-        color: picked ? AppColors.brand(context).withValues(alpha: 0.08) : null,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: picked
-              ? BorderSide(color: AppColors.brand(context), width: 2)
-              : BorderSide.none,
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: picked ? AppColors.brand(context) : Colors.transparent,
+            width: 2,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Capped square: sized off the card's own width but never taller
-            // than 240 — a true square that still leaves guaranteed room for
+            // than 184 -- a true square that still leaves guaranteed room for
             // the name/address/button below inside the fixed carousel height.
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final side = constraints.maxWidth < 240
-                    ? constraints.maxWidth
-                    : 240.0;
-                return Center(
-                  child: SizedBox(
-                    width: side,
-                    height: side,
-                    child: InkWell(
-                      onTap: () => showCourtImagePreview(
-                        context,
-                        name: c.name,
-                        imageUrl: c.imageUrl,
-                      ),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if (c.imageUrl != null)
-                            Image.network(
-                              c.imageUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
-                                  _courtImagePlaceholder(),
-                            )
-                          else
-                            _courtImagePlaceholder(),
-                          Positioned(
-                            top: 8,
-                            left: 8,
-                            child: MapPillButton(onPressed: () => _openMaps(c)),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final side = constraints.maxWidth < 184
+                      ? constraints.maxWidth
+                      : 184.0;
+                  return Center(
+                    child: SizedBox(
+                      width: side,
+                      height: side,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          onTap: () => showCourtImagePreview(
+                            context,
+                            name: c.name,
+                            imageUrl: c.imageUrl,
                           ),
-                          if (picked)
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: CircleAvatar(
-                                radius: 15,
-                                backgroundColor: AppColors.brand(context),
-                                child: const Icon(Icons.check,
-                                    color: Colors.white, size: 18),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (c.imageUrl != null)
+                                Image.network(
+                                  c.imageUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      _courtImagePlaceholder(),
+                                )
+                              else
+                                _courtImagePlaceholder(),
+                              Positioned(
+                                top: 8,
+                                left: 8,
+                                child: MapPillButton(
+                                    onPressed: () => _openMaps(c)),
                               ),
-                            ),
-                        ],
+                              if (picked)
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: CircleAvatar(
+                                    radius: 15,
+                                    backgroundColor: AppColors.brand(context),
+                                    child: Icon(Icons.check,
+                                        color: AppColors.onBrand(context),
+                                        size: 18),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
@@ -324,6 +349,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -332,7 +358,11 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                       c.address!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.muted(context),
+                          ),
                     ),
                   const SizedBox(height: 8),
                   SizedBox(
@@ -340,11 +370,35 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                     child: picked
                         ? OutlinedButton.icon(
                             onPressed: () => _selectCourt(c.id),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(44),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                    AppSemantic.controlRadius),
+                              ),
+                              side: isDark
+                                  ? BorderSide(
+                                      color: Colors.white
+                                          .withValues(alpha: 0.24))
+                                  : const BorderSide(
+                                      color: AppColors.limeDeep, width: 1.5),
+                              textStyle: const TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w700),
+                            ),
                             icon: const Icon(Icons.close, size: 18),
                             label: const Text('Remove'),
                           )
                         : FilledButton.icon(
                             onPressed: () => _selectCourt(c.id),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(44),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                    AppSemantic.controlRadius),
+                              ),
+                              textStyle: const TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w700),
+                            ),
                             icon: const Icon(Icons.add, size: 18),
                             label: const Text('Select this court'),
                           ),
@@ -359,11 +413,11 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
   }
 
   Widget _courtImagePlaceholder() => Container(
-    color: AppColors.iconAccent(context).withValues(alpha: 0.08),
+    color: AppColors.chip(context),
     child: Icon(
       Icons.sports_soccer,
       size: 56,
-      color: AppColors.iconAccent(context).withValues(alpha: 0.5),
+      color: AppColors.brand(context).withValues(alpha: 0.6),
     ),
   );
 
@@ -375,7 +429,12 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
     final timeLabel = _time == null ? 'Select time' : _time!.format(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Match')),
+      appBar: AppBar(
+        title: const Text(
+          'Create Match',
+          style: TextStyle(fontSize: 26, letterSpacing: -0.26),
+        ),
+      ),
       body: AmbientBackground(
         child: SafeArea(
           child: SingleChildScrollView(
@@ -416,7 +475,6 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'City',
-                        border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.place_outlined),
                       ),
                       items: kCities
@@ -437,12 +495,18 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                       children: [
                         Text(
                           'Pick a Court',
-                          style: Theme.of(context).textTheme.labelLarge,
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                  fontSize: 14, fontWeight: FontWeight.w700),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
                           'This is the court captains will see on your open request.',
-                          style: Theme.of(context).textTheme.bodySmall,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.muted(context)),
                         ),
                       ],
                     ),
@@ -459,10 +523,32 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                       children: [
                         Text(
                           'Match Type',
-                          style: Theme.of(context).textTheme.labelLarge,
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                  fontSize: 14, fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 8),
                         SegmentedButton<String>(
+                          style: SegmentedButton.styleFrom(
+                            minimumSize: const Size(0, 44),
+                            backgroundColor: Theme.of(context).brightness ==
+                                    Brightness.dark
+                                ? AppColors.darkCard
+                                : AppColors.lightCard,
+                            foregroundColor:
+                                Theme.of(context).colorScheme.onSurface,
+                            selectedBackgroundColor: AppColors.action,
+                            selectedForegroundColor:
+                                AppColors.onAction(context),
+                            side: BorderSide(
+                                color: AppColors.inputBorder(context)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                  AppSemantic.controlRadius),
+                            ),
+                            textStyle: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w700),
+                          ),
                           segments: const [
                             ButtonSegment(
                                 value: 'casual', label: Text('Casual')),
@@ -482,10 +568,13 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                     child: FilledButton(
                       onPressed: _loading ? null : _submit,
                       child: _loading
-                          ? const SizedBox(
+                          ? SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.onAction(context),
+                              ),
                             )
                           : const Text('Create Match Request'),
                     ),
@@ -496,24 +585,34 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                     child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: AppColors.iconAccent(
-                          context,
-                        ).withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(14),
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? AppColors.lime.withValues(alpha: 0.08)
+                            : AppColors.lightChip,
+                        borderRadius:
+                            BorderRadius.circular(AppSemantic.controlRadius),
                       ),
                       child: Row(
                         children: [
                           Icon(
                             Icons.info_outline,
                             size: 20,
-                            color: AppColors.iconAccent(context),
+                            color: AppColors.brand(context),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               'After creating, tap "Find Opponents" to match with a '
                               'nearby team at a similar time and rating.',
-                              style: Theme.of(context).textTheme.bodySmall,
+                              style:
+                                  Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w500,
+                                        height: 1.4,
+                                        color: Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? AppColors.muted(context)
+                                            : AppColors.ink,
+                                      ),
                             ),
                           ),
                         ],
@@ -546,20 +645,64 @@ class _PickerField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          prefixIcon: Icon(icon, color: AppColors.iconAccent(context)),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 16,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final radius = BorderRadius.circular(AppSemantic.controlRadius);
+    return Semantics(
+      button: true,
+      label: '$label, $value',
+      excludeSemantics: true,
+      child: Material(
+        color: isDark ? AppColors.darkCard : AppColors.lightCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: BorderSide(color: AppColors.inputBorder(context)),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: SizedBox(
+            height: 56,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Icon(icon, size: 20, color: AppColors.brand(context)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            height: 1.25,
+                            color: AppColors.muted(context),
+                          ),
+                        ),
+                        Text(
+                          value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            height: 1.25,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -622,6 +765,9 @@ class _TimeEntryDialogState extends State<_TimeEntryDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      backgroundColor: matchDialogColor(context),
+      surfaceTintColor: Colors.transparent,
+      shape: matchDialogShape(context),
       title: const Text('Enter kick-off time'),
       content: Row(
         mainAxisSize: MainAxisSize.min,

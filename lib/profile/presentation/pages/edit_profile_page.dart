@@ -6,10 +6,13 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/services/gallery_picker.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/user_model.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
+import 'package:footrank/profile/presentation/widgets/profile_avatar.dart';
+import 'package:footrank/profile/presentation/widgets/profile_fields.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 
 const _positions = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'];
@@ -110,127 +113,232 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final fieldStyle = profileFieldTextStyle(context);
+    final iconDown = Icon(Icons.keyboard_arrow_down,
+        size: 18, color: AppColors.muted(context));
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Profile')),
       body: AmbientBackground(
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  FadeSlideIn(
-                    child: _AvatarPicker(
-                      name: _nameCtrl.text.isEmpty ? '?' : _nameCtrl.text,
-                      pickedBytes: _pickedBytes,
-                      currentUrl: _currentAvatar,
-                      onTap: _pickImage,
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Tooltip(
+                              message: 'Back',
+                              child: PressableScale(
+                                onTap: () => Navigator.of(context).maybePop(),
+                                semanticLabel: 'Back',
+                                child: Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? AppColors.darkCard
+                                        : AppColors.lightCard,
+                                    borderRadius: BorderRadius.circular(
+                                        AppSemantic.controlRadius),
+                                    border: Border.all(
+                                        color: AppColors.border(context)),
+                                  ),
+                                  child: Icon(Icons.chevron_left,
+                                      size: 26, color: onSurface),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text(
+                                'Edit Profile',
+                                style: TextStyle(
+                                  fontFamily: AppFonts.display,
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.26,
+                                  height: 1.2,
+                                  color: onSurface,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        FadeSlideIn(
+                          child: Center(
+                            child: _AvatarPicker(
+                              name:
+                                  _nameCtrl.text.isEmpty ? '?' : _nameCtrl.text,
+                              pickedBytes: _pickedBytes,
+                              currentUrl: _currentAvatar,
+                              onTap: _pickImage,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        FadeSlideIn(
+                          delay: const Duration(milliseconds: 60),
+                          child: Center(
+                            child: TextButton.icon(
+                              onPressed: _pickImage,
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.brand(context),
+                                minimumSize: const Size(0, 44),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 14),
+                                textStyle: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              icon: const Icon(Icons.photo_library_outlined,
+                                  size: 18),
+                              label: const Text('Change photo'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        FadeSlideIn(
+                          delay: const Duration(milliseconds: 100),
+                          child: LabeledField(
+                            label: 'Full Name',
+                            child: TextFormField(
+                              controller: _nameCtrl,
+                              textCapitalization: TextCapitalization.words,
+                              style: fieldStyle,
+                              decoration: profileInputDecoration(
+                                context,
+                                icon: Icons.person_outline,
+                              ),
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Name is required'
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        FadeSlideIn(
+                          delay: const Duration(milliseconds: 140),
+                          child: LabeledField(
+                            label: 'Username',
+                            child: TextFormField(
+                              controller: _usernameCtrl,
+                              style: fieldStyle,
+                              decoration: profileInputDecoration(
+                                context,
+                                icon: Icons.alternate_email,
+                                prefixText: '@',
+                              ),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) {
+                                  return 'Username is required';
+                                }
+                                if (v.trim().length < 3) {
+                                  return 'At least 3 characters';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        FadeSlideIn(
+                          delay: const Duration(milliseconds: 180),
+                          child: LabeledField(
+                            label: 'City',
+                            child: DropdownButtonFormField<String>(
+                              value: _city,
+                              isExpanded: true,
+                              style: fieldStyle,
+                              icon: iconDown,
+                              borderRadius: BorderRadius.circular(
+                                  AppSemantic.controlRadius),
+                              decoration: profileInputDecoration(
+                                context,
+                                icon: Icons.place_outlined,
+                                verticalPadding: 14,
+                              ),
+                              items: kCities
+                                  .map((c) => DropdownMenuItem(
+                                      value: c, child: Text(c)))
+                                  .toList(),
+                              onChanged: (v) => setState(() => _city = v),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        FadeSlideIn(
+                          delay: const Duration(milliseconds: 220),
+                          child: LabeledField(
+                            label: 'Preferred Position',
+                            child: DropdownButtonFormField<String>(
+                              value: _position,
+                              isExpanded: true,
+                              style: fieldStyle,
+                              icon: iconDown,
+                              borderRadius: BorderRadius.circular(
+                                  AppSemantic.controlRadius),
+                              decoration: profileInputDecoration(
+                                context,
+                                icon: Icons.sports_soccer_outlined,
+                                verticalPadding: 14,
+                              ),
+                              items: _positions
+                                  .map((p) => DropdownMenuItem(
+                                      value: p, child: Text(p)))
+                                  .toList(),
+                              onChanged: (v) => setState(() => _position = v),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        FadeSlideIn(
+                          delay: const Duration(milliseconds: 260),
+                          child: LabeledField(
+                            label: 'Contact phone',
+                            child: TextFormField(
+                              controller: _phoneCtrl,
+                              keyboardType: TextInputType.phone,
+                              style: fieldStyle.copyWith(
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ],
+                              ),
+                              decoration: profileInputDecoration(
+                                context,
+                                icon: Icons.phone_outlined,
+                                helperText:
+                                    'Shared with opponents for confirmed matches',
+                              ),
+                              validator: _validatePhone,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 60),
-                    child: TextButton.icon(
-                      onPressed: _pickImage,
-                      icon: const Icon(Icons.photo_library_outlined),
-                      label: const Text('Change photo'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 100),
-                    child: TextFormField(
-                      controller: _nameCtrl,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(
-                        labelText: 'Full Name',
-                        prefixIcon: Icon(Icons.person_outline),
-                      ),
-                      validator: (v) => v == null || v.trim().isEmpty
-                          ? 'Name is required'
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 140),
-                    child: TextFormField(
-                      controller: _usernameCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Username',
-                        prefixText: '@',
-                        prefixIcon: Icon(Icons.alternate_email),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Username is required';
-                        }
-                        if (v.trim().length < 3) return 'At least 3 characters';
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 180),
-                    child: DropdownButtonFormField<String>(
-                      value: _city,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'City',
-                        prefixIcon: Icon(Icons.place_outlined),
-                      ),
-                      items: kCities
-                          .map((c) =>
-                              DropdownMenuItem(value: c, child: Text(c)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _city = v),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 220),
-                    child: DropdownButtonFormField<String>(
-                      value: _position,
-                      decoration: const InputDecoration(
-                        labelText: 'Preferred Position',
-                        prefixIcon: Icon(Icons.sports_soccer_outlined),
-                      ),
-                      items: _positions
-                          .map((p) =>
-                              DropdownMenuItem(value: p, child: Text(p)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _position = v),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 260),
-                    child: TextFormField(
-                      controller: _phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Contact phone',
-                        prefixIcon: Icon(Icons.phone_outlined),
-                        helperText:
-                            'Shared with opponents for confirmed matches',
-                      ),
-                      validator: _validatePhone,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 300),
-                    child: BrandButton(
-                      label: 'Save Changes',
-                      loading: _saving,
-                      onPressed: _save,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: FadeSlideIn(
+                  delay: const Duration(milliseconds: 300),
+                  child: BrandButton(
+                    label: 'Save Changes',
+                    loading: _saving,
+                    onPressed: _save,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -253,41 +361,51 @@ class _AvatarPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget avatar;
+    ImageProvider? image;
     if (pickedBytes != null) {
-      avatar = CircleAvatar(
-        radius: 52,
-        backgroundImage: MemoryImage(Uint8List.fromList(pickedBytes!)),
-      );
+      image = MemoryImage(Uint8List.fromList(pickedBytes!));
     } else if (currentUrl != null && currentUrl!.isNotEmpty) {
-      avatar = CircleAvatar(radius: 52, backgroundImage: CachedNetworkImageProvider(currentUrl!));
-    } else {
-      avatar = GradientAvatar(name: name, radius: 52);
+      image = CachedNetworkImageProvider(currentUrl!);
     }
+    final bg = Theme.of(context).scaffoldBackgroundColor;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        alignment: Alignment.bottomRight,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.brand(context), width: 3),
-            ),
-            child: avatar,
+    return Semantics(
+      button: true,
+      label: 'Change profile photo',
+      child: GestureDetector(
+        onTap: onTap,
+        child: SizedBox(
+          width: 104,
+          height: 104,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ProfileAvatar(
+                name: name,
+                image: image,
+                size: 104,
+                ring: 3,
+                gap: 3,
+                fontSize: 38,
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: AppColors.action,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: bg, width: 2),
+                  ),
+                  child: Icon(Icons.camera_alt_outlined,
+                      color: AppColors.onAction(context), size: 16),
+                ),
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.brand(context),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.camera_alt,
-                color: AppColors.onBrand(context), size: 18),
-          ),
-        ],
+        ),
       ),
     );
   }

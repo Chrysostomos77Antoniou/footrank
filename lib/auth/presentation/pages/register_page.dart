@@ -5,7 +5,8 @@ import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
 import 'package:footrank/core/utils/password_strength.dart';
-import 'package:footrank/core/widgets/brand_widgets.dart';
+import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/core/widgets/feedback.dart';
@@ -117,6 +118,66 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  Widget _termsRow(AuthTone tone) {
+    const base = TextStyle(fontSize: 12, height: 1.45);
+    final linkStyle = base.copyWith(
+      color: tone.dark ? tone.text : tone.link,
+      fontWeight: FontWeight.w700,
+      decoration: TextDecoration.underline,
+    );
+    final textStyle = base.copyWith(color: tone.secondary);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => _agreedToTerms = !_agreedToTerms),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: AppSemantic.minTapTarget),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: Checkbox(
+                value: _agreedToTerms,
+                activeColor: tone.dark ? AppColors.lime : AppColors.limeDeeper,
+                checkColor: tone.dark ? AppColors.navy : Colors.white,
+                side: BorderSide(color: tone.secondary, width: 1.5),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                onChanged: (v) =>
+                    setState(() => _agreedToTerms = v ?? false),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text('I agree to the ', style: textStyle),
+                  InkWell(
+                    onTap: () => _openLegal('terms.html'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Text('Terms of Service', style: linkStyle),
+                    ),
+                  ),
+                  Text(' and ', style: textStyle),
+                  InkWell(
+                    onTap: () => _openLegal('privacy.html'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Text('Privacy Policy', style: linkStyle),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -124,50 +185,35 @@ class _RegisterPageState extends State<RegisterPage> {
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // Compresses spacing/sizing to fit shorter phone screens
-              // (e.g. iPhone 13) without scrolling, instead of a single
-              // fixed layout that only fits the tallest devices.
-              final compact = constraints.maxHeight < 820;
-              final logoSize = compact ? 60.0 : 100.0;
-              final titleSize = compact ? 24.0 : 30.0;
-              final gapXl = compact ? 12.0 : 34.0;
-              final gapLg = compact ? 8.0 : 22.0;
-              final gapSm = compact ? 3.0 : 6.0;
-              final gapMd = compact ? 8.0 : 18.0;
+              // Tightens the header on short phones; the page scrolls if the
+              // content is still taller than the screen.
+              final compact = constraints.maxHeight < 700;
+              final topPad = compact ? 4.0 : 12.0;
+              final gapHeader = compact ? 12.0 : 24.0;
+              final gapSocial = compact ? 6.0 : 10.0;
               return SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  topPad,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - topPad - AppSpacing.md,
+                  ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SizedBox(height: compact ? 4 : 16),
-                      FadeSlideIn(child: BrandLogo(size: logoSize)),
-                      SizedBox(height: gapLg),
-                      FadeSlideIn(
-                        delay: const Duration(milliseconds: 80),
-                        child: GradientText(
-                          'Create Account',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: titleSize,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.4,
-                          ),
+                      const FadeSlideIn(
+                        child: AuthBrandBlock(
+                          title: 'Create Account',
+                          subtitle: 'Join the league.',
+                          badgeSize: 52,
+                          titleSize: 26,
                         ),
                       ),
-                      SizedBox(height: gapSm),
-                      FadeSlideIn(
-                        delay: const Duration(milliseconds: 140),
-                        child: Text(
-                          'Join the league.',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: gapXl),
+                      SizedBox(height: gapHeader),
                       FadeSlideIn(
                         delay: const Duration(milliseconds: 200),
                         child: AuthCard(
@@ -175,160 +221,127 @@ class _RegisterPageState extends State<RegisterPage> {
                           child: Form(
                             key: _formKey,
                             child: AutofillGroup(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Row(
+                              child: Builder(
+                                builder: (context) {
+                                  final tone = AuthTone.of(context);
+                                  return Column(
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.center,
+                                        CrossAxisAlignment.stretch,
                                     children: [
-                                      SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: Checkbox(
-                                          value: _agreedToTerms,
-                                          onChanged: (v) => setState(
-                                            () => _agreedToTerms = v ?? false,
+                                      _termsRow(tone),
+                                      const SizedBox(height: 6),
+                                      AuthGoogleButton(
+                                        loading: _googleLoading,
+                                        label: 'Sign up with Google',
+                                        onPressed: _signInWithGoogle,
+                                      ),
+                                      SizedBox(height: gapSocial),
+                                      AuthGoogleButton(
+                                        loading: _appleLoading,
+                                        label: 'Sign up with Apple',
+                                        icon: Icons.apple,
+                                        onPressed: _signInWithApple,
+                                      ),
+                                      SizedBox(height: gapSocial),
+                                      AuthGoogleButton(
+                                        loading: _facebookLoading,
+                                        label: 'Sign up with Facebook',
+                                        icon: Icons.facebook,
+                                        onPressed: _signInWithFacebook,
+                                      ),
+                                      const SizedBox(height: 14),
+                                      const AuthOrDivider(),
+                                      const SizedBox(height: 14),
+                                      AuthField(
+                                        controller: _emailCtrl,
+                                        label: 'Email',
+                                        icon: Icons.email_outlined,
+                                        keyboardType:
+                                            TextInputType.emailAddress,
+                                        autofillHints: const [
+                                          AutofillHints.email,
+                                        ],
+                                        textInputAction: TextInputAction.next,
+                                        onFieldSubmitted: (_) =>
+                                            _passwordFocus.requestFocus(),
+                                        validator: (v) =>
+                                            v == null || !v.contains('@')
+                                            ? 'Enter a valid email'
+                                            : null,
+                                      ),
+                                      const SizedBox(height: AppSpacing.sm),
+                                      AuthField(
+                                        controller: _passwordCtrl,
+                                        focusNode: _passwordFocus,
+                                        label: 'Password',
+                                        icon: Icons.lock_outline,
+                                        obscure: true,
+                                        // newPassword (not password) so the OS
+                                        // offers to *generate* a strong one
+                                        // here, since this is an account
+                                        // creation form.
+                                        autofillHints: const [
+                                          AutofillHints.newPassword,
+                                        ],
+                                        textInputAction: TextInputAction.done,
+                                        onFieldSubmitted: (_) =>
+                                            _signUpWithEmail(),
+                                        validator: passwordStrengthError,
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          2,
+                                          6,
+                                          2,
+                                          AppSpacing.md,
+                                        ),
+                                        child: Text(
+                                          '8+ characters, with upper & '
+                                          'lowercase letters, a number, and a '
+                                          'symbol',
+                                          style: TextStyle(
+                                            color: tone.hint,
+                                            fontSize: 11,
+                                            height: 14 / 11,
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Wrap(
-                                          crossAxisAlignment:
-                                              WrapCrossAlignment.center,
-                                          children: [
-                                            Text(
-                                              'I agree to the ',
-                                              style: TextStyle(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.85,
-                                                ),
-                                                fontSize: 12,
-                                              ),
+                                      AuthPrimaryButton(
+                                        loading: _loading,
+                                        label: 'Sign Up',
+                                        onPressed: _signUpWithEmail,
+                                      ),
+                                      const SizedBox(height: AppSpacing.xxs),
+                                      TextButton(
+                                        onPressed: () =>
+                                            context.go(AppRoutes.login),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: tone.secondary,
+                                          minimumSize: const Size(44, 44),
+                                        ),
+                                        child: Text.rich(
+                                          TextSpan(
+                                            text: 'Already have an account? ',
+                                            style: TextStyle(
+                                              color: tone.secondary,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
                                             ),
-                                            InkWell(
-                                              onTap: () =>
-                                                  _openLegal('terms.html'),
-                                              child: const Text(
-                                                'Terms of Service',
+                                            children: [
+                                              TextSpan(
+                                                text: 'Login',
                                                 style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 12,
+                                                  color: tone.link,
                                                   fontWeight: FontWeight.w700,
-                                                  decoration:
-                                                      TextDecoration.underline,
                                                 ),
                                               ),
-                                            ),
-                                            Text(
-                                              ' and ',
-                                              style: TextStyle(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.85,
-                                                ),
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                            InkWell(
-                                              onTap: () =>
-                                                  _openLegal('privacy.html'),
-                                              child: const Text(
-                                                'Privacy Policy',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700,
-                                                  decoration:
-                                                      TextDecoration.underline,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ],
-                                  ),
-                                  SizedBox(height: gapMd),
-                                  AuthGoogleButton(
-                                    loading: _googleLoading,
-                                    label: 'Sign up with Google',
-                                    onPressed: _signInWithGoogle,
-                                  ),
-                                  SizedBox(height: compact ? 6 : 10),
-                                  AuthGoogleButton(
-                                    loading: _appleLoading,
-                                    label: 'Sign up with Apple',
-                                    icon: Icons.apple,
-                                    onPressed: _signInWithApple,
-                                  ),
-                                  SizedBox(height: compact ? 6 : 10),
-                                  AuthGoogleButton(
-                                    loading: _facebookLoading,
-                                    label: 'Sign up with Facebook',
-                                    icon: Icons.facebook,
-                                    onPressed: _signInWithFacebook,
-                                  ),
-                                  SizedBox(height: gapMd),
-                                  const AuthOrDivider(),
-                                  SizedBox(height: gapMd),
-                                  AuthField(
-                                    controller: _emailCtrl,
-                                    label: 'Email',
-                                    icon: Icons.email_outlined,
-                                    keyboardType: TextInputType.emailAddress,
-                                    autofillHints: const [AutofillHints.email],
-                                    textInputAction: TextInputAction.next,
-                                    onFieldSubmitted: (_) =>
-                                        _passwordFocus.requestFocus(),
-                                    validator: (v) =>
-                                        v == null || !v.contains('@')
-                                        ? 'Enter a valid email'
-                                        : null,
-                                  ),
-                                  SizedBox(height: compact ? 8 : 14),
-                                  AuthField(
-                                    controller: _passwordCtrl,
-                                    focusNode: _passwordFocus,
-                                    label: 'Password',
-                                    icon: Icons.lock_outline,
-                                    obscure: true,
-                                    // newPassword (not password) so the OS
-                                    // offers to *generate* a strong one here,
-                                    // since this is an account creation form.
-                                    autofillHints: const [
-                                      AutofillHints.newPassword,
-                                    ],
-                                    textInputAction: TextInputAction.done,
-                                    onFieldSubmitted: (_) => _signUpWithEmail(),
-                                    validator: passwordStrengthError,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '8+ characters, with upper & lowercase '
-                                    'letters, a number, and a symbol',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.6),
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                  SizedBox(height: compact ? 10 : 22),
-                                  AuthPrimaryButton(
-                                    loading: _loading,
-                                    label: 'Sign Up',
-                                    onPressed: _signUpWithEmail,
-                                  ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        context.go(AppRoutes.login),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Colors.white,
-                                    ),
-                                    child: const Text(
-                                      'Already have an account? Login',
-                                    ),
-                                  ),
-                                ],
+                                  );
+                                },
                               ),
                             ),
                           ),

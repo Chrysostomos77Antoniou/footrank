@@ -144,10 +144,13 @@ class AppSemantic {
   // ---- Radii -------------------------------------------------------------
 
   /// Cards and other large surfaces.
-  static const double cardRadius = AppRadius.lg;
+  static const double cardRadius = AppRadius.xl;
 
   /// Buttons, inputs, and anything the user manipulates directly.
-  static const double controlRadius = AppRadius.md;
+  static const double controlRadius = 14;
+
+  /// Primary/secondary action buttons.
+  static const double buttonRadius = AppRadius.lg;
 
   /// Material `Chip` / `ChoiceChip` widgets.
   static const double chipRadius = AppRadius.xl;

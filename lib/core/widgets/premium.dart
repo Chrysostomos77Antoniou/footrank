@@ -4,138 +4,25 @@ import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/utils/motion.dart';
 
-/// App background: a layered gradient with soft directional glows. In dark mode
-/// it stacks several shades of near-black navy with a faint accent glow; in
-/// light mode, several shades of white/grey.
-///
-/// **This layer is deliberately static.** It used to run a 20-second
-/// `repeat(reverse: true)` controller behind all 21 screens, and on every
-/// single frame it re-created four `RadialGradient` shaders and redrew a
-/// full-viewport dot grid (~420 `drawCircle` calls at 393x852). The grid did
-/// not even read `t` — it was static content being repainted 60 times a
-/// second. Worse, the painter shared a layer with its child, so scrolling a
-/// list forced the entire background to re-rasterise with it.
-///
-/// Nothing in that drift communicated state, so by the app's own motion
-/// principle ("motion is feedback, never decoration") it was decoration paying
-/// a full-screen repaint. It is now painted once into its own
-/// [RepaintBoundary]; the drift is frozen at its midpoint, which is visually
-/// indistinguishable from any given moment of the original 20s cycle.
-///
-/// The dot grid is gone: it was the most expensive element and the least
-/// visible, at 7-9% alpha.
+/// App background: a flat, theme-colored surface (graphite in Pitch Night,
+/// soft green-white in Matchday). The old gradient and glow blobs are gone:
+/// flat grounds make the cards and the lime accents carry the hierarchy.
 class AmbientBackground extends StatelessWidget {
   final Widget child;
   const AmbientBackground({super.key, required this.child});
 
-  /// The frozen point in the old 0→1→0 drift. The midpoint reads as the
-  /// "average" composition rather than either extreme.
-  static const double _frozenT = 0.5;
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final base = Theme.of(context).scaffoldBackgroundColor;
-    final accent = AppColors.brand(context);
-
-    final glowLight = isDark
-        ? AppColors.ambientGlowDark.withValues(alpha: 0.9)
-        : Colors.white;
-    final glowAccent = accent.withValues(alpha: isDark ? 0.16 : 0.10);
-    final vignette = isDark
-        ? AppColors.ambientVignetteDark.withValues(alpha: 0.9)
-        : AppColors.ambientVignetteLight.withValues(alpha: 0.85);
-
-    return Stack(
-      children: [
-        // Its own layer, so a scrolling list above it never drags the
-        // background into a repaint.
-        Positioned.fill(
-          child: RepaintBoundary(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isDark
-                      ? const [
-                          AppColors.ambientDarkTop,
-                          AppColors.ambientDarkMid,
-                          AppColors.ambientDarkBottom,
-                        ]
-                      : [Colors.white, base, AppColors.ambientLightBottom],
-                ),
-              ),
-              child: CustomPaint(
-                isComplex: true,
-                willChange: false,
-                painter: _AmbientBlobs(
-                  t: _frozenT,
-                  glowLight: glowLight,
-                  glowAccent: glowAccent,
-                  vignette: vignette,
-                ),
-              ),
-            ),
-          ),
-        ),
-        child,
-      ],
+    return ColoredBox(
+      color: isDark ? AppColors.darkBg : AppColors.lightBg,
+      child: child,
     );
   }
 }
 
-class _AmbientBlobs extends CustomPainter {
-  final double t;
-  final Color glowLight, glowAccent, vignette;
-  _AmbientBlobs({
-    required this.t,
-    required this.glowLight,
-    required this.glowAccent,
-    required this.vignette,
-  });
-
-  void _blob(Canvas c, Offset center, double r, Color color) {
-    final rect = Rect.fromCircle(center: center, radius: r);
-    final paint = Paint()
-      ..shader = RadialGradient(colors: [color, color.withValues(alpha: 0)])
-          .createShader(rect);
-    c.drawCircle(center, r, paint);
-  }
-
-  @override
-  void paint(Canvas c, Size s) {
-    final w = s.width, h = s.height;
-
-    _blob(c, Offset(w * (0.20 + 0.10 * t), h * (0.04 + 0.04 * t)), w * 0.74,
-        glowLight);
-    _blob(c, Offset(w * (0.96 - 0.10 * t), h * (0.14 + 0.05 * t)), w * 0.60,
-        glowAccent);
-    _blob(c, Offset(w * (0.06 + 0.10 * t), h * (0.96 - 0.05 * t)), w * 0.55,
-        glowAccent);
-
-    // Edge vignette for depth.
-    final vrect = Offset.zero & s;
-    final vpaint = Paint()
-      ..shader = RadialGradient(
-        center: Alignment.center,
-        radius: 0.95,
-        colors: [vignette.withValues(alpha: 0), vignette],
-        stops: const [0.55, 1.0],
-      ).createShader(vrect);
-    c.drawRect(vrect, vpaint);
-  }
-
-  // Every input is fixed for the lifetime of the widget; the only thing that
-  // can change these is a theme switch, which rebuilds the painter anyway.
-  @override
-  bool shouldRepaint(_AmbientBlobs old) =>
-      old.glowLight != glowLight ||
-      old.glowAccent != glowAccent ||
-      old.vignette != vignette;
-}
-
-/// Clean solid card with a subtle border + soft neutral shadow.
+/// Clean solid card: flat surface, hairline border, a whisper of shadow in
+/// light mode.
 class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -143,15 +30,14 @@ class GlassCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   /// Optional semantic wash (e.g. win/loss/draw) blended lightly into the
-  /// card's gradient. Keeps the same fill/border/shadow language instead of
-  /// swapping to a flat tinted background.
+  /// card fill.
   final Color? tint;
 
   const GlassCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(18),
-    this.radius = 16,
+    this.radius = AppSemantic.cardRadius,
     this.onTap,
     this.tint,
   });
@@ -159,37 +45,25 @@ class GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final baseColors = isDark
-        ? [
-            AppColors.darkElevated.withValues(alpha: 0.85),
-            AppColors.darkCard,
-          ]
-        : [Colors.white, const Color(0xFFF7F8FB)];
-    final gradientColors = tint == null
-        ? baseColors
-        : baseColors
-            .map((c) => Color.alphaBlend(tint!.withValues(alpha: 0.16), c))
-            .toList();
+    final base = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final fill =
+        tint == null ? base : Color.alphaBlend(tint!.withValues(alpha: 0.12), base);
 
     Widget content = Container(
       padding: padding,
       decoration: BoxDecoration(
-        // A faint top-to-bottom shade gives the card depth instead of a flat fill.
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: gradientColors,
-        ),
+        color: fill,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: AppColors.border(context)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.05),
-            blurRadius: isDark ? 18 : 10,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: AppColors.ink.withValues(alpha: 0.05),
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
       ),
       child: child,
     );
@@ -224,7 +98,7 @@ class GlassTabs extends StatelessWidget {
     // that's what broke with 4 longer tabs.
     return GlassCard(
       padding: const EdgeInsets.all(6),
-      radius: 20,
+      radius: AppSemantic.cardRadius,
       child: Row(
         children: [
           for (var i = 0; i < tabs.length; i++)
@@ -239,7 +113,9 @@ class GlassTabs extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: index == i
-                        ? AppColors.iconAccent(context).withValues(alpha: 0.14)
+                        ? (Theme.of(context).brightness == Brightness.dark
+                            ? AppColors.lime.withValues(alpha: 0.16)
+                            : AppColors.lime)
                         : null,
                     borderRadius: BorderRadius.circular(11),
                   ),
@@ -252,11 +128,10 @@ class GlassTabs extends StatelessWidget {
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         color: index == i
-                            ? AppColors.iconAccent(context)
-                            : Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.6),
+                            ? (Theme.of(context).brightness == Brightness.dark
+                                ? AppColors.lime
+                                : AppColors.ink)
+                            : AppColors.muted(context),
                       ),
                     ),
                   ),

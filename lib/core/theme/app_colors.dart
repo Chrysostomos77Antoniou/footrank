@@ -1,58 +1,88 @@
 import 'package:flutter/material.dart';
 
-/// Playtomic-inspired palette: bright lime accent on deep navy.
+/// FootRank palette.
+///
+/// Two themes that follow the system setting:
+///  * **Pitch Night** (dark): neutral graphite surfaces. Green appears only on
+///    the rank hero card; lime marks actions, the active nav state and the key
+///    numbers.
+///  * **Matchday** (light): soft green-tinted white, deep green accents, lime
+///    still the fill of the primary action.
 class AppColors {
   AppColors._();
 
-  // Accent (Playtomic lime)
-  static const Color lime = Color(0xFFC7F032);
+  // Accent
+  static const Color lime = Color(0xFFC8F031);
   static const Color limeDark = Color(0xFFA6CE1E);
 
-  // Brand navy (used as "on accent" text + dark surfaces)
-  static const Color navy = Color(0xFF14182B);
-  static const Color navySoft = Color(0xFF1B2138);
+  /// Text/icon colour placed on lime in dark mode (Pitch Night ink).
+  static const Color navy = Color(0xFF0C1015);
+  static const Color navySoft = Color(0xFF151B22);
 
-  /// Deep green used for accents/icons on light surfaces (lime is too pale).
-  static const Color limeDeep = Color(0xFF1B7A3D);
-  static const Color limeDeeper = Color(0xFF14622F);
+  /// Matchday ink: text on lime, and primary text in light mode.
+  static const Color ink = Color(0xFF0E1A14);
 
-  /// Accent color: bright lime in dark mode, deep green in light mode —
-  /// so the brand reads clearly on white backgrounds.
+  /// Deep greens: accent for text/icons on light surfaces, hero card fill.
+  static const Color limeDeep = Color(0xFF14663A);
+  static const Color limeDeeper = Color(0xFF0D4A2A);
+
+  /// Rank hero card gradient endpoints (dark mode only uses these greens).
+  static const Color heroDarkA = Color(0xFF17613A);
+  static const Color heroDarkB = Color(0xFF0C3A24);
+
+  /// Accent for text/icons: lime in dark, deep green in light (lime is too
+  /// faint on white).
   static Color brand(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark ? lime : limeDeep;
 
-  /// Readable text/icon color to place on top of the [brand] accent:
-  /// navy on lime (dark mode), white on deep green (light mode).
+  /// Readable colour on top of [brand] used as a fill.
   static Color onBrand(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark ? navy : Colors.white;
 
-  /// Theme-aware icon/accent color: lime in dark, deep green in light —
-  /// so icons stay readable on light backgrounds.
+  /// Theme-aware icon/accent colour.
   static Color iconAccent(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark ? lime : limeDeep;
 
-  /// Heading/number gradient — navy on light, lime on dark (for contrast).
+  /// Fill of the primary action: lime in BOTH themes.
+  static const Color action = lime;
+
+  /// Text/icon on [action]: ink in both themes.
+  static Color onAction(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? navy : ink;
+
+  /// Heading/number gradient.
   static LinearGradient headingGrad(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return isDark
         ? const LinearGradient(colors: [lime, limeDark])
-        : const LinearGradient(colors: [navy, Color(0xFF2C3354)]);
+        : const LinearGradient(colors: [ink, Color(0xFF2C3D33)]);
   }
 
-  /// Accent gradient for buttons/badges: lime in dark, deep green in light.
+  /// Accent gradient for badges.
   static LinearGradient brandGrad2(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
           ? const LinearGradient(colors: [lime, limeDark])
           : const LinearGradient(colors: [limeDeep, limeDeeper]);
 
-  /// Fixed dark navy background for the auth screen (theme-independent).
+  /// The rank hero card: green in both themes (the one green surface in dark).
+  static LinearGradient heroGrad(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [heroDarkA, heroDarkB])
+          : const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [limeDeep, limeDeeper]);
+
+  /// Fixed dark scrim colour used over the auth video (both themes).
   static const LinearGradient authGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF0C1022), navy, navySoft],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFF0C1015), Color(0xFF0C1015), Color(0xFF151B22)],
   );
 
-  // Backwards-compatible name used around the app for the accent gradient.
   static LinearGradient brandGrad(BuildContext context) => brandGrad2(context);
 
   // Medals
@@ -63,62 +93,71 @@ class AppColors {
   static const Color danger = Color(0xFFE5484D);
   static const Color success = Color(0xFF3FB950);
 
-  // Surfaces — dark mode keeps its original navy tone; light mode clean slate.
-  static const Color darkBg = Color(0xFF0F1326);
-  static const Color darkCard = Color(0xFF1A2038);
-  static const Color darkElevated = Color(0xFF222a47);
-  static const Color lightBg = Color(0xFFF5F6F8);
+  /// Danger as text/icon: soft red on dark, deep red on light.
+  static Color dangerText(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFFFF8A8A)
+          : const Color(0xFFB3261E);
+
+  // Surfaces
+  static const Color darkBg = Color(0xFF0C1015);
+  static const Color darkCard = Color(0xFF151B22);
+  static const Color darkElevated = Color(0xFF1D252E);
+  static const Color darkChip = Color(0xFF1F2831);
+  static const Color darkNav = Color(0xFF10151B);
+  static const Color lightBg = Color(0xFFF2F5F3);
   static const Color lightCard = Colors.white;
+  static const Color lightChip = Color(0xFFEAF7B8);
 
-  // Ambient background layer. Previously hard-coded inside premium.dart,
-  // which meant the app's most pervasive visual surface could not be retuned
-  // from the palette.
-  static const Color ambientDarkTop = Color(0xFF161D38);
-  static const Color ambientDarkMid = Color(0xFF0E1326);
-  static const Color ambientDarkBottom = Color(0xFF080B18);
-  static const Color ambientLightBottom = Color(0xFFE7EAF1);
-  static const Color ambientGlowDark = Color(0xFF2A3461);
-  static const Color ambientVignetteDark = Color(0xFF05060E);
-  static const Color ambientVignetteLight = Color(0xFFD7DBE6);
+  // Ambient layer is now flat; these remain so older call sites compile.
+  static const Color ambientDarkTop = darkBg;
+  static const Color ambientDarkMid = darkBg;
+  static const Color ambientDarkBottom = darkBg;
+  static const Color ambientLightBottom = lightBg;
+  static const Color ambientGlowDark = darkBg;
+  static const Color ambientVignetteDark = darkBg;
+  static const Color ambientVignetteLight = lightBg;
 
-  /// Primary text/icon colour on the dark surfaces above.
-  static const Color darkOnSurface = Color(0xFFECEEF1);
+  /// Primary text on dark surfaces.
+  static const Color darkOnSurface = Color(0xFFF1F4F7);
 
-  /// Primary text/icon colour on the light surfaces above.
-  ///
-  /// KNOWN ISSUE: pure black leaves light mode with no primary/secondary text
-  /// hierarchy once `muted()` derives from it. The redesign spec calls for
-  /// ~0xFF0B0F1A instead; deferred because it is a visible change and this
-  /// phase is structural. See docs/superpowers/specs/2026-08-16-footrank-redesign-design.md
-  static const Color lightOnSurface = Color(0xFF000000);
+  /// Primary text on light surfaces.
+  static const Color lightOnSurface = ink;
 
-  /// The single light-mode hairline border value.
-  ///
-  /// Previously defined twice with different values (0xFFE6E8EC here and
-  /// 0xFFE3E6EB inside app_theme.dart); consolidated here so cards, inputs,
-  /// dividers and widget-drawn borders can never drift apart again.
-  ///
-  /// KNOWN ISSUE: at ~1.2:1 against white this fails WCAG 2.2 SC 1.4.11 (3:1)
-  /// where it is the *sole* affordance — OutlinedButton and InputDecoration.
-  /// Darkening it is a visible change and needs sign-off; tracked in the spec.
-  static const Color lightBorder = Color(0xFFE6E8EC);
+  /// Secondary text.
+  static const Color darkSecondary = Color(0xFFAAB5C0);
+  static const Color lightSecondary = Color(0xFF55665C);
 
-  /// Dark-mode hairline border: white at low alpha over the navy surfaces.
-  static Color get darkBorder => Colors.white.withValues(alpha: 0.08);
+  /// Hairline borders: white .07 on dark, ink .07 on light.
+  static const Color lightBorder = Color(0x120E1A14);
+  static Color get darkBorder => Colors.white.withValues(alpha: 0.07);
 
-  // Hairline borders.
+  /// Input outline (stronger than a card hairline so the field reads).
+  static Color inputBorder(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? Colors.white.withValues(alpha: 0.12)
+          : ink.withValues(alpha: 0.16);
+
   static Color border(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
           ? darkBorder
           : lightBorder;
 
-  // Muted secondary text/icon color — kept fairly strong so light mode stays
-  // legible (low-opacity grey-on-white was washing out). Dark mode sits at
-  // 0.72 so secondary text clears WCAG AA (~7:1 on cards) instead of hovering
-  // near the 4.5:1 floor like the old 0.6 did.
+  /// Raised surface inside a card (chips, icon wells).
+  static Color chip(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? darkChip : lightChip;
+
+  /// Icon colour on a [chip] well.
+  static Color onChip(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFFAEB9C4)
+          : limeDeep;
+
+  /// Secondary text/icon colour.
   static Color muted(BuildContext context) =>
-      Theme.of(context).colorScheme.onSurface.withValues(
-          alpha: Theme.of(context).brightness == Brightness.dark ? 0.72 : 0.82);
+      Theme.of(context).brightness == Brightness.dark
+          ? darkSecondary
+          : lightSecondary;
 
   static const List<Color> rankColors = [gold, silver, bronze];
 }

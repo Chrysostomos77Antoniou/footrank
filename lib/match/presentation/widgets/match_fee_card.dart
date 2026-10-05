@@ -73,10 +73,9 @@ class MatchFeeCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.success,
-                  size: AppIconSize.md,
+                _IconWell(
+                  icon: Icons.check_circle_outline_rounded,
+                  color: AppColors.brand(context),
                 ),
                 const SizedBox(width: AppSemantic.iconGap),
                 Expanded(
@@ -87,7 +86,10 @@ class MatchFeeCard extends StatelessWidget {
                         creditRow
                             ? 'Paid with your saved credit'
                             : (waivedRow ? 'Match fee waived' : 'Match fee paid'),
-                        style: theme.textTheme.titleSmall,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: AppSemantic.labelGap),
                       Text(
@@ -102,7 +104,7 @@ class MatchFeeCard extends StatelessWidget {
                 Text(
                   waivedRow ? 'Free' : amount,
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
@@ -123,22 +125,27 @@ class MatchFeeCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.receipt_long_rounded,
-                color: AppColors.iconAccent(context),
-                size: AppIconSize.md,
+              _IconWell(
+                icon: Icons.receipt_long_rounded,
+                color: AppColors.onChip(context),
               ),
-              const SizedBox(width: AppSemantic.iconGap),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   "Your team's match fee",
-                  style: theme.textTheme.titleSmall,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               Text(
                 covered ? 'Free' : amount,
                 style: theme.textTheme.titleLarge?.copyWith(
+                  fontSize: 22,
                   fontWeight: FontWeight.w800,
+                  letterSpacing: -0.22,
+                  color: AppColors.brand(context),
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
@@ -158,6 +165,8 @@ class MatchFeeCard extends StatelessWidget {
                 : 'Each team pays its own share. The pitch itself is booked and '
                     'paid for at the venue as usual.',
             style: theme.textTheme.bodySmall?.copyWith(
+              fontSize: 12,
+              height: 1.45,
               color: AppColors.muted(context),
             ),
           ),
@@ -166,7 +175,7 @@ class MatchFeeCard extends StatelessWidget {
             Text(
               payment!.failureReason!,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.danger,
+                color: AppColors.dangerText(context),
               ),
             ),
           ],
@@ -206,7 +215,7 @@ class MatchFeeCard extends StatelessWidget {
         Icon(
           theirsPaid ? Icons.check_circle_rounded : Icons.schedule_rounded,
           size: AppIconSize.sm,
-          color: theirsPaid ? AppColors.success : AppColors.muted(context),
+          color: theirsPaid ? AppColors.brand(context) : AppColors.muted(context),
         ),
         const SizedBox(width: AppSemantic.iconGap),
         Expanded(
@@ -215,11 +224,33 @@ class MatchFeeCard extends StatelessWidget {
                 ? '$name has paid their share.'
                 : "$name hasn't paid their share yet.",
             style: theme.textTheme.bodySmall?.copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
               color: AppColors.muted(context),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 36px rounded icon well (chip surface) leading the fee card's title.
+class _IconWell extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  const _IconWell({required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: AppColors.chip(context),
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Icon(icon, size: AppIconSize.sm, color: color),
     );
   }
 }

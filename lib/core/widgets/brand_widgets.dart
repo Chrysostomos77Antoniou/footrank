@@ -114,7 +114,7 @@ class BrandButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onBrand = AppColors.onBrand(context);
+    final onBrand = AppColors.onAction(context);
     return PressableScale(
       onTap: loading ? () {} : onPressed,
       child: Container(
@@ -122,8 +122,8 @@ class BrandButton extends StatelessWidget {
         width: double.infinity,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: AppColors.brand(context),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+          color: AppColors.action,
+          borderRadius: BorderRadius.circular(AppSemantic.buttonRadius),
         ),
         child: loading
             ? SizedBox(

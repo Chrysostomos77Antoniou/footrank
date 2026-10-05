@@ -6,10 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/services/gallery_picker.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/team/presentation/widgets/team_ui.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 
 class EditTeamPage extends StatefulWidget {
@@ -83,76 +85,113 @@ class _EditTeamPageState extends State<EditTeamPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Team')),
       body: AmbientBackground(
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  FadeSlideIn(
-                    child: _LogoPicker(
-                      name: _nameCtrl.text.isEmpty ? '?' : _nameCtrl.text,
-                      pickedBytes: _pickedBytes,
-                      currentUrl: _currentLogo,
-                      onTap: _pickImage,
+          child: Column(
+            children: [
+              const TeamPageHeader(title: 'Edit Team'),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 32, 20, 24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        FadeSlideIn(
+                          child: Center(
+                            child: _LogoPicker(
+                              name:
+                                  _nameCtrl.text.isEmpty ? '?' : _nameCtrl.text,
+                              pickedBytes: _pickedBytes,
+                              currentUrl: _currentLogo,
+                              onTap: _pickImage,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        FadeSlideIn(
+                          delay: const Duration(milliseconds: 60),
+                          child: Center(
+                            child: TextButton.icon(
+                              onPressed: _pickImage,
+                              style: TextButton.styleFrom(
+                                minimumSize: const Size(0, 44),
+                                foregroundColor: AppColors.brand(context),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 14),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                        AppSemantic.controlRadius)),
+                              ),
+                              icon: const Icon(Icons.image_outlined, size: 20),
+                              label: const Text('Change team logo'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        FadeSlideIn(
+                          delay: const Duration(milliseconds: 120),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const TeamFieldLabel('Team Name'),
+                              TextFormField(
+                                controller: _nameCtrl,
+                                textCapitalization: TextCapitalization.words,
+                                style: const TextStyle(
+                                    fontSize: 15, fontWeight: FontWeight.w600),
+                                decoration: teamFieldDecoration(context,
+                                    hint: 'Team Name',
+                                    icon: Icons.shield_outlined),
+                                validator: (v) => v == null || v.trim().isEmpty
+                                    ? 'Team name is required'
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        FadeSlideIn(
+                          delay: const Duration(milliseconds: 160),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const TeamFieldLabel('City'),
+                              DropdownButtonFormField<String>(
+                                value: _city,
+                                isExpanded: true,
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface),
+                                decoration: teamFieldDecoration(context,
+                                    hint: 'City', icon: Icons.place_outlined),
+                                items: kCities
+                                    .map((c) => DropdownMenuItem(
+                                        value: c, child: Text(c)))
+                                    .toList(),
+                                onChanged: (v) => setState(() => _city = v),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 60),
-                    child: TextButton.icon(
-                      onPressed: _pickImage,
-                      icon: const Icon(Icons.photo_library_outlined),
-                      label: const Text('Change team logo'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 120),
-                    child: TextFormField(
-                      controller: _nameCtrl,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(
-                        labelText: 'Team Name',
-                        prefixIcon: Icon(Icons.shield_outlined),
-                      ),
-                      validator: (v) => v == null || v.trim().isEmpty
-                          ? 'Team name is required'
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 160),
-                    child: DropdownButtonFormField<String>(
-                      value: _city,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'City',
-                        prefixIcon: Icon(Icons.place_outlined),
-                      ),
-                      items: kCities
-                          .map((c) =>
-                              DropdownMenuItem(value: c, child: Text(c)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _city = v),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 200),
-                    child: BrandButton(
-                      label: 'Save Changes',
-                      loading: _saving,
-                      onPressed: _save,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: BrandButton(
+                  label: 'Save Changes',
+                  loading: _saving,
+                  onPressed: _save,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -175,42 +214,81 @@ class _LogoPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
+    const inner = 98.0; // 110 - 2 * (3 ring + 3 gap)
     Widget logo;
     if (pickedBytes != null) {
       logo = CircleAvatar(
-        radius: 52,
+        radius: inner / 2,
         backgroundImage: MemoryImage(Uint8List.fromList(pickedBytes!)),
       );
     } else if (currentUrl != null && currentUrl!.isNotEmpty) {
-      logo =
-          CircleAvatar(radius: 52, backgroundImage: CachedNetworkImageProvider(currentUrl!));
+      logo = CircleAvatar(
+          radius: inner / 2,
+          backgroundImage: CachedNetworkImageProvider(currentUrl!));
     } else {
-      logo = GradientAvatar(name: name, radius: 52);
+      logo = Container(
+        width: inner,
+        height: inner,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: isDark ? AppColors.darkElevated : AppColors.limeDeep,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          name.isNotEmpty ? name[0].toUpperCase() : '?',
+          style: TextStyle(
+            fontFamily: AppFonts.display,
+            fontSize: 40,
+            fontWeight: FontWeight.w800,
+            color: isDark ? scheme.onSurface : Colors.white,
+          ),
+        ),
+      );
     }
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        alignment: Alignment.bottomRight,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.brand(context), width: 3),
-            ),
-            child: logo,
+    return Semantics(
+      button: true,
+      label: 'Change team logo',
+      child: GestureDetector(
+        onTap: onTap,
+        child: SizedBox(
+          width: 110,
+          height: 110,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 110,
+                height: 110,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.brand(context), width: 3),
+                ),
+                child: ClipOval(child: logo),
+              ),
+              Positioned(
+                right: -3,
+                bottom: -3,
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.action,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        width: 3),
+                  ),
+                  child: Icon(Icons.camera_alt_outlined,
+                      color: AppColors.onAction(context), size: 18),
+                ),
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.brand(context),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.camera_alt,
-                color: AppColors.onBrand(context), size: 18),
-          ),
-        ],
+        ),
       ),
     );
   }

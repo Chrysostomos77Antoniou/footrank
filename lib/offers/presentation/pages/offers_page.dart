@@ -23,67 +23,107 @@ class OffersPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final accent = AppColors.iconAccent(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final accent = AppColors.brand(context);
+    final wellFill =
+        isDark ? AppColors.lime.withValues(alpha: 0.14) : AppColors.lightChip;
     return Scaffold(
-      appBar: AppBar(title: const Text('Offers')),
       body: AmbientBackground(
         child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              FadeSlideIn(
-                child: GlassCard(
-                  onTap: () => showNemorinOffer(context),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(AppRadius.lg - 4),
-                        child: Image.asset(
-                          'assets/branding/nemorin_preview.png',
-                          width: 48,
-                          height: 48,
-                          fit: BoxFit.cover,
-                          // Falls back to the tag icon if the image is missing.
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 48,
-                            height: 48,
-                            color: accent.withValues(alpha: 0.14),
-                            alignment: Alignment.center,
-                            child: Icon(
-                              Icons.local_offer_outlined,
-                              color: accent,
-                            ),
+              const _PageHeader(title: 'Offers'),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSemantic.screenPadding,
+                      AppSpacing.xxs,
+                      AppSemantic.screenPadding,
+                      AppSpacing.lg),
+                  children: [
+                    FadeSlideIn(
+                      child: PressableScale(
+                        onTap: () => showNemorinOffer(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.darkCard
+                                : AppColors.lightCard,
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(color: AppColors.border(context)),
+                            boxShadow: isDark
+                                ? null
+                                : [
+                                    BoxShadow(
+                                      color: AppColors.ink
+                                          .withValues(alpha: 0.05),
+                                      blurRadius: 2,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                          ),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.asset(
+                                  'assets/branding/nemorin_preview.png',
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.cover,
+                                  // Falls back to the tag icon if the image is
+                                  // missing.
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 48,
+                                    height: 48,
+                                    color: wellFill,
+                                    alignment: Alignment.center,
+                                    child: Icon(
+                                      Icons.local_offer_outlined,
+                                      color: accent,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Nemorin',
+                                      style: TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.17,
+                                        color: onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Tap to see your offer',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: AppColors.muted(context),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                size: 22,
+                                color: AppColors.muted(context),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Nemorin',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Tap to see your offer',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: AppColors.muted(context),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.muted(context),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -94,10 +134,74 @@ class OffersPage extends StatelessWidget {
   }
 }
 
+/// Back button + 26/800 screen title.
+class _PageHeader extends StatelessWidget {
+  final String title;
+  const _PageHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSemantic.screenPadding, AppSpacing.md, AppSemantic.screenPadding,
+          AppSpacing.sm),
+      child: Row(
+        children: [
+          PressableScale(
+            onTap: () => Navigator.of(context).maybePop(),
+            semanticLabel: 'Back',
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkCard : AppColors.lightCard,
+                borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
+                border: Border.all(color: AppColors.border(context)),
+                boxShadow: isDark
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: AppColors.ink.withValues(alpha: 0.05),
+                          blurRadius: 2,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.arrow_back_rounded, size: 22, color: onSurface),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: AppFonts.display,
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.26,
+                color: onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// The Nemorin popup: the code, big and unmissable, and a CLAIM IT button.
 Future<void> showNemorinOffer(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   return showDialog<void>(
     context: context,
+    barrierColor: isDark
+        ? Colors.black.withValues(alpha: 0.62)
+        : AppColors.ink.withValues(alpha: 0.5),
     builder: (_) => const _NemorinOfferDialog(),
   );
 }
@@ -117,66 +221,112 @@ class _NemorinOfferDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final accent = AppColors.iconAccent(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final accent = AppColors.brand(context);
+    final wellFill =
+        isDark ? AppColors.lime.withValues(alpha: 0.14) : AppColors.lightChip;
     return Dialog(
-      insetPadding: const EdgeInsets.all(AppSpacing.lg),
+      insetPadding: const EdgeInsets.all(AppSpacing.md),
+      backgroundColor: isDark ? AppColors.darkCard : AppColors.lightCard,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+        side: BorderSide(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.1)
+              : AppColors.lightBorder,
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(Icons.local_offer_rounded, size: 40, color: accent),
+            Align(
+              alignment: Alignment.center,
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: wellFill,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                alignment: Alignment.center,
+                child: Icon(Icons.local_offer_outlined, size: 32, color: accent),
+              ),
+            ),
             const SizedBox(height: AppSpacing.md),
             Text(
               'Use Promo Code For One Month:',
               textAlign: TextAlign.center,
-              style: theme.textTheme.titleLarge?.copyWith(
+              style: TextStyle(
+                fontFamily: AppFonts.display,
+                fontSize: 22,
                 fontWeight: FontWeight.w800,
+                letterSpacing: -0.22,
+                height: 1.25,
+                color: onSurface,
               ),
             ),
             const SizedBox(height: AppSpacing.md),
             // Tap the code to copy it, so it can be pasted into Nemorin.
-            InkWell(
-              borderRadius: BorderRadius.circular(AppRadius.lg),
-              onTap: () async {
-                await Clipboard.setData(
-                  const ClipboardData(text: nemorinPromoCode),
-                );
-                if (context.mounted) {
-                  showSuccess(context, 'Code copied');
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                  border: Border.all(color: accent, width: 1.5),
+            Semantics(
+              button: true,
+              label: 'Copy promo code $nemorinPromoCode',
+              child: Material(
+                color: wellFill,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppSemantic.cardRadius),
+                  side: BorderSide(color: accent, width: 1.5),
                 ),
-                child: Column(
-                  children: [
-                    Text(
-                      nemorinPromoCode,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 3,
-                      ),
+                child: InkWell(
+                  customBorder: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppSemantic.cardRadius),
+                  ),
+                  onTap: () async {
+                    await Clipboard.setData(
+                      const ClipboardData(text: nemorinPromoCode),
+                    );
+                    if (context.mounted) {
+                      showSuccess(context, 'Code copied');
+                    }
+                  },
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                    child: Column(
+                      children: [
+                        Text(
+                          nemorinPromoCode,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: AppFonts.display,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 3,
+                            height: 1.15,
+                            color: accent,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Tap to copy',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.muted(context),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Tap to copy',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.muted(context),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.md),
             AppButton(
               label: 'CLAIM IT',
               icon: Icons.arrow_forward_rounded,

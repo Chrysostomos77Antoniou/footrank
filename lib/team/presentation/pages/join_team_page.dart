@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
+import 'package:footrank/team/presentation/widgets/team_ui.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 
@@ -45,72 +46,66 @@ class _JoinTeamPageState extends State<JoinTeamPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Join Team')),
       body: AmbientBackground(
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 8),
-                  FadeSlideIn(
-                    child: Center(
-                        child: Icon(Icons.vpn_key_outlined,
-                            size: 52, color: AppColors.iconAccent(context))),
-                  ),
-                  const SizedBox(height: 8),
-                  const FadeSlideIn(
-                    delay: Duration(milliseconds: 80),
-                    child: Center(
-                      child: GradientText('Join a team',
-                          style: TextStyle(
-                              fontSize: 22, fontWeight: FontWeight.w900)),
+          child: Column(
+            children: [
+              const TeamPageHeader(title: 'Join Team'),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 36, 20, 24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const FadeSlideIn(
+                          child: TeamHero(
+                            icon: Icons.vpn_key_outlined,
+                            title: 'Join a team',
+                            subtitle:
+                                'Enter the invite code shared by the team captain.',
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        FadeSlideIn(
+                          delay: const Duration(milliseconds: 120),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const TeamFieldLabel('Invite Code'),
+                              TextFormField(
+                                controller: _codeCtrl,
+                                textCapitalization:
+                                    TextCapitalization.characters,
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 3.2),
+                                decoration: teamFieldDecoration(context,
+                                    hint: 'Invite Code',
+                                    icon: Icons.vpn_key_outlined),
+                                validator: (v) => v == null || v.trim().isEmpty
+                                    ? 'Invite code is required'
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 120),
-                    child: Text(
-                      'Enter the invite code shared by the team captain.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 160),
-                    child: TextFormField(
-                      controller: _codeCtrl,
-                      textCapitalization: TextCapitalization.characters,
-                      decoration: const InputDecoration(
-                        labelText: 'Invite Code',
-                        prefixIcon: Icon(Icons.vpn_key_outlined),
-                      ),
-                      validator: (v) => v == null || v.trim().isEmpty
-                          ? 'Invite code is required'
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  FadeSlideIn(
-                    delay: const Duration(milliseconds: 200),
-                    child: FilledButton(
-                      onPressed: _loading ? null : _submit,
-                      child: _loading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Send Join Request'),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: BrandButton(
+                  label: 'Send Join Request',
+                  loading: _loading,
+                  onPressed: _submit,
+                ),
+              ),
+            ],
           ),
         ),
       ),

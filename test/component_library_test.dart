@@ -177,8 +177,10 @@ void main() {
     });
 
     test('semantic radii resolve to the reference scale', () {
-      expect(AppSemantic.cardRadius, AppRadius.lg);
-      expect(AppSemantic.controlRadius, AppRadius.md);
+      // Redesign (Pitch Night / Matchday): rounder cards and controls.
+      expect(AppSemantic.cardRadius, AppRadius.xl);
+      expect(AppSemantic.controlRadius, 14);
+      expect(AppSemantic.buttonRadius, AppRadius.lg);
       expect(AppSemantic.statusPillRadius, AppRadius.sm);
     });
 

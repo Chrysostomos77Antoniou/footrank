@@ -3,9 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/utils/motion.dart';
+import 'package:footrank/match/presentation/widgets/match_team_avatar.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/core/widgets/async_views.dart';
-import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/core/utils/error_text.dart';
@@ -501,13 +502,42 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Matches'),
+        title: const Text(
+          'Matches',
+          style: TextStyle(fontSize: 26, letterSpacing: -0.26),
+        ),
       ),
       floatingActionButton: _teams.isNotEmpty
-          ? FloatingActionButton.extended(
-              onPressed: _openCreate,
-              icon: const Icon(Icons.add),
-              label: const Text('Create Match'),
+          ? DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppSemantic.buttonRadius),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.black.withValues(alpha: 0.45)
+                        : AppColors.ink.withValues(alpha: 0.22),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: FloatingActionButton.extended(
+                onPressed: _openCreate,
+                elevation: 0,
+                focusElevation: 0,
+                hoverElevation: 0,
+                highlightElevation: 0,
+                backgroundColor: AppColors.action,
+                foregroundColor: AppColors.onAction(context),
+                extendedTextStyle: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w700),
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(AppSemantic.buttonRadius),
+                ),
+                icon: const Icon(Icons.add),
+                label: const Text('Create Match'),
+              ),
             )
           : null,
       body: AmbientBackground(child: SafeArea(child: _buildBody())),
@@ -539,7 +569,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
               ),
             ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
             child: FadeSlideIn(
               child: FutureBuilder<Map<String, List<MatchProposalModel>>>(
                 future: _proposalsFuture,
@@ -602,7 +632,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                       }
                       if (snapshot.hasError) {
                         return Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(20),
                           child: ErrorView(
                             message: friendlyError(snapshot.error!),
                             onRetry: _reloadRequests,
@@ -658,7 +688,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
               Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                     child: FutureBuilder<Map<String, List<MatchProposalModel>>>(
                       future: _proposalsFuture,
                       builder: (context, incomingSnap) {
@@ -862,7 +892,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
               return Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                     child: _SectionTabs(
                       index: _matchesTab,
                       items: [
@@ -959,56 +989,98 @@ class _SectionTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = AppColors.iconAccent(context);
-    final muted =
-        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
+    final muted = AppColors.muted(context);
+    final onAction = AppColors.onAction(context);
+    final duration = reduceMotion(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 160);
     return GlassCard(
-      padding: const EdgeInsets.all(6),
-      radius: 20,
-      child: Row(
-        children: [
-          for (var i = 0; i < items.length; i++)
-            Expanded(
-              child: PressableScale(
-                onTap: () => onChanged(i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  curve: Curves.easeOut,
-                  padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: index == i ? accent.withValues(alpha: 0.14) : null,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Badge(
-                        isLabelVisible: items[i].badgeCount > 0,
-                        label: Text('${items[i].badgeCount}'),
-                        backgroundColor: AppColors.danger,
-                        child: Icon(items[i].icon,
-                            size: 20, color: index == i ? accent : muted),
-                      ),
-                      const SizedBox(height: 4),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          items[i].label,
-                          maxLines: 1,
-                          softWrap: false,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            color: index == i ? accent : muted,
+      padding: const EdgeInsets.all(4),
+      radius: AppSemantic.buttonRadius,
+      child: SizedBox(
+        height: 40,
+        child: Row(
+          children: [
+            for (var i = 0; i < items.length; i++)
+              Expanded(
+                child: PressableScale(
+                  onTap: () => onChanged(i),
+                  child: AnimatedContainer(
+                    duration: duration,
+                    curve: Curves.easeOut,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: index == i ? AppColors.action : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(items[i].icon,
+                              size: 18,
+                              color: index == i ? onAction : muted),
+                          const SizedBox(width: 7),
+                          Text(
+                            items[i].label,
+                            maxLines: 1,
+                            softWrap: false,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: index == i
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                              color: index == i ? onAction : muted,
+                            ),
                           ),
-                        ),
+                          if (items[i].badgeCount > 0) ...[
+                            const SizedBox(width: 7),
+                            _CountBadge(
+                                count: items[i].badgeCount,
+                                onLime: index == i),
+                          ],
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small count pill. On a lime (selected) segment it flips to ink-on-lime so
+/// it stays legible; elsewhere it uses the accent fill.
+class _CountBadge extends StatelessWidget {
+  final int count;
+  final bool onLime;
+  const _CountBadge({required this.count, required this.onLime});
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = onLime ? AppColors.onAction(context) : AppColors.brand(context);
+    final fg = onLime ? AppColors.action : AppColors.onBrand(context);
+    return Container(
+      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(
+          color: fg,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          height: 1.1,
+        ),
       ),
     );
   }
@@ -1037,11 +1109,8 @@ class _PillSubTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = AppColors.iconAccent(context);
-    final muted =
-        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
-    final border =
-        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.16);
+    final muted = AppColors.muted(context);
+    final onAction = AppColors.onAction(context);
     return Row(
       children: [
         for (var i = 0; i < items.length; i++) ...[
@@ -1050,47 +1119,39 @@ class _PillSubTabs extends StatelessWidget {
             child: PressableScale(
               onTap: () => onChanged(i),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                constraints: const BoxConstraints(
+                    minHeight: AppSemantic.minTapTarget - 4),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: index == i ? accent.withValues(alpha: 0.14) : null,
-                  border: index == i ? null : Border.all(color: border),
-                  borderRadius: BorderRadius.circular(999),
+                  color: index == i ? AppColors.action : null,
+                  border: index == i
+                      ? null
+                      : Border.all(color: AppColors.inputBorder(context)),
+                  borderRadius: BorderRadius.circular(AppSemantic.pill),
                 ),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      items[i].label,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: index == i ? accent : muted,
-                      ),
-                    ),
-                    if (items[i].badgeCount > 0)
-                      Positioned(
-                        right: 2,
-                        top: -6,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppColors.danger,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            '${items[i].badgeCount}',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800),
-                          ),
+                    Flexible(
+                      child: Text(
+                        items[i].label,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: index == i ? onAction : muted,
                         ),
                       ),
+                    ),
+                    if (items[i].badgeCount > 0) ...[
+                      const SizedBox(width: 6),
+                      _CountBadge(
+                          count: items[i].badgeCount, onLime: index == i),
+                    ],
                   ],
                 ),
               ),
@@ -1118,18 +1179,17 @@ class _TeamSelector extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text('Acting as',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.6))),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
+          child: Text('ACTING AS',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5,
+                  color: AppColors.muted(context))),
         ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
           child: Row(
             children: teams
                 .map((t) => Padding(
@@ -1138,6 +1198,23 @@ class _TeamSelector extends StatelessWidget {
                         label: Text(t.name),
                         selected: t.id == selectedId,
                         onSelected: (_) => onSelect(t),
+                        showCheckmark: false,
+                        selectedColor: AppColors.action,
+                        backgroundColor: Theme.of(context).brightness ==
+                                Brightness.dark
+                            ? AppColors.darkCard
+                            : AppColors.lightCard,
+                        side: BorderSide(
+                          color: t.id == selectedId
+                              ? Colors.transparent
+                              : AppColors.inputBorder(context),
+                        ),
+                        labelStyle: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: t.id == selectedId
+                              ? AppColors.onAction(context)
+                              : AppColors.muted(context),
+                        ),
                       ),
                     ))
                 .toList(),
@@ -1196,7 +1273,7 @@ class _MatchCard extends StatelessWidget {
       _ => (null, null),
     };
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: GlassCard(
         padding: const EdgeInsets.all(12),
         tint: accent,
@@ -1216,10 +1293,8 @@ class _MatchCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Text(center,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w900)),
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w800)),
                 ),
                 Expanded(
                   child: _TeamMini(
@@ -1238,7 +1313,10 @@ class _MatchCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text('${match.city} · $when · ${match.matchType}',
-                      style: Theme.of(context).textTheme.bodySmall),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.muted(context))),
                 ),
                 if (label != null)
                   Container(
@@ -1246,7 +1324,8 @@ class _MatchCard extends StatelessWidget {
                         horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(
                       color: accent!.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(
+                          AppSemantic.statusPillRadius),
                     ),
                     child: Text(label,
                         style: TextStyle(
@@ -1261,7 +1340,10 @@ class _MatchCard extends StatelessWidget {
                         paymentStatus: match.paymentStatus,
                         paymentsEnabled: PaymentRepository.isEnabled,
                       ),
-                      style: Theme.of(context).textTheme.labelLarge),
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.brand(context))),
               ],
             ),
             // The fee, payable right here. Previously this was only reachable
@@ -1339,7 +1421,7 @@ class _TeamMini extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatar = GradientAvatar(name: name, imageUrl: logo, radius: 18);
+    final avatar = MatchTeamAvatar(name: name, imageUrl: logo, radius: 16);
     final texts = Column(
       crossAxisAlignment:
           alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -1347,16 +1429,18 @@ class _TeamMini extends StatelessWidget {
         Text(name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 3),
-        LevelBadge(value: rating ?? 0, size: 32),
+            style: const TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700, height: 1.2)),
+        const SizedBox(height: 4),
+        LevelBadge(value: rating ?? 0, size: 28),
         if (record != null) ...[
           const SizedBox(height: 3),
           Text(record!,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(fontWeight: FontWeight.w800)),
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  height: 1.2,
+                  color: AppColors.muted(context))),
         ],
       ],
     );
@@ -1396,7 +1480,7 @@ class _RequestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: GlassCard(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -1410,7 +1494,10 @@ class _RequestCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  child: Text(request.format.split('v').first),
+                  backgroundColor: AppColors.chip(context),
+                  foregroundColor: AppColors.brand(context),
+                  child: Text(request.format.split('v').first,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
                 ),
                 const SizedBox(width: 8),
                 LevelBadge(value: request.teamRating ?? 0, size: 30),
@@ -1428,7 +1515,10 @@ class _RequestCard extends StatelessWidget {
                       Text(_when,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.muted(context))),
                     ],
                   ),
                 ),
@@ -1436,7 +1526,7 @@ class _RequestCard extends StatelessWidget {
                   IconButton(
                     tooltip: 'Invite a rival team',
                     icon: const Icon(Icons.share_outlined),
-                    color: AppColors.iconAccent(context),
+                    color: AppColors.brand(context),
                     visualDensity: VisualDensity.compact,
                     onPressed: onInvite,
                   ),
@@ -1444,7 +1534,7 @@ class _RequestCard extends StatelessWidget {
                   IconButton(
                     tooltip: 'Cancel request',
                     icon: const Icon(Icons.delete_outline),
-                    color: theme.colorScheme.error,
+                    color: AppColors.dangerText(context),
                     visualDensity: VisualDensity.compact,
                     onPressed: onCancel,
                   ),
@@ -1457,8 +1547,8 @@ class _RequestCard extends StatelessWidget {
                 _Chip(
                   label: request.matchType,
                   color: request.isRanked
-                      ? theme.colorScheme.tertiary
-                      : theme.colorScheme.secondary,
+                      ? AppColors.brand(context)
+                      : AppColors.muted(context),
                 ),
                 const SizedBox(width: 8),
                 Flexible(
@@ -1474,27 +1564,27 @@ class _RequestCard extends StatelessWidget {
             ),
             if (proposals.isNotEmpty) ...[
               const Divider(height: 20),
-              Text('Proposals',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w800)),
+              Text('PROPOSALS',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.5,
+                      color: AppColors.muted(context))),
               const SizedBox(height: 8),
               ...proposals.map((p) => Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      border: Border.all(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.12)),
-                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.inputBorder(context)),
+                      borderRadius:
+                          BorderRadius.circular(AppSemantic.controlRadius),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            GradientAvatar(
+                            MatchTeamAvatar(
                                 name: p.teamName ?? '?',
                                 imageUrl: p.teamLogo,
                                 radius: 18),
@@ -1564,7 +1654,7 @@ class _PendingMatchCard extends StatelessWidget {
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
         '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: GlassCard(
         padding: const EdgeInsets.all(12),
         onTap: () => context.push(AppRoutes.matchDetail, extra: match.id),
@@ -1598,7 +1688,10 @@ class _PendingMatchCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text('${match.city} · $when · ${match.matchType}',
-                style: Theme.of(context).textTheme.bodySmall),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.muted(context))),
             if (match.suggestedCourtName != null) ...[
               const SizedBox(height: 6),
               Align(
@@ -1607,15 +1700,15 @@ class _PendingMatchCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppColors.iconAccent(context)
-                        .withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppColors.brand(context).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(
+                        AppSemantic.statusPillRadius),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.place,
-                          size: 18, color: AppColors.iconAccent(context)),
+                      Icon(Icons.place_outlined,
+                          size: 18, color: AppColors.brand(context)),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(match.suggestedCourtName!,
@@ -1623,8 +1716,8 @@ class _PendingMatchCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                                 fontWeight: FontWeight.w800,
-                                fontSize: 15,
-                                color: AppColors.iconAccent(context))),
+                                fontSize: 13,
+                                color: AppColors.brand(context))),
                       ),
                     ],
                   ),
@@ -1645,7 +1738,8 @@ class _PendingMatchCard extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(right: 12),
                     child: Text('Waiting…',
-                        style: Theme.of(context).textTheme.bodySmall),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.muted(context))),
                   ),
                 SizedBox(
                   height: 44,
@@ -1653,8 +1747,8 @@ class _PendingMatchCard extends StatelessWidget {
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(0, 44),
                       padding: const EdgeInsets.symmetric(horizontal: 14),
-                      foregroundColor: AppColors.danger,
-                      side: const BorderSide(color: AppColors.danger),
+                      foregroundColor: AppColors.dangerText(context),
+                      side: BorderSide(color: AppColors.dangerText(context)),
                     ),
                     onPressed: canAct ? onReject : null,
                     child: const Text('Reject'),
@@ -1698,7 +1792,7 @@ class _OpponentCard extends StatelessWidget {
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
         '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: GlassCard(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -1706,7 +1800,7 @@ class _OpponentCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                GradientAvatar(
+                MatchTeamAvatar(
                   name: opponent.teamName ?? '?',
                   imageUrl: opponent.teamLogo,
                   radius: 22,
@@ -1714,29 +1808,39 @@ class _OpponentCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(opponent.teamName ?? 'Unknown team',
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.16)),
                 ),
                 LevelBadge(value: opponent.teamRating ?? 0, size: 36),
               ],
             ),
             const SizedBox(height: 6),
             Text('${opponent.city} · $when · ${opponent.matchType}',
-                style: Theme.of(context).textTheme.bodySmall),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.muted(context))),
             if (opponent.courtPicks != null &&
                 opponent.courtPicks!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.place, size: 17, color: AppColors.iconAccent(context)),
+                  Icon(Icons.place_outlined,
+                      size: 17, color: AppColors.brand(context)),
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
                       opponent.courtPicks!.map((c) => c.name).join(' · '),
                       style: TextStyle(
                           fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                          color: AppColors.iconAccent(context)),
+                          fontSize: 13,
+                          height: 1.3,
+                          color: AppColors.brand(context)),
                     ),
                   ),
                 ],
@@ -1747,6 +1851,13 @@ class _OpponentCard extends StatelessWidget {
               width: double.infinity,
               child: FilledButton(
                 onPressed: onPropose,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppSemantic.controlRadius),
+                  ),
+                ),
                 child: const Text('Propose Match'),
               ),
             ),
@@ -1772,12 +1883,12 @@ class _SentProposalCard extends StatelessWidget {
         : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
             '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: GlassCard(
         padding: const EdgeInsets.all(14),
         child: Row(
           children: [
-            GradientAvatar(
+            MatchTeamAvatar(
               name: proposal.targetTeamName ?? '?',
               imageUrl: proposal.targetTeamLogo,
               radius: 22,
@@ -1797,7 +1908,10 @@ class _SentProposalCard extends StatelessWidget {
                       if (proposal.requestMatchType != null)
                         proposal.requestMatchType,
                     ].join(' · '),
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.muted(context)),
                   ),
                 ],
               ),
@@ -1805,7 +1919,7 @@ class _SentProposalCard extends StatelessWidget {
             if (proposal.targetTeamRating != null)
               LevelBadge(value: proposal.targetTeamRating!, size: 36),
             const SizedBox(width: 8),
-            _Chip(label: 'Pending', color: Theme.of(context).colorScheme.secondary),
+            _Chip(label: 'Pending', color: AppColors.muted(context)),
           ],
         ),
       ),
@@ -1912,32 +2026,37 @@ class _OpponentFiltersState extends State<_OpponentFilters> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
       child: GlassCard(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             InkWell(
+              borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
               onTap: () => setState(() => _expanded = !_expanded),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 40),
                 child: Row(
                   children: [
-                    Icon(Icons.tune, size: 18, color: AppColors.iconAccent(context)),
-                    const SizedBox(width: 8),
+                    Icon(Icons.tune, size: 18, color: AppColors.brand(context)),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         _expanded ? 'Filters' : _summary,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w700),
                       ),
                     ),
                     AnimatedRotation(
                       turns: _expanded ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 200),
-                      child: const Icon(Icons.keyboard_arrow_down, size: 22),
+                      duration: reduceMotion(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 200),
+                      child: Icon(Icons.keyboard_arrow_down,
+                          size: 20, color: AppColors.muted(context)),
                     ),
                   ],
                 ),
@@ -2025,7 +2144,7 @@ class _OpponentFiltersState extends State<_OpponentFilters> {
             children: [
               Expanded(
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
                   onTap: () => _pickDate(context),
                   child: InputDecorator(
                     decoration: InputDecoration(
@@ -2049,7 +2168,7 @@ class _OpponentFiltersState extends State<_OpponentFilters> {
               const SizedBox(width: 8),
               Expanded(
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
                   onTap: () => _pickTime(context),
                   child: InputDecorator(
                     decoration: InputDecoration(
@@ -2077,7 +2196,8 @@ class _OpponentFiltersState extends State<_OpponentFilters> {
             children: [
               const SizedBox(
                 width: 84,
-                child: Text('Power range', style: TextStyle(fontSize: 13)),
+                child: Text('Power range',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               ),
               Expanded(
                 child: Slider(
@@ -2114,15 +2234,15 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(AppSemantic.statusPillRadius),
       ),
       child: Text(
         label,
         style: TextStyle(
-            color: color, fontWeight: FontWeight.bold, fontSize: 12),
+            color: color, fontWeight: FontWeight.w700, fontSize: 12),
       ),
     );
   }

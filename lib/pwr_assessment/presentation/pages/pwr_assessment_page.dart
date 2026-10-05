@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
+import 'package:footrank/core/utils/motion.dart';
+import 'package:footrank/core/widgets/app_button.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
@@ -142,78 +146,176 @@ class _PwrAssessmentPageState extends State<PwrAssessmentPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final bg = isDark ? AppColors.darkBg : AppColors.lightBg;
+    final muted = AppColors.muted(context);
+    final accent = AppColors.brand(context);
+    final answered = _answers.length;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Find Your Pitch Power'),
-        automaticallyImplyLeading: false,
-      ),
       body: AmbientBackground(
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FadeSlideIn(
-                  child: Text(
-                    'A quick 10-question quiz',
-                    style: theme.textTheme.titleMedium,
+          child: Column(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Semantics(
+                        header: true,
+                        child: Text(
+                          'Find Your Pitch Power',
+                          style: TextStyle(
+                            fontFamily: AppFonts.display,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            height: 1.2,
+                            letterSpacing: -0.26,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: Container(
+                          height: 4,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.1),
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: 1,
+                            child: ColoredBox(color: accent),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DefaultTextStyle(
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.5,
+                          color: muted,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('STEP 2 OF 2'),
+                            Text('$answered OF $_totalQuestions ANSWERED'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      FadeSlideIn(
+                        child: Text(
+                          'A quick 10-question quiz',
+                          style: TextStyle(
+                            fontFamily: AppFonts.display,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.18,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      FadeSlideIn(
+                        delay: const Duration(milliseconds: 40),
+                        child: Text(
+                          'This sets your starting skill level so your very first '
+                          'matches are fairly matched. It only affects your hidden '
+                          'starting rating -- real results move it from here.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.45,
+                            color: muted,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            SingleChildScrollView(
+                              padding: const EdgeInsets.only(bottom: 36),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (var i = 0;
+                                      i < _dropdownQuestions.length;
+                                      i++) ...[
+                                    FadeSlideIn(
+                                      delay: Duration(milliseconds: 60 + i * 40),
+                                      child: _DropdownQuestionCard(
+                                        question: _dropdownQuestions[i],
+                                        value:
+                                            _answers[_dropdownQuestions[i].key],
+                                        onChanged: (v) => setState(() =>
+                                            _answers[_dropdownQuestions[i]
+                                                .key] = v!),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                  for (var i = 0;
+                                      i < _ratingQuestions.length;
+                                      i++) ...[
+                                    FadeSlideIn(
+                                      delay: Duration(
+                                          milliseconds: 60 +
+                                              (_dropdownQuestions.length + i) *
+                                                  40),
+                                      child: _RatingQuestionCard(
+                                        question: _ratingQuestions[i],
+                                        value: _answers[_ratingQuestions[i].key],
+                                        onChanged: (v) => setState(() =>
+                                            _answers[_ratingQuestions[i].key] =
+                                                v),
+                                      ),
+                                    ),
+                                    if (i < _ratingQuestions.length - 1)
+                                      const SizedBox(height: 12),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            // Soft fade so cards dissolve into the pinned CTA.
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              height: 36,
+                              child: IgnorePointer(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [bg.withValues(alpha: 0), bg],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                FadeSlideIn(
-                  delay: const Duration(milliseconds: 40),
-                  child: Text(
-                    'This sets your starting skill level so your very first '
-                    'matches are fairly matched. It only affects your hidden '
-                    'starting rating -- real results move it from here.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                child: AppButton(
+                  label: 'See My Pitch Power',
+                  loading: _loading,
+                  onPressed: _submit,
                 ),
-                const SizedBox(height: 24),
-                for (var i = 0; i < _dropdownQuestions.length; i++) ...[
-                  FadeSlideIn(
-                    delay: Duration(milliseconds: 60 + i * 40),
-                    child: _DropdownQuestionCard(
-                      question: _dropdownQuestions[i],
-                      value: _answers[_dropdownQuestions[i].key],
-                      onChanged: (v) =>
-                          setState(() => _answers[_dropdownQuestions[i].key] = v!),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                for (var i = 0; i < _ratingQuestions.length; i++) ...[
-                  FadeSlideIn(
-                    delay: Duration(
-                        milliseconds: 60 + (_dropdownQuestions.length + i) * 40),
-                    child: _RatingQuestionCard(
-                      question: _ratingQuestions[i],
-                      value: _answers[_ratingQuestions[i].key],
-                      onChanged: (v) =>
-                          setState(() => _answers[_ratingQuestions[i].key] = v),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                const SizedBox(height: 16),
-                FadeSlideIn(
-                  delay: Duration(milliseconds: 60 + _totalQuestions * 40),
-                  child: FilledButton(
-                    onPressed: _loading ? null : _submit,
-                    child: _loading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('See My Pitch Power'),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -234,16 +336,37 @@ class _DropdownQuestionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GlassCard(
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(question.title, style: Theme.of(context).textTheme.titleSmall),
+          Text(
+            question.title,
+            style: const TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w700, height: 1.35),
+          ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             value: value,
             isExpanded: true,
-            decoration: const InputDecoration(hintText: 'Choose an answer'),
+            borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
+            icon: Icon(Icons.keyboard_arrow_down_rounded,
+                color: AppColors.muted(context)),
+            style: TextStyle(
+              fontFamily: AppFonts.body,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Choose an answer',
+              fillColor: isDark ? AppColors.darkElevated : AppColors.lightCard,
+              constraints: const BoxConstraints(minHeight: 52),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            ),
             items: question.options
                 .map((o) => DropdownMenuItem(value: o.$1, child: Text(o.$2)))
                 .toList(),
@@ -268,12 +391,18 @@ class _RatingQuestionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final muted = AppColors.muted(context);
+    final captionStyle = TextStyle(fontSize: 12, color: muted);
     return GlassCard(
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(question.title, style: theme.textTheme.titleSmall),
+          Text(
+            question.title,
+            style: const TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w700, height: 1.35),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -289,22 +418,12 @@ class _RatingQuestionCard extends StatelessWidget {
               ],
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(
-                child: Text(
-                  question.lowLabel,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                ),
-              ),
-              Text(
-                question.highLabel,
-                textAlign: TextAlign.right,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
+              Expanded(child: Text(question.lowLabel, style: captionStyle)),
+              Text(question.highLabel,
+                  textAlign: TextAlign.right, style: captionStyle),
             ],
           ),
         ],
@@ -326,27 +445,44 @@ class _RatingChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected
-              ? theme.colorScheme.primary
-              : theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(
-          label,
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: selected
-                ? theme.colorScheme.onPrimary
-                : theme.colorScheme.onSurface,
-            fontWeight: FontWeight.w700,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final radius = BorderRadius.circular(AppSemantic.statusPillRadius);
+    final Color fill = selected
+        ? AppColors.action
+        : (isDark ? AppColors.darkElevated : AppColors.lightBg);
+    final Color? border = selected
+        ? (isDark ? null : AppColors.limeDeep)
+        : (isDark ? null : AppColors.border(context));
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label out of 5',
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: AnimatedContainer(
+          duration: reduceMotion(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 150),
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: radius,
+            border: border == null
+                ? null
+                : Border.all(color: border, width: selected ? 1.5 : 1),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+              color: selected
+                  ? AppColors.onAction(context)
+                  : Theme.of(context).colorScheme.onSurface,
+            ),
           ),
         ),
       ),

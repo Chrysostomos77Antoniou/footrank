@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/utils/emojis.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
@@ -54,9 +55,7 @@ class _Sheet extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkCard : AppColors.lightCard,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border.all(
-          color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.06),
-        ),
+        border: Border.all(color: AppColors.border(context)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -66,10 +65,7 @@ class _Sheet extends StatelessWidget {
             width: 44,
             height: 5,
             decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.25),
+              color: AppColors.inputBorder(context),
               borderRadius: BorderRadius.circular(3),
             ),
           ),
@@ -338,17 +334,21 @@ class _Stat extends StatelessWidget {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: AppColors.iconAccent(context).withValues(alpha: 0.16),
+                color: AppColors.chip(context),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: AppColors.iconAccent(context), size: 22),
+              child: Icon(icon, color: AppColors.onChip(context), size: 22),
             ),
             const SizedBox(height: 8),
             FittedBox(
               fit: BoxFit.scaleDown,
-              child: GradientText(value,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w900)),
+              child: Text(value,
+                  style: TextStyle(
+                      fontFamily: AppFonts.display,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontFeatures: const [FontFeature.tabularFigures()])),
             ),
             const SizedBox(height: 2),
             Text(label, style: Theme.of(context).textTheme.bodySmall),
@@ -366,12 +366,12 @@ class _MutedChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7);
+    final c = AppColors.muted(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
+        color: AppColors.chip(context),
+        borderRadius: BorderRadius.circular(AppSemantic.statusPillRadius),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

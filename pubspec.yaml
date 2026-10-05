@@ -63,6 +63,7 @@ flutter:
     - assets/video/auth_bg.mp4
     - assets/video/splash_intro.mp4
     - assets/branding/app_icon.png
+    - assets/branding/app_icon_512.png
     - assets/branding/nemorin_preview.png
   fonts:
     - family: Sora

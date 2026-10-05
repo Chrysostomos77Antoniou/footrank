@@ -65,6 +65,9 @@ class AppTheme {
     // Bright lime in dark mode; deep green in light mode (more readable on white).
     final accent = isDark ? AppColors.lime : AppColors.limeDeep;
     final onAccent = isDark ? AppColors.navy : Colors.white;
+    // Primary action fill is lime with ink text in both themes.
+    const actionFill = AppColors.action;
+    final onActionFill = isDark ? AppColors.navy : AppColors.ink;
     final scheme = ColorScheme.fromSeed(
       seedColor: accent,
       brightness: brightness,
@@ -80,6 +83,12 @@ class AppTheme {
 
     final cardColor = isDark ? _darkCard : _lightCard;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final inputBorder = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : AppColors.ink.withValues(alpha: 0.16);
+    final secondary =
+        isDark ? AppColors.darkSecondary : AppColors.lightSecondary;
+    final navBg = isDark ? AppColors.darkNav : Colors.white;
 
     final onSurface = scheme.onSurface;
 
@@ -139,9 +148,13 @@ class AppTheme {
 
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          backgroundColor: actionFill,
+          foregroundColor: onActionFill,
+          disabledBackgroundColor: actionFill.withValues(alpha: 0.35),
+          disabledForegroundColor: onActionFill.withValues(alpha: 0.6),
           minimumSize: const Size.fromHeight(AppSemantic.buttonHeight),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
+            borderRadius: BorderRadius.circular(AppSemantic.buttonRadius),
           ),
           textStyle: const TextStyle(
               fontFamily: AppFonts.display,
@@ -154,12 +167,15 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(AppSemantic.buttonHeight),
-          side: BorderSide(color: borderColor),
+          foregroundColor: isDark ? AppColors.darkOnSurface : AppColors.limeDeep,
+          side: isDark
+              ? BorderSide(color: inputBorder)
+              : const BorderSide(color: AppColors.limeDeep, width: 1.5),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
+            borderRadius: BorderRadius.circular(AppSemantic.buttonRadius),
           ),
           textStyle: const TextStyle(
-              fontSize: AppTypeScale.button, fontWeight: FontWeight.w600),
+              fontSize: AppTypeScale.button, fontWeight: FontWeight.w700),
         ),
       ),
 
@@ -175,13 +191,17 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: cardColor,
+        labelStyle: TextStyle(color: secondary, fontWeight: FontWeight.w600),
+        hintStyle: TextStyle(color: secondary),
+        prefixIconColor: secondary,
+        suffixIconColor: secondary,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
-          borderSide: BorderSide(color: borderColor),
+          borderSide: BorderSide(color: inputBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
-          borderSide: BorderSide(color: borderColor),
+          borderSide: BorderSide(color: inputBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
@@ -193,26 +213,26 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         height: AppSemantic.navBarHeight,
         elevation: AppElevation.flat,
-        backgroundColor: cardColor,
+        backgroundColor: navBg,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: accent.withValues(alpha: AppOpacity.navIndicator),
+        indicatorColor: isDark
+            ? AppColors.lime.withValues(alpha: 0.16)
+            : AppColors.lime,
         // Selected tab reads clearly: accent + heavier weight, not color alone.
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
             fontSize: AppTypeScale.label2,
             fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-            color: selected
-                ? accent
-                : onSurface.withValues(alpha: AppOpacity.navUnselected),
+            color: selected ? onSurface : secondary,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
             color: selected
-                ? accent
-                : onSurface.withValues(alpha: AppOpacity.navUnselected),
+                ? (isDark ? AppColors.lime : AppColors.ink)
+                : secondary,
           );
         }),
       ),

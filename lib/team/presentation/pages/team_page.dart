@@ -18,6 +18,7 @@ import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
+import 'package:footrank/team/presentation/widgets/team_ui.dart';
 
 class TeamPage extends StatefulWidget {
   const TeamPage({super.key});
@@ -97,32 +98,33 @@ class _TeamPageState extends State<TeamPage> with ThemeRepaintMixin {
     return RefreshIndicator(
       onRefresh: () async => _reload(),
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const GradientText('My Teams',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+              Semantics(
+                header: true,
+                child: Text('My Teams', style: teamTitleStyle(context)),
+              ),
               const Spacer(),
               Padding(
-                padding: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.only(bottom: 3),
                 child: Text(
                   '${teams.length}/${TeamRepository.maxTeamsPerUser}',
                   style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.6)),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                      color: AppColors.muted(context)),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           ...teams.asMap().entries.map(
                 (e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.only(bottom: 12),
                   child: FadeSlideIn(
                     delay: AppMotion.staggerFor(e.key),
                     child: _TeamListCard(
@@ -143,7 +145,8 @@ class _TeamPageState extends State<TeamPage> with ThemeRepaintMixin {
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: _openCreateTeam,
-                    icon: const Icon(Icons.add),
+                    style: teamFilledStyle(),
+                    icon: const Icon(Icons.add, size: 20),
                     label: const Text('Create'),
                   ),
                 ),
@@ -151,7 +154,8 @@ class _TeamPageState extends State<TeamPage> with ThemeRepaintMixin {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _openJoinTeam,
-                    icon: const Icon(Icons.login),
+                    style: teamOutlinedStyle(context),
+                    icon: const Icon(Icons.login, size: 20),
                     label: const Text('Join'),
                   ),
                 ),
@@ -174,7 +178,8 @@ class _TeamListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = AppColors.iconAccent(context);
+    final accent = AppColors.brand(context);
+    final muted = AppColors.muted(context);
     return GlassCard(
       onTap: onTap,
       padding: const EdgeInsets.all(16),
@@ -184,7 +189,7 @@ class _TeamListCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.14),
+              color: AppColors.chip(context),
               borderRadius: BorderRadius.circular(12),
             ),
             clipBehavior: Clip.antiAlias,
@@ -206,18 +211,21 @@ class _TeamListCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(team.name,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800)),
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.16)),
                 const SizedBox(height: 2),
                 Text(
                   [
                     if (team.city != null && team.city!.isNotEmpty) team.city!,
                     if (team.isDisbanded) 'Disbanded' else (isCaptain ? 'Captain' : 'Player'),
                   ].join('  ·  '),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: team.isDisbanded ? AppColors.danger : null),
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: team.isDisbanded
+                          ? AppColors.dangerText(context)
+                          : muted),
                 ),
               ],
             ),
@@ -225,12 +233,9 @@ class _TeamListCard extends StatelessWidget {
           if (isCaptain)
             const Padding(
               padding: EdgeInsets.only(right: 8),
-              child: CaptainArmband(label: 'C'),
+              child: TeamRoleBadge(label: 'C'),
             ),
-          Icon(Icons.arrow_forward_ios,
-              size: 16,
-              color:
-                  Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
+          Icon(Icons.chevron_right, size: 18, color: muted),
         ],
       ),
     );
@@ -265,10 +270,17 @@ class _TeamDetailPageState extends State<TeamDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_team.name)),
       body: AmbientBackground(
         child: SafeArea(
-          child: _TeamView(team: _team, repo: _repo, onChanged: _refresh),
+          child: Column(
+            children: [
+              TeamPageHeader(title: _team.name),
+              Expanded(
+                child:
+                    _TeamView(team: _team, repo: _repo, onChanged: _refresh),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -291,19 +303,11 @@ class _NoTeamView extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.shield_outlined,
-                    size: 56, color: AppColors.iconAccent(context)),
-                const SizedBox(height: 12),
-                const GradientText(
-                  'No team yet',
-                  style:
-                      TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Create your own squad or join one with an invite code.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                const TeamHero(
+                  icon: Icons.shield_outlined,
+                  title: 'No team yet',
+                  subtitle:
+                      'Create your own squad or join one with an invite code.',
                 ),
                 const SizedBox(height: 24),
                 BrandButton(
@@ -314,7 +318,12 @@ class _NoTeamView extends StatelessWidget {
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: onJoin,
-                  icon: const Icon(Icons.login),
+                  style: teamOutlinedStyle(context, height: 52).copyWith(
+                    shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppSemantic.buttonRadius))),
+                  ),
+                  icon: const Icon(Icons.login, size: 20),
                   label: const Text('Join with Invite Code'),
                 ),
               ],
@@ -345,7 +354,7 @@ class _TeamView extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: () async => onChanged(),
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
         children: [
           FadeSlideIn(
             child: _TeamHeaderCard(
@@ -378,7 +387,9 @@ class _TeamView extends StatelessWidget {
                         LevelBadge(value: team.rating, size: 46, animate: true),
                         const SizedBox(height: 8),
                         Text('Pitch Power',
-                            style: Theme.of(context).textTheme.bodySmall),
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.muted(context))),
                       ],
                     ),
                   ),
@@ -397,7 +408,7 @@ class _TeamView extends StatelessWidget {
                 Expanded(
                   child: _MiniStat(
                     leading: _isCaptain
-                        ? const CaptainArmband(label: 'C')
+                        ? const TeamRoleBadge(label: 'C')
                         : Icon(Icons.person, color: AppColors.iconAccent(context)),
                     value: _isCaptain ? 'Captain' : 'Player',
                     label: 'Your Role',
@@ -420,16 +431,9 @@ class _TeamView extends StatelessWidget {
                   team: team, repo: repo, onChanged: onChanged),
             ),
           const SizedBox(height: 18),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 240),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text('Squad',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800)),
-            ),
+          const FadeSlideIn(
+            delay: Duration(milliseconds: 240),
+            child: TeamSectionLabel('Squad'),
           ),
           const SizedBox(height: 10),
           FadeSlideIn(
@@ -482,7 +486,9 @@ class _LeaveDisbandButton extends StatelessWidget {
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancel')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.danger,
+                foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(isCaptain ? 'Disband' : 'Leave'),
           ),
@@ -509,8 +515,11 @@ class _LeaveDisbandButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: () => _run(context),
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.danger,
-        side: BorderSide(color: AppColors.danger.withValues(alpha: 0.5)),
+        foregroundColor: AppColors.dangerText(context),
+        side: BorderSide(
+            color: AppColors.dangerText(context).withValues(alpha: 0.5)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSemantic.buttonRadius)),
       ),
       icon: Icon(isCaptain ? Icons.delete_outline : Icons.logout),
       label: Text(isCaptain ? 'Disband team' : 'Leave team'),
@@ -528,7 +537,7 @@ class _DisbandedBanner extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       child: Row(
         children: [
-          const Icon(Icons.info_outline, color: AppColors.danger),
+          Icon(Icons.info_outline, color: AppColors.dangerText(context)),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -537,7 +546,7 @@ class _DisbandedBanner extends StatelessWidget {
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
-                  ?.copyWith(color: AppColors.danger),
+                  ?.copyWith(color: AppColors.dangerText(context)),
             ),
           ),
         ],
@@ -575,16 +584,20 @@ class _TeamHeaderCard extends StatelessWidget {
               children: [
                 Text(team.name,
                     style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w900)),
+                        fontFamily: AppFonts.display,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.22)),
                 if (team.city != null)
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.place_outlined,
-                          size: 15, color: AppColors.iconAccent(context)),
+                          size: 15, color: AppColors.brand(context)),
                       const SizedBox(width: 4),
                       Text(team.city!,
-                          style: Theme.of(context).textTheme.bodyMedium),
+                          style: TextStyle(
+                              fontSize: 13, color: AppColors.muted(context))),
                     ],
                   ),
               ],
@@ -617,11 +630,16 @@ class _MiniStat extends StatelessWidget {
         children: [
           SizedBox(height: 26, child: Center(child: leading)),
           const SizedBox(height: 8),
-          GradientText(value,
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          Text(value,
+              style: TextStyle(
+                  fontFamily: AppFonts.display,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.brand(context))),
           const SizedBox(height: 2),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          Text(label,
+              style:
+                  TextStyle(fontSize: 12, color: AppColors.muted(context))),
         ],
       ),
     );
@@ -638,24 +656,33 @@ class _InviteCodeCard extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.vpn_key_outlined,
-              size: 26, color: AppColors.iconAccent(context)),
+              size: 26, color: AppColors.brand(context)),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Invite Code',
-                    style: Theme.of(context).textTheme.bodySmall),
+                    style: TextStyle(
+                        fontSize: 12, color: AppColors.muted(context))),
                 const SizedBox(height: 2),
                 Text(code,
-                    style: const TextStyle(
+                    style: TextStyle(
+                        fontFamily: AppFonts.display,
                         fontSize: 22,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.brand(context),
                         letterSpacing: 3)),
               ],
             ),
           ),
-          IconButton.filledTonal(
+          IconButton(
+            tooltip: 'Copy invite code',
+            style: IconButton.styleFrom(
+              backgroundColor: AppColors.chip(context),
+              foregroundColor: AppColors.onChip(context),
+              minimumSize: const Size(44, 44),
+            ),
             icon: const Icon(Icons.copy),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: code));
@@ -735,14 +762,7 @@ class _PendingRequestsState extends State<_PendingRequests> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 18),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text('Join Requests',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800)),
-            ),
+            const TeamSectionLabel('Join Requests'),
             const SizedBox(height: 10),
             ...requests.map((r) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -764,19 +784,23 @@ class _PendingRequestsState extends State<_PendingRequests> {
                                   if (r.position != null) r.position,
                                   'PWR ${r.elo}'
                                 ].join(' · '),
-                                style: Theme.of(context).textTheme.bodySmall,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.muted(context)),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.check_circle,
-                              color: AppColors.success),
+                          tooltip: 'Approve',
+                          icon: Icon(Icons.check_circle,
+                              color: AppColors.brand(context)),
                           onPressed: () => _approve(r),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.cancel,
-                              color: AppColors.danger),
+                          tooltip: 'Reject',
+                          icon: Icon(Icons.cancel,
+                              color: AppColors.dangerText(context)),
                           onPressed: () => _reject(r),
                         ),
                       ],
@@ -935,7 +959,7 @@ class _MemberListState extends State<_MemberList> {
                               ),
                               if (m.isCaptain || m.isViceCaptain) ...[
                                 const SizedBox(width: 8),
-                                CaptainArmband(
+                                TeamRoleBadge(
                                     label: m.isCaptain ? 'C' : 'VC'),
                               ],
                             ],
@@ -946,14 +970,17 @@ class _MemberListState extends State<_MemberList> {
                               'PWR ${m.elo}',
                               '${m.reliability}%'
                             ].join(' · '),
-                            style: Theme.of(context).textTheme.bodySmall,
+                            style: TextStyle(
+                                fontSize: 12, color: AppColors.muted(context)),
                           ),
                         ],
                       ),
                     ),
                     if (showActions)
                       PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_vert),
+                        tooltip: 'Player options',
+                        icon: Icon(Icons.more_vert,
+                            color: AppColors.muted(context)),
                         onSelected: (v) {
                           switch (v) {
                             case 'make_captain':

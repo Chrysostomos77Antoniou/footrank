@@ -4,7 +4,6 @@ import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/core/utils/maps_launcher.dart';
 import 'package:footrank/core/widgets/async_views.dart';
-import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/pitch_power_preview.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -16,6 +15,8 @@ import 'package:footrank/models/match_status.dart';
 import 'package:footrank/models/team_member_model.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/match/presentation/widgets/match_fee_card.dart';
+import 'package:footrank/match/presentation/widgets/match_surfaces.dart';
+import 'package:footrank/match/presentation/widgets/match_team_avatar.dart';
 import 'package:footrank/payment/data/payment_repository.dart';
 import 'package:footrank/payment/data/promo_repository.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
@@ -396,6 +397,9 @@ class _MatchDetailPageState extends State<MatchDetailPage>
       final confirm = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
+          backgroundColor: matchDialogColor(ctx),
+          surfaceTintColor: Colors.transparent,
+          shape: matchDialogShape(ctx),
           title: const Text('Cancel this match?'),
           content: const Text(
             'This removes the match for both teams. This cannot be undone.',
@@ -406,7 +410,10 @@ class _MatchDetailPageState extends State<MatchDetailPage>
               child: const Text('Keep'),
             ),
             FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.danger,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Cancel match'),
             ),
@@ -434,6 +441,9 @@ class _MatchDetailPageState extends State<MatchDetailPage>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: matchDialogColor(ctx),
+        surfaceTintColor: Colors.transparent,
+        shape: matchDialogShape(ctx),
         title: const Text('Cancel this match?'),
         content: Text(tooLate
             ? 'Kick-off is less than 2 hours away. If you cancel now, your '
@@ -446,7 +456,10 @@ class _MatchDetailPageState extends State<MatchDetailPage>
             child: const Text('Keep'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(tooLate ? 'Cancel & lose 200 PWR' : 'Cancel match'),
           ),
@@ -505,7 +518,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         ListTile(
           contentPadding: EdgeInsets.zero,
           dense: true,
-          leading: GradientAvatar(name: name, imageUrl: avatarUrl, radius: 18),
+          leading: MatchTeamAvatar(name: name, imageUrl: avatarUrl, radius: 18),
           title: Text(
             name,
             style: const TextStyle(fontWeight: FontWeight.w700),
@@ -513,10 +526,11 @@ class _MatchDetailPageState extends State<MatchDetailPage>
           subtitle: Text(
             '$teamName captain'
             '${phone != null && phone.isNotEmpty ? ' · $phone' : ''}',
+            style: TextStyle(color: AppColors.muted(context)),
           ),
           trailing: (phone != null && phone.isNotEmpty)
               ? IconButton(
-                  icon: Icon(Icons.call, color: AppColors.iconAccent(context)),
+                  icon: Icon(Icons.call_outlined, color: AppColors.brand(context)),
                   onPressed: () => _call(phone),
                 )
               : null,
@@ -525,11 +539,11 @@ class _MatchDetailPageState extends State<MatchDetailPage>
     }
 
     return GlassCard(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Captains', style: Theme.of(context).textTheme.titleMedium),
+          Text('Captains', style: _cardTitleStyle(context)),
           ...rows,
         ],
       ),
@@ -547,8 +561,8 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         : _reportText(match.homeReportH, match.homeReportA);
 
     final List<Widget> children = [
-      Text('Final Score', style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 8),
+      Text('Final Score', style: _cardTitleStyle(context)),
+      const SizedBox(height: 6),
     ];
 
     if (match.status == 'completed') {
@@ -563,20 +577,25 @@ class _MatchDetailPageState extends State<MatchDetailPage>
       children.add(
         Text(
           'Result confirmed by both captains.',
-          style: Theme.of(context).textTheme.bodySmall,
+          style: _mutedBody(context),
         ),
       );
     } else if (!_matchStarted) {
       children.add(
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.lock_clock, size: 18),
-            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Icon(Icons.schedule,
+                  size: 18, color: AppColors.muted(context)),
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 'The score can be submitted 90 minutes after kick-off '
                 '(from ${_kickoffLabel()}).',
-                style: Theme.of(context).textTheme.bodySmall,
+                style: _mutedBody(context),
               ),
             ),
           ],
@@ -589,7 +608,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
       children.add(
         Text(
           'Opponent\'s report: ${oppReport ?? 'not submitted'}',
-          style: Theme.of(context).textTheme.bodySmall,
+          style: _mutedBody(context),
         ),
       );
       children.add(const SizedBox(height: 8));
@@ -597,16 +616,16 @@ class _MatchDetailPageState extends State<MatchDetailPage>
       if (match.scoreDisputed) {
         children.add(
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: AppColors.danger.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.warning_amber_rounded,
-                  color: AppColors.danger,
+                  color: AppColors.dangerText(context),
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -617,7 +636,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
                     'result is decided by the more trusted captain (fewer past '
                     'disputes). Repeated disputes can get a captain flagged and '
                     'cost the team 500 rating.',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: _mutedBody(context),
                   ),
                 ),
               ],
@@ -630,7 +649,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
           Text(
             'Waiting for the opponent to submit their score. If they '
             "haven't within 24 hours, your reported score becomes official.",
-            style: Theme.of(context).textTheme.bodySmall,
+            style: _mutedBody(context),
           ),
         );
         children.add(const SizedBox(height: 10));
@@ -659,13 +678,32 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         _isCaptain && _match != null && _match!.status != 'completed';
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Match'),
+        title: const Text(
+          'Match',
+          style: TextStyle(fontSize: 26, letterSpacing: -0.26),
+        ),
         actions: [
           if (canCancel)
-            IconButton(
-              tooltip: 'Cancel match',
-              icon: const Icon(Icons.cancel_outlined),
-              onPressed: _cancelMatch,
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: IconButton(
+                tooltip: 'Cancel match',
+                icon: const Icon(Icons.cancel_outlined),
+                color: AppColors.dangerText(context),
+                style: IconButton.styleFrom(
+                  fixedSize: const Size(44, 44),
+                  backgroundColor:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? AppColors.darkCard
+                          : AppColors.lightCard,
+                  side: BorderSide(color: AppColors.border(context)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppSemantic.controlRadius),
+                  ),
+                ),
+                onPressed: _cancelMatch,
+              ),
             ),
         ],
       ),
@@ -690,11 +728,12 @@ class _MatchDetailPageState extends State<MatchDetailPage>
     final hasScore = match.homeScore != null && match.awayScore != null;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
         FadeSlideIn(
           child: GlassCard(
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            radius: 24,
+            padding: const EdgeInsets.all(14),
             child: Row(
               children: [
                 Expanded(
@@ -706,10 +745,17 @@ class _MatchDetailPageState extends State<MatchDetailPage>
                         : () => showTeamSheet(context, _homeTeam!),
                   ),
                 ),
-                Text(
-                  hasScore ? '${match.homeScore} - ${match.awayScore}' : 'VS',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Text(
+                    hasScore ? '${match.homeScore} - ${match.awayScore}' : 'VS',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: hasScore
+                          ? Theme.of(context).colorScheme.onSurface
+                          : AppColors.muted(context),
+                    ),
                   ),
                 ),
                 Expanded(
@@ -748,7 +794,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
             ),
           ),
         ],
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.md),
         FadeSlideIn(
           delay: const Duration(milliseconds: 120),
           child: GlassTabs(
@@ -812,7 +858,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
           'You can rate the opposition\'s behavior 90 minutes after '
           'kick-off (from ${_kickoffLabel()}).',
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
+          style: _mutedBody(context),
         ),
       );
     }
@@ -843,14 +889,14 @@ class _MatchDetailPageState extends State<MatchDetailPage>
       children: [
         Text(
           'Rate how "$title" behaved as a team',
-          style: Theme.of(context).textTheme.bodySmall,
+          style: _mutedBody(context),
         ),
         const SizedBox(height: 10),
         GlassCard(
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              GradientAvatar(name: title, imageUrl: logoUrl, radius: 18),
+              MatchTeamAvatar(name: title, imageUrl: logoUrl, radius: 18),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(title,
@@ -876,22 +922,22 @@ class _MatchDetailPageState extends State<MatchDetailPage>
     return Column(
       children: [
         GlassCard(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 16),
           child: Column(
             children: [
-              ListTile(
-                leading: const Icon(Icons.schedule),
-                title: const Text('Time'),
-                trailing: Text(when),
+              _InfoRow(
+                icon: Icons.schedule,
+                label: 'Time',
+                value: when,
               ),
-              ListTile(
-                leading: const Icon(Icons.place),
-                title: const Text('City'),
-                trailing: Text(match.city),
+              _InfoRow(
+                icon: Icons.place_outlined,
+                label: 'City',
+                value: match.city,
               ),
-              ListTile(
-                leading: const Icon(Icons.flag),
-                title: const Text('Status'),
+              _InfoRow(
+                icon: Icons.flag_outlined,
+                label: 'Status',
                 trailing: _StatusChip(
                   status: status,
                   label: matchStatusLabel(
@@ -901,20 +947,21 @@ class _MatchDetailPageState extends State<MatchDetailPage>
                   ),
                 ),
               ),
-              ListTile(
-                leading: const Icon(Icons.groups),
-                title: const Text('Type / Format'),
-                trailing: Text('${match.matchType} · ${match.format}'),
+              _InfoRow(
+                icon: Icons.groups_outlined,
+                label: 'Type / Format',
+                value: '${match.matchType} · ${match.format}',
+                last: true,
               ),
             ],
           ),
         ),
         if (match.suggestedCourtId != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           _SuggestedCourtCard(match: match),
         ],
         if (status != MatchStatus.completed && _myTeamId != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           PitchPowerPreview(
             teamId: _myTeamId!,
             matchType: match.matchType,
@@ -960,7 +1007,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
             child: Text(
               'Mark which of your players actually played (at least 5). '
               'You can change a mark any time before the score is submitted.',
-              style: Theme.of(context).textTheme.bodySmall,
+              style: _mutedBody(context),
             ),
           ),
         const SizedBox(height: 4),
@@ -984,37 +1031,137 @@ class _TeamHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(2.5),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.brand(context), width: 2.5),
+    return Semantics(
+      button: onTap != null,
+      label: 'View $name',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Column(
+          children: [
+            MatchTeamAvatar(
+              name: name,
+              imageUrl: logoUrl,
+              radius: 23,
+              ring: true,
             ),
-            child: GradientAvatar(name: name, imageUrl: logoUrl, radius: 28),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            name,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          if (onTap != null)
+            const SizedBox(height: 8),
             Text(
-              'Tap to view',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppColors.brand(context),
-                fontWeight: FontWeight.w600,
+              name,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.15,
+                height: 1.2,
+              ),
+            ),
+            if (onTap != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  'Tap to view',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.muted(context),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A label/value row inside the Information card: leading icon, label, then
+/// either a plain value or a custom [trailing] widget, with a hairline
+/// divider underneath (omitted on the [last] row).
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String? value;
+  final Widget? trailing;
+  final bool last;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    this.value,
+    this.trailing,
+    this.last = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 44),
+      decoration: last
+          ? null
+          : BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppColors.border(context)),
+              ),
+            ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: AppColors.onChip(context)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (trailing != null)
+            trailing!
+          else
+            Flexible(
+              child: Text(
+                value ?? '',
+                textAlign: TextAlign.end,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.muted(context),
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ),
         ],
       ),
     );
   }
+}
+
+/// Card title (Final Score, Captains): 15/700, slightly tightened.
+TextStyle _cardTitleStyle(BuildContext context) => const TextStyle(
+      fontSize: 15,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.15,
+    );
+
+/// Secondary body copy at 13/1.45 in the muted colour.
+TextStyle _mutedBody(BuildContext context) => TextStyle(
+      fontSize: 13,
+      height: 1.45,
+      color: AppColors.muted(context),
+    );
+
+/// Amber used for the "Awaiting payment" status: the one place the mockups
+/// call for a warning tone (dark: soft amber on a tint; light: brown on cream).
+class _Amber {
+  _Amber._();
+  static Color text(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFFF5C451)
+          : const Color(0xFF7A4E00);
+  static Color fill(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFFF5C451).withValues(alpha: 0.14)
+          : const Color(0xFFFFF1CC);
 }
 
 class _StatusChip extends StatelessWidget {
@@ -1024,18 +1171,32 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = status.isCompleted
-        ? Theme.of(context).colorScheme.tertiary
-        : Theme.of(context).colorScheme.primary;
+    final awaiting = status == MatchStatus.confirmed &&
+        label != MatchStatus.confirmed.label;
+    final Color color;
+    final Color fill;
+    if (awaiting) {
+      color = _Amber.text(context);
+      fill = _Amber.fill(context);
+    } else {
+      color = status.isCompleted || status.isConfirmed
+          ? AppColors.brand(context)
+          : AppColors.muted(context);
+      fill = color.withValues(alpha: 0.14);
+    }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
+        color: fill,
+        borderRadius: BorderRadius.circular(AppSemantic.statusPillRadius),
       ),
       child: Text(
         label,
-        style: TextStyle(color: color, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -1067,7 +1228,7 @@ class _TeamRoster extends StatelessWidget {
       children: [
         Text(
           '$title — Players',
-          style: Theme.of(context).textTheme.titleMedium,
+          style: _cardTitleStyle(context),
         ),
         const SizedBox(height: 8),
         if (members.isEmpty)
@@ -1097,7 +1258,7 @@ class _TeamRoster extends StatelessWidget {
                     onTap: () => showPlayerSheetById(context, m.userId),
                     child: Row(
                       children: [
-                        GradientAvatar(
+                        MatchTeamAvatar(
                             name: m.name, imageUrl: m.avatarUrl, radius: 18),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1109,8 +1270,11 @@ class _TeamRoster extends StatelessWidget {
                                       fontWeight: FontWeight.w700)),
                               if (m.position != null)
                                 Text(m.position!,
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                            color: AppColors.muted(context))),
                             ],
                           ),
                         ),
@@ -1182,7 +1346,7 @@ class _AttendanceToggle extends StatelessWidget {
           icon: Icon(
             Icons.cancel,
             color: attended == false
-                ? AppColors.danger
+                ? AppColors.dangerText(context)
                 : AppColors.muted(context),
           ),
           tooltip: 'Did not attend',
@@ -1202,7 +1366,7 @@ class _AttendanceBadge extends StatelessWidget {
     if (attended == null) return const SizedBox.shrink();
     return Icon(
       attended! ? Icons.check_circle : Icons.cancel,
-      color: attended! ? AppColors.success : AppColors.danger,
+      color: attended! ? AppColors.success : AppColors.dangerText(context),
     );
   }
 }
@@ -1227,7 +1391,7 @@ class _BehaviorControl extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Icon(
           good ? Icons.thumb_up : Icons.thumb_down,
-          color: good ? AppColors.success : AppColors.danger,
+          color: good ? AppColors.success : AppColors.dangerText(context),
         ),
       );
     }
@@ -1269,6 +1433,9 @@ class _ReasonDialogState extends State<_ReasonDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      backgroundColor: matchDialogColor(context),
+      surfaceTintColor: Colors.transparent,
+      shape: matchDialogShape(context),
       title: Text('Report ${widget.playerName}'),
       content: TextField(
         controller: _ctrl,
@@ -1276,7 +1443,6 @@ class _ReasonDialogState extends State<_ReasonDialog> {
         decoration: const InputDecoration(
           labelText: 'Reason',
           hintText: 'What went wrong?',
-          border: OutlineInputBorder(),
         ),
       ),
       actions: [
@@ -1345,6 +1511,9 @@ class _ScoreDialogState extends State<_ScoreDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      backgroundColor: matchDialogColor(context),
+      surfaceTintColor: Colors.transparent,
+      shape: matchDialogShape(context),
       title: const Text('Enter Final Score'),
       content: Row(
         children: [
@@ -1352,15 +1521,16 @@ class _ScoreDialogState extends State<_ScoreDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(widget.homeName, textAlign: TextAlign.center),
+                Text(widget.homeName,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _homeCtrl,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                  ),
+                  style: const TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.w800),
                 ),
               ],
             ),
@@ -1373,15 +1543,16 @@ class _ScoreDialogState extends State<_ScoreDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(widget.awayName, textAlign: TextAlign.center),
+                Text(widget.awayName,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _awayCtrl,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                  ),
+                  style: const TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.w800),
                 ),
               ],
             ),
@@ -1417,12 +1588,12 @@ class _SuggestedCourtCard extends StatelessWidget {
         children: [
           Text(
             'Suggested Court',
-            style: Theme.of(context).textTheme.titleMedium,
+            style: _cardTitleStyle(context),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           if (match.suggestedCourtImageUrl != null)
             ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               child: Image.network(
                 match.suggestedCourtImageUrl!,
                 height: 140,
@@ -1431,23 +1602,36 @@ class _SuggestedCourtCard extends StatelessWidget {
                 errorBuilder: (_, __, ___) => const SizedBox.shrink(),
               ),
             ),
-          const SizedBox(height: 8),
-          Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          Text(name,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
           if (match.suggestedCourtAddress != null)
             Text(
               match.suggestedCourtAddress!,
-              style: Theme.of(context).textTheme.bodySmall,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.muted(context),
+                  ),
             ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
-            child: FilledButton.icon(
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(AppSemantic.minTapTarget),
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(AppSemantic.controlRadius),
+                ),
+              ),
               onPressed: () => openInMaps(
                 name: name,
                 address: match.suggestedCourtAddress,
                 city: match.city,
               ),
-              icon: const Icon(Icons.directions),
+              icon: Icon(Icons.near_me_outlined,
+                  size: 18, color: AppColors.brand(context)),
               label: const Text('Get Directions'),
             ),
           ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:footrank/core/app_refresh.dart';
+import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/widgets/app_button.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -61,69 +63,174 @@ class _PromoCodePageState extends State<PromoCodePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Promo code')),
+      appBar: AppBar(
+        toolbarHeight: 68,
+        leadingWidth: 64,
+        titleSpacing: 0,
+        leading: Navigator.of(context).canPop() ? const _BackChip() : null,
+        title: Text(
+          'Promo code',
+          style: TextStyle(
+            fontFamily: AppFonts.display,
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.26,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+      ),
       body: AmbientBackground(
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FadeSlideIn(
-                  child: Text(
-                    'Have a promo code?',
-                    style: theme.textTheme.titleLarge,
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      FadeSlideIn(
+                        child: Text(
+                          'Have a promo code?',
+                          style: TextStyle(
+                            fontFamily: AppFonts.display,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.22,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      FadeSlideIn(
+                        delay: const Duration(milliseconds: 40),
+                        child: Text(
+                          'Enter it to waive the match fee for you and your team. '
+                          'If one player on a team redeems it, the whole team gets '
+                          'it.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: AppColors.muted(context),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      FadeSlideIn(
+                        delay: const Duration(milliseconds: 80),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Promo code',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.muted(context),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _controller,
+                              enabled: !_loading,
+                              autocorrect: false,
+                              enableSuggestions: false,
+                              textCapitalization:
+                                  TextCapitalization.characters,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _apply(),
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.2,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                              decoration: InputDecoration(
+                                constraints: const BoxConstraints(
+                                    minHeight: 52, maxHeight: 52),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 14),
+                                prefixIcon: Icon(
+                                  Icons.confirmation_number_outlined,
+                                  size: 20,
+                                  color: AppColors.onChip(context),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                FadeSlideIn(
-                  delay: const Duration(milliseconds: 40),
-                  child: Text(
-                    'Enter it to waive the match fee for you and your team. '
-                    'If one player on a team redeems it, the whole team gets '
-                    'it.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FadeSlideIn(
+                      delay: const Duration(milliseconds: 120),
+                      child: AppButton(
+                        label: 'Apply',
+                        icon: Icons.check_rounded,
+                        loading: _loading,
+                        onPressed: _apply,
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                FadeSlideIn(
-                  delay: const Duration(milliseconds: 80),
-                  child: TextField(
-                    controller: _controller,
-                    enabled: !_loading,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textCapitalization: TextCapitalization.characters,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _apply(),
-                    decoration: const InputDecoration(
-                      labelText: 'Promo code',
-                      prefixIcon: Icon(Icons.confirmation_number_outlined),
+                    const SizedBox(height: 10),
+                    FadeSlideIn(
+                      delay: const Duration(milliseconds: 160),
+                      child: AppButton(
+                        label: 'Skip',
+                        variant: AppButtonVariant.secondary,
+                        fullWidth: true,
+                        onPressed: _loading ? null : () => context.pop(),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                FadeSlideIn(
-                  delay: const Duration(milliseconds: 120),
-                  child: AppButton(
-                    label: 'Apply',
-                    icon: Icons.check_rounded,
-                    loading: _loading,
-                    onPressed: _apply,
-                  ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BackChip extends StatelessWidget {
+  const _BackChip();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.only(left: AppSemantic.screenPadding),
+      child: Center(
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Semantics(
+            button: true,
+            label: 'Back',
+            excludeSemantics: true,
+            child: Material(
+              color: isDark ? AppColors.darkCard : AppColors.lightCard,
+              shape: RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.circular(AppSemantic.controlRadius),
+                side: BorderSide(color: AppColors.border(context)),
+              ),
+              child: InkWell(
+                customBorder: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(AppSemantic.controlRadius),
                 ),
-                const SizedBox(height: 8),
-                FadeSlideIn(
-                  delay: const Duration(milliseconds: 160),
-                  child: AppButton(
-                    label: 'Skip',
-                    variant: AppButtonVariant.secondary,
-                    onPressed: _loading ? null : () => context.pop(),
-                  ),
-                ),
-              ],
+                onTap: () => Navigator.of(context).maybePop(),
+                child: Icon(Icons.chevron_left_rounded,
+                    size: 26, color: Theme.of(context).colorScheme.onSurface),
+              ),
             ),
           ),
         ),
