@@ -253,8 +253,8 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                     ),
                     _ManageTile(
                       icon: Icons.search_rounded,
-                      title: 'Players',
-                      subtitle: 'Find people',
+                      title: 'Free Agents',
+                      subtitle: 'Find players',
                       onTap: () => context.push(AppRoutes.freeAgents),
                     ),
                     _ManageTile(
