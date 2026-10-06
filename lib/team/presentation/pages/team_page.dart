@@ -418,11 +418,15 @@ class _TeamView extends StatelessWidget {
               ],
             ),
           ),
-          if (team.inviteCode != null && !team.isDisbanded) ...[
+          if (!team.isDisbanded) ...[
             const SizedBox(height: 14),
             FadeSlideIn(
               delay: const Duration(milliseconds: 160),
-              child: _InviteCodeCard(code: team.inviteCode!),
+              child: _InviteCodeCard(
+                teamId: team.id,
+                repo: repo,
+                isCaptain: _isCaptain,
+              ),
             ),
           ],
           if (_isCaptain && !team.isDisbanded)
@@ -647,12 +651,80 @@ class _MiniStat extends StatelessWidget {
   }
 }
 
-class _InviteCodeCard extends StatelessWidget {
-  final String code;
-  const _InviteCodeCard({required this.code});
+class _InviteCodeCard extends StatefulWidget {
+  final String teamId;
+  final TeamRepository repo;
+  final bool isCaptain;
+  const _InviteCodeCard({
+    required this.teamId,
+    required this.repo,
+    required this.isCaptain,
+  });
+
+  @override
+  State<_InviteCodeCard> createState() => _InviteCodeCardState();
+}
+
+class _InviteCodeCardState extends State<_InviteCodeCard> {
+  String? _code;
+  bool _loaded = false;
+  bool _regenerating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final code = await widget.repo.fetchInviteCode(widget.teamId);
+      if (mounted) setState(() { _code = code; _loaded = true; });
+    } catch (_) {
+      if (mounted) setState(() => _loaded = true);
+    }
+  }
+
+  Future<void> _regenerate() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Generate a new code?'),
+        content: const Text(
+            'The current invite code will stop working straight away. '
+            'Players already in the team are not affected. Share the new '
+            'code with anyone you still want to invite.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Generate'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _regenerating = true);
+    try {
+      final code = await widget.repo.regenerateInviteCode(widget.teamId);
+      if (mounted) {
+        setState(() => _code = code);
+        showSuccess(context, 'New invite code generated');
+      }
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _regenerating = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final code = _code;
+    if (!_loaded || code == null) return const SizedBox.shrink();
     return GlassCard(
       child: Row(
         children: [
@@ -677,6 +749,31 @@ class _InviteCodeCard extends StatelessWidget {
               ],
             ),
           ),
+          if (widget.isCaptain) ...[
+            _regenerating
+                ? const SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  )
+                : IconButton(
+                    tooltip: 'Generate new code',
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.chip(context),
+                      foregroundColor: AppColors.onChip(context),
+                      minimumSize: const Size(44, 44),
+                    ),
+                    icon: const Icon(Icons.refresh),
+                    onPressed: _regenerate,
+                  ),
+            const SizedBox(width: 8),
+          ],
           IconButton(
             tooltip: 'Copy invite code',
             style: IconButton.styleFrom(

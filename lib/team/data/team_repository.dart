@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -151,12 +150,6 @@ class TeamRepository {
     return members;
   }
 
-  String _generateInviteCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final rng = Random.secure();
-    return List.generate(6, (_) => chars[rng.nextInt(chars.length)]).join();
-  }
-
   /// Creates a team, sets the current user as captain member, returns the team.
   Future<TeamModel> createTeam({
     required String name,
@@ -177,10 +170,32 @@ class TeamRepository {
       'p_name': name,
       'p_city': city,
       'p_logo_url': logoUrl,
-      'p_invite_code': _generateInviteCode(),
     });
 
-    return TeamModel.fromJson(created as Map<String, dynamic>);
+    // The invite code is generated server-side (always unique) and lives in a
+    // members-only table, so it is not part of the teams row.
+    final json = Map<String, dynamic>.from(created as Map);
+    json['invite_code'] = await fetchInviteCode(json['id'] as String);
+    return TeamModel.fromJson(json);
+  }
+
+  /// The team's current invite code. Only members of the team can read it
+  /// (enforced by RLS), so this returns null for anyone else.
+  Future<String?> fetchInviteCode(String teamId) async {
+    final row = await SupabaseService.client
+        .from('team_invite_codes')
+        .select('code')
+        .eq('team_id', teamId)
+        .maybeSingle();
+    return row?['code'] as String?;
+  }
+
+  /// Captain-only: issues a brand-new invite code (unique across all teams)
+  /// and invalidates the old one. Returns the new code.
+  Future<String> regenerateInviteCode(String teamId) async {
+    final code = await SupabaseService.client
+        .rpc('regenerate_team_invite_code', params: {'p_team_id': teamId});
+    return code as String;
   }
 
   /// Captain updates team details (name, city, logo).
