@@ -409,12 +409,12 @@ class _FadeSlideInState extends State<FadeSlideIn>
   static final _seen = <Object>{};
   static const _seenCap = 500;
 
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: AppMotion.enter,
-  );
-  late final CurvedAnimation _curve =
-      CurvedAnimation(parent: _c, curve: AppMotion.easeOut);
+  // Created eagerly in initState (not as lazy `late final` initialisers): a
+  // lazy controller that was first touched in dispose() -- e.g. a staggered
+  // item removed before its delay elapsed -- was created on a deactivated
+  // element and could then be created twice.
+  late final AnimationController _c;
+  late final CurvedAnimation _curve;
 
   /// True when this item already animated earlier in the session.
   bool _skip = false;
@@ -422,6 +422,8 @@ class _FadeSlideInState extends State<FadeSlideIn>
   @override
   void initState() {
     super.initState();
+    _c = AnimationController(vsync: this, duration: AppMotion.enter);
+    _curve = CurvedAnimation(parent: _c, curve: AppMotion.easeOut);
 
     final id = widget.animateOnceId;
     if (id != null) {

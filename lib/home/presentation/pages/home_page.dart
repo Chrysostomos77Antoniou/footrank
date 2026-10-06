@@ -72,7 +72,9 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   /// current.
   void _reloadRank() {
     if (!mounted) return;
-    setState(() => _rankFuture = _profileRepo.fetchMyRankCard());
+    setState(() {
+      _rankFuture = _profileRepo.fetchMyRankCard();
+    });
   }
 
   Future<void> _loadInvites() async {

@@ -148,7 +148,9 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
       extra: user,
     );
     if (updated == true) {
-      setState(() => _profileFuture = _profileRepo.fetchMyProfile());
+      setState(() {
+        _profileFuture = _profileRepo.fetchMyProfile();
+      });
     }
   }
 

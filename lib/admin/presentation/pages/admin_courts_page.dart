@@ -31,7 +31,9 @@ class _AdminCourtsPageState extends State<AdminCourtsPage> {
     _reload();
   }
 
-  void _reload() => setState(() => _future = _repo.fetchAllCourts());
+  void _reload() => setState(() {
+    _future = _repo.fetchAllCourts();
+  });
 
   List<AdminCourtModel> _applyFilter(List<AdminCourtModel> courts) {
     switch (_filter) {

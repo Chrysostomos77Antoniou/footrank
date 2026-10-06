@@ -60,14 +60,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   void _next() {
-    if (_page < _slides.length - 1) {
-      _controller.nextPage(
-        duration: reduceMotion(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+    if (_page >= _slides.length - 1 || !_controller.hasClients) return;
+    // With animations turned off (Reduce Motion / Android "Remove animations")
+    // jump straight to the next slide. Passing Duration.zero to nextPage()
+    // trips a LateInitializationError inside Flutter's DrivenScrollActivity
+    // (its animation controller isn't assigned yet when the zero-length
+    // animation ticks), which crashed onboarding on devices with animations
+    // disabled.
+    if (reduceMotion(context)) {
+      _controller.jumpToPage(_page + 1);
+      return;
     }
+    _controller.nextPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   /// The real app icon as a rounded square (falls back to a soccer-ball tile

@@ -81,7 +81,9 @@ class _PlayerLeaderboardState extends State<PlayerLeaderboard>
 
   void _refresh() {
     if (!mounted) return;
-    setState(() => _future = _repo.fetchPlayers(position: _position));
+    setState(() {
+      _future = _repo.fetchPlayers(position: _position);
+    });
     _loadCaptainTeams();
   }
 

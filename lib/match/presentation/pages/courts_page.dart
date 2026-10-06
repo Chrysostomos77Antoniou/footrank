@@ -31,7 +31,9 @@ class _CourtsPageState extends State<CourtsPage>
     _future = _repo.fetchAllCourts();
   }
 
-  void _retry() => setState(() => _future = _repo.fetchAllCourts());
+  void _retry() => setState(() {
+    _future = _repo.fetchAllCourts();
+  });
 
   @override
   Widget build(BuildContext context) {

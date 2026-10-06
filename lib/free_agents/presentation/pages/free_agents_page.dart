@@ -49,7 +49,9 @@ class _FreeAgentsPageState extends State<FreeAgentsPage>
 
   void _refresh() {
     if (!mounted) return;
-    setState(() => _future = _repo.fetchFreeAgents(_filter));
+    setState(() {
+      _future = _repo.fetchFreeAgents(_filter);
+    });
     _loadCaptainContext();
   }
 
