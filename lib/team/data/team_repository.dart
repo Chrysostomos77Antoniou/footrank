@@ -221,30 +221,18 @@ class TeamRepository {
 
   // ---- Join flow ----
 
-  /// Sends a join request for the team matching [inviteCode].
-  /// Returns the team name on success.
-  Future<String> requestJoinByCode(String inviteCode) async {
-    final uid = _uid;
-    if (uid == null) throw StateError('No authenticated user');
+  /// Joins the team matching [inviteCode] immediately: holding the invite
+  /// code the captain shared is enough, no approval needed. Done in one
+  /// server-side call (`join_team_by_code`) because players can't insert
+  /// team_members rows directly. Returns the team name on success.
+  Future<String> joinByCode(String inviteCode) async {
+    if (_uid == null) throw StateError('No authenticated user');
 
-    final team = await SupabaseService.client
-        .from(_teams)
-        .select('id, name')
-        .eq('invite_code', inviteCode.trim().toUpperCase())
-        .isFilter('disbanded_at', null)
-        .maybeSingle();
-
-    if (team == null) {
-      throw Exception('No team found with that invite code');
-    }
-
-    await SupabaseService.client.from(_requests).insert({
-      'team_id': team['id'],
-      'user_id': uid,
-      'status': 'pending',
-    });
-
-    return team['name'] as String;
+    final name = await SupabaseService.client.rpc(
+      'join_team_by_code',
+      params: {'p_invite_code': inviteCode.trim()},
+    );
+    return name as String;
   }
 
   /// Pending join requests for a team (captain view).

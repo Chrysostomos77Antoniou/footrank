@@ -5,6 +5,7 @@ import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/team/presentation/widgets/team_ui.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/core/widgets/feedback.dart';
+import 'package:footrank/core/app_refresh.dart';
 
 class JoinTeamPage extends StatefulWidget {
   const JoinTeamPage({super.key});
@@ -29,9 +30,10 @@ class _JoinTeamPageState extends State<JoinTeamPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      final teamName = await _repo.requestJoinByCode(_codeCtrl.text);
+      final teamName = await _repo.joinByCode(_codeCtrl.text);
       if (mounted) {
-        showSuccess(context, 'Join request sent to $teamName');
+        triggerAppRefresh();
+        showSuccess(context, 'You joined $teamName');
         context.pop(true);
       }
     } catch (e) {
@@ -100,7 +102,7 @@ class _JoinTeamPageState extends State<JoinTeamPage> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: BrandButton(
-                  label: 'Send Join Request',
+                  label: 'Join Team',
                   loading: _loading,
                   onPressed: _submit,
                 ),

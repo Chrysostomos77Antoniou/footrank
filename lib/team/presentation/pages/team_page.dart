@@ -57,7 +57,8 @@ class _TeamPageState extends State<TeamPage> with ThemeRepaintMixin {
   }
 
   Future<void> _openJoinTeam() async {
-    await context.push<bool>(AppRoutes.joinTeam);
+    final joined = await context.push<bool>(AppRoutes.joinTeam);
+    if (joined == true) _reload();
   }
 
   @override
