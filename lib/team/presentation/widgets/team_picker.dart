@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:footrank/match/presentation/widgets/match_team_avatar.dart';
 import 'package:footrank/models/team_model.dart';
 
 /// Bottom sheet to choose one of [teams]. Returns the chosen team, or null if
-/// dismissed. Each row shows the team name (and city) clearly so the user can't
-/// pick the wrong team by accident.
+/// dismissed. Each row shows the team crest (logo, or a monogram when it has
+/// none) plus the name and city so the user can't pick the wrong team by
+/// accident.
 Future<TeamModel?> showTeamPicker(
   BuildContext context,
   List<TeamModel> teams, {
@@ -29,7 +31,8 @@ Future<TeamModel?> showTeamPicker(
           ),
           ...teams.map(
             (t) => ListTile(
-              leading: const Icon(Icons.groups_outlined),
+              leading: MatchTeamAvatar(
+                  name: t.name, imageUrl: t.logoUrl, radius: 22),
               title: Text(t.name,
                   style: const TextStyle(fontWeight: FontWeight.w700)),
               subtitle: t.city == null ? null : Text(t.city!),
