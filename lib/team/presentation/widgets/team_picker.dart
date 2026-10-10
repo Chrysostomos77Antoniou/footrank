@@ -10,6 +10,8 @@ Future<TeamModel?> showTeamPicker(
   BuildContext context,
   List<TeamModel> teams, {
   String title = 'Choose a team',
+  Set<String> disabledTeamIds = const {},
+  String disabledLabel = 'Already invited',
 }) {
   return showModalBottomSheet<TeamModel>(
     context: context,
@@ -29,16 +31,29 @@ Future<TeamModel?> showTeamPicker(
                   ?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
-          ...teams.map(
-            (t) => ListTile(
-              leading: MatchTeamAvatar(
-                  name: t.name, imageUrl: t.logoUrl, radius: 22),
+          ...teams.map((t) {
+            final disabled = disabledTeamIds.contains(t.id);
+            final grey = Theme.of(ctx).disabledColor;
+            final sub = disabled
+                ? disabledLabel
+                : t.city;
+            return ListTile(
+              enabled: !disabled,
+              leading: Opacity(
+                opacity: disabled ? 0.4 : 1,
+                child: MatchTeamAvatar(
+                    name: t.name, imageUrl: t.logoUrl, radius: 22),
+              ),
               title: Text(t.name,
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: t.city == null ? null : Text(t.city!),
-              onTap: () => Navigator.of(ctx).pop(t),
-            ),
-          ),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: disabled ? grey : null)),
+              subtitle: sub == null
+                  ? null
+                  : Text(sub, style: TextStyle(color: disabled ? grey : null)),
+              onTap: disabled ? null : () => Navigator.of(ctx).pop(t),
+            );
+          }),
           const SizedBox(height: 8),
         ],
       ),

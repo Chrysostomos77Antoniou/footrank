@@ -89,13 +89,18 @@ class _FreeAgentsPageState extends State<FreeAgentsPage>
   }
 
   Future<void> _invite(UserModel agent) async {
-    // Only offer teams this player has not already been invited to. With a
-    // single eligible team there is no prompt; with several the captain picks.
-    final eligible = _captainTeams
-        .where((t) => !(_invitedByTeam[t.id]?.contains(agent.id) ?? false))
-        .toList();
-    final team = await chooseTeam(context, eligible,
-        title: 'Invite ${agent.name} to…');
+    // With one captained team there is nothing to choose. With several, always
+    // show the list; teams that already have a pending invite for this player
+    // are shown greyed out and cannot be tapped.
+    final invitedTeamIds = {
+      for (final t in _captainTeams)
+        if (_invitedByTeam[t.id]?.contains(agent.id) ?? false) t.id,
+    };
+    final team = _captainTeams.length == 1
+        ? _captainTeams.first
+        : await showTeamPicker(context, _captainTeams,
+            title: 'Invite ${agent.name} to…',
+            disabledTeamIds: invitedTeamIds);
     if (!mounted || team == null) return;
     try {
       await _teamRepo.invitePlayer(teamId: team.id, userId: agent.id);
