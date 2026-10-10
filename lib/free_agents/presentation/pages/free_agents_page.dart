@@ -10,6 +10,7 @@ import 'package:footrank/models/user_model.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
 import 'package:footrank/rankings/presentation/widgets/rank_row_parts.dart';
 import 'package:footrank/team/data/team_repository.dart';
+import 'package:footrank/team/presentation/widgets/team_picker.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
@@ -30,8 +31,16 @@ class _FreeAgentsPageState extends State<FreeAgentsPage>
   FreeAgentFilter _filter = const FreeAgentFilter();
   late Future<List<UserModel>> _future;
 
-  TeamModel? _myTeam;
-  final Set<String> _invitedIds = {};
+  // Teams the viewer captains, and per team the users with a pending invite.
+  List<TeamModel> _captainTeams = [];
+  final Map<String, Set<String>> _invitedByTeam = {};
+
+  /// True once [agentId] has a pending invite from every team the viewer
+  /// captains (so there is nobody left to invite them to).
+  bool _fullyInvited(String agentId) =>
+      _captainTeams.isNotEmpty &&
+      _captainTeams
+          .every((t) => _invitedByTeam[t.id]?.contains(agentId) ?? false);
 
   @override
   void initState() {
@@ -59,30 +68,42 @@ class _FreeAgentsPageState extends State<FreeAgentsPage>
     final captainTeams = await _teamRepo.fetchMyCaptainTeams();
     if (!mounted) return;
     if (captainTeams.isEmpty) {
-      setState(() => _myTeam = null);
+      setState(() {
+        _captainTeams = [];
+        _invitedByTeam.clear();
+      });
       return;
     }
-    // Free Agents invites go to your (first) captained team; use Rankings to
-    // target a specific team when you captain several.
-    final team = captainTeams.first;
-    final invited = await _teamRepo.fetchPendingInviteeIds(team.id);
+    final pending = await Future.wait(
+        captainTeams.map((t) => _teamRepo.fetchPendingInviteeIds(t.id)));
     if (!mounted) return;
     setState(() {
-      _myTeam = team;
-      _invitedIds
+      _captainTeams = captainTeams;
+      _invitedByTeam
         ..clear()
-        ..addAll(invited);
+        ..addEntries([
+          for (var i = 0; i < captainTeams.length; i++)
+            MapEntry(captainTeams[i].id, pending[i]),
+        ]);
     });
   }
 
   Future<void> _invite(UserModel agent) async {
-    final team = _myTeam;
-    if (team == null) return;
+    // Only offer teams this player has not already been invited to. With a
+    // single eligible team there is no prompt; with several the captain picks.
+    final eligible = _captainTeams
+        .where((t) => !(_invitedByTeam[t.id]?.contains(agent.id) ?? false))
+        .toList();
+    final team = await chooseTeam(context, eligible,
+        title: 'Invite ${agent.name} to…');
+    if (!mounted || team == null) return;
     try {
       await _teamRepo.invitePlayer(teamId: team.id, userId: agent.id);
       if (!mounted) return;
-      setState(() => _invitedIds.add(agent.id));
-      showSuccess(context, 'Invitation sent to ${agent.name}');
+      setState(() => _invitedByTeam
+          .putIfAbsent(team.id, () => <String>{})
+          .add(agent.id));
+      showSuccess(context, 'Invitation sent to ${agent.name} for ${team.name}');
     } catch (e) {
       if (mounted) {
         showError(context, e);
@@ -155,8 +176,8 @@ class _FreeAgentsPageState extends State<FreeAgentsPage>
                             padding: const EdgeInsets.only(bottom: 10),
                             child: _AgentCard(
                               agent: a,
-                              canInvite: _myTeam != null,
-                              invited: _invitedIds.contains(a.id),
+                              canInvite: _captainTeams.isNotEmpty,
+                              invited: _fullyInvited(a.id),
                               onInvite: () => _invite(a),
                             ),
                           ),
