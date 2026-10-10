@@ -1,0 +1,55 @@
+{
+  "params": {
+    "plain": 584618,
+    "residual": 584618
+  },
+  "epochs": 10,
+  "plain": {
+    "final_test_acc_mean": 0.93605,
+    "final_test_acc_std": 0.0009500000000000064,
+    "best_test_acc_mean": 0.93605,
+    "final_test_loss_mean": 0.2573308013916016,
+    "final_train_acc_mean": 0.9955166666666666,
+    "final_test_acc_per_seed": [
+      0.937,
+      0.9351
+    ],
+    "sec_per_epoch": 83.02655620574951,
+    "per_class_acc_seed0": {
+      "T-shirt/top": 0.9,
+      "Trouser": 0.989,
+      "Pullover": 0.913,
+      "Dress": 0.939,
+      "Coat": 0.912,
+      "Sandal": 0.986,
+      "Shirt": 0.796,
+      "Sneaker": 0.982,
+      "Bag": 0.989,
+      "Ankle boot": 0.964
+    }
+  },
+  "residual": {
+    "final_test_acc_mean": 0.93645,
+    "final_test_acc_std": 0.0016500000000000403,
+    "best_test_acc_mean": 0.93645,
+    "final_test_loss_mean": 0.24635207061767578,
+    "final_train_acc_mean": 0.9925416666666667,
+    "final_test_acc_per_seed": [
+      0.9348,
+      0.9381
+    ],
+    "sec_per_epoch": 84.01239281892776,
+    "per_class_acc_seed0": {
+      "T-shirt/top": 0.902,
+      "Trouser": 0.988,
+      "Pullover": 0.908,
+      "Dress": 0.934,
+      "Coat": 0.905,
+      "Sandal": 0.986,
+      "Shirt": 0.791,
+      "Sneaker": 0.975,
+      "Bag": 0.988,
+      "Ankle boot": 0.971
+    }
+  }
+}

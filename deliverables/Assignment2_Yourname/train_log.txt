@@ -1,0 +1,98 @@
+Shape of training images: (60000, 1, 28, 28) labels: (60000,)
+Shape of testing images: (10000, 1, 28, 28) labels: (10000,)
+Parameters: {False: 584618, True: 584618}
+[Plain CNN  seed 0] ep  1/10 train loss 0.3901 acc 0.8581 | test loss 0.2828 acc 0.8958 (78s)
+[Plain CNN  seed 0] ep  2/10 train loss 0.2468 acc 0.9115 | test loss 0.2460 acc 0.9104 (79s)
+[Plain CNN  seed 0] ep  3/10 train loss 0.2021 acc 0.9270 | test loss 0.2270 acc 0.9170 (80s)
+[Plain CNN  seed 0] ep  4/10 train loss 0.1695 acc 0.9378 | test loss 0.2190 acc 0.9211 (81s)
+[Plain CNN  seed 0] ep  5/10 train loss 0.1415 acc 0.9483 | test loss 0.2039 acc 0.9306 (87s)
+[Plain CNN  seed 0] ep  6/10 train loss 0.1080 acc 0.9606 | test loss 0.2073 acc 0.9323 (88s)
+[Plain CNN  seed 0] ep  7/10 train loss 0.0745 acc 0.9735 | test loss 0.2065 acc 0.9333 (81s)
+[Plain CNN  seed 0] ep  8/10 train loss 0.0460 acc 0.9844 | test loss 0.2267 acc 0.9335 (86s)
+[Plain CNN  seed 0] ep  9/10 train loss 0.0271 acc 0.9914 | test loss 0.2451 acc 0.9365 (84s)
+[Plain CNN  seed 0] ep 10/10 train loss 0.0173 acc 0.9952 | test loss 0.2514 acc 0.9370 (86s)
+[ResNet-CNN seed 0] ep  1/10 train loss 0.4333 acc 0.8429 | test loss 0.2855 acc 0.8980 (88s)
+[ResNet-CNN seed 0] ep  2/10 train loss 0.2618 acc 0.9064 | test loss 0.2606 acc 0.9063 (86s)
+[ResNet-CNN seed 0] ep  3/10 train loss 0.2133 acc 0.9234 | test loss 0.2248 acc 0.9188 (81s)
+[ResNet-CNN seed 0] ep  4/10 train loss 0.1811 acc 0.9348 | test loss 0.2285 acc 0.9210 (81s)
+[ResNet-CNN seed 0] ep  5/10 train loss 0.1503 acc 0.9448 | test loss 0.2082 acc 0.9263 (83s)
+[ResNet-CNN seed 0] ep  6/10 train loss 0.1192 acc 0.9570 | test loss 0.2095 acc 0.9307 (84s)
+[ResNet-CNN seed 0] ep  7/10 train loss 0.0838 acc 0.9700 | test loss 0.2096 acc 0.9334 (84s)
+[ResNet-CNN seed 0] ep  8/10 train loss 0.0558 acc 0.9805 | test loss 0.2329 acc 0.9318 (83s)
+[ResNet-CNN seed 0] ep  9/10 train loss 0.0350 acc 0.9888 | test loss 0.2491 acc 0.9332 (87s)
+[ResNet-CNN seed 0] ep 10/10 train loss 0.0243 acc 0.9926 | test loss 0.2554 acc 0.9348 (86s)
+[Plain CNN  seed 1] ep  1/10 train loss 0.3915 acc 0.8578 | test loss 0.2769 acc 0.8996 (82s)
+[Plain CNN  seed 1] ep  2/10 train loss 0.2438 acc 0.9128 | test loss 0.2356 acc 0.9142 (83s)
+[Plain CNN  seed 1] ep  3/10 train loss 0.2017 acc 0.9271 | test loss 0.2176 acc 0.9201 (82s)
+[Plain CNN  seed 1] ep  4/10 train loss 0.1692 acc 0.9387 | test loss 0.2020 acc 0.9249 (86s)
+[Plain CNN  seed 1] ep  5/10 train loss 0.1383 acc 0.9498 | test loss 0.2279 acc 0.9204 (84s)
+[Plain CNN  seed 1] ep  6/10 train loss 0.1073 acc 0.9608 | test loss 0.2046 acc 0.9340 (79s)
+[Plain CNN  seed 1] ep  7/10 train loss 0.0743 acc 0.9737 | test loss 0.2133 acc 0.9310 (80s)
+[Plain CNN  seed 1] ep  8/10 train loss 0.0442 acc 0.9845 | test loss 0.2680 acc 0.9293 (86s)
+[Plain CNN  seed 1] ep  9/10 train loss 0.0249 acc 0.9923 | test loss 0.2572 acc 0.9346 (83s)
+[Plain CNN  seed 1] ep 10/10 train loss 0.0162 acc 0.9958 | test loss 0.2632 acc 0.9351 (85s)
+[ResNet-CNN seed 1] ep  1/10 train loss 0.4301 acc 0.8439 | test loss 0.3070 acc 0.8869 (87s)
+[ResNet-CNN seed 1] ep  2/10 train loss 0.2582 acc 0.9067 | test loss 0.2550 acc 0.9059 (84s)
+[ResNet-CNN seed 1] ep  3/10 train loss 0.2139 acc 0.9229 | test loss 0.2358 acc 0.9115 (85s)
+[ResNet-CNN seed 1] ep  4/10 train loss 0.1814 acc 0.9346 | test loss 0.2142 acc 0.9242 (83s)
+[ResNet-CNN seed 1] ep  5/10 train loss 0.1483 acc 0.9461 | test loss 0.2095 acc 0.9290 (83s)
+[ResNet-CNN seed 1] ep  6/10 train loss 0.1177 acc 0.9578 | test loss 0.2038 acc 0.9320 (85s)
+[ResNet-CNN seed 1] ep  7/10 train loss 0.0864 acc 0.9677 | test loss 0.2023 acc 0.9334 (83s)
+[ResNet-CNN seed 1] ep  8/10 train loss 0.0557 acc 0.9805 | test loss 0.2309 acc 0.9342 (85s)
+[ResNet-CNN seed 1] ep  9/10 train loss 0.0359 acc 0.9878 | test loss 0.2316 acc 0.9376 (82s)
+[ResNet-CNN seed 1] ep 10/10 train loss 0.0253 acc 0.9925 | test loss 0.2373 acc 0.9381 (82s)
+{
+  "params": {
+    "plain": 584618,
+    "residual": 584618
+  },
+  "epochs": 10,
+  "plain": {
+    "final_test_acc_mean": 0.93605,
+    "final_test_acc_std": 0.0009500000000000064,
+    "best_test_acc_mean": 0.93605,
+    "final_test_loss_mean": 0.2573308013916016,
+    "final_train_acc_mean": 0.9955166666666666,
+    "final_test_acc_per_seed": [
+      0.937,
+      0.9351
+    ],
+    "sec_per_epoch": 83.02655620574951,
+    "per_class_acc_seed0": {
+      "T-shirt/top": 0.9,
+      "Trouser": 0.989,
+      "Pullover": 0.913,
+      "Dress": 0.939,
+      "Coat": 0.912,
+      "Sandal": 0.986,
+      "Shirt": 0.796,
+      "Sneaker": 0.982,
+      "Bag": 0.989,
+      "Ankle boot": 0.964
+    }
+  },
+  "residual": {
+    "final_test_acc_mean": 0.93645,
+    "final_test_acc_std": 0.0016500000000000403,
+    "best_test_acc_mean": 0.93645,
+    "final_test_loss_mean": 0.24635207061767578,
+    "final_train_acc_mean": 0.9925416666666667,
+    "final_test_acc_per_seed": [
+      0.9348,
+      0.9381
+    ],
+    "sec_per_epoch": 84.01239281892776,
+    "per_class_acc_seed0": {
+      "T-shirt/top": 0.902,
+      "Trouser": 0.988,
+      "Pullover": 0.908,
+      "Dress": 0.934,
+      "Coat": 0.905,
+      "Sandal": 0.986,
+      "Shirt": 0.791,
+      "Sneaker": 0.975,
+      "Bag": 0.988,
+      "Ankle boot": 0.971
+    }
+  }
+}
