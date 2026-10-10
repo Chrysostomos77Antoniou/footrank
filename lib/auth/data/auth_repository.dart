@@ -10,6 +10,7 @@ import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:footrank/auth/data/legal_versions.dart';
 import 'package:footrank/services/fcm_token_service.dart';
 import 'package:footrank/services/supabase_service.dart';
 
@@ -198,6 +199,38 @@ class AuthRepository {
   /// (after they followed the reset link from their email).
   Future<void> updatePassword(String newPassword) =>
       _client.auth.updateUser(UserAttributes(password: newPassword));
+
+  /// Cached id of the user who has already accepted the current legal
+  /// documents, so the router doesn't hit the database on every navigation.
+  static String? _consentCachedFor;
+
+  static void invalidateConsentCache() => _consentCachedFor = null;
+
+  /// True when the signed-in user has accepted the current Terms of Service
+  /// and Privacy Policy versions (see [LegalVersions]).
+  Future<bool> hasAcceptedCurrentLegal() async {
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) return false;
+    if (_consentCachedFor == uid) return true;
+    final res = await _client.rpc('has_accepted_legal', params: {
+      'p_terms_version': LegalVersions.terms,
+      'p_privacy_version': LegalVersions.privacy,
+    });
+    final ok = res == true;
+    if (ok) _consentCachedFor = uid;
+    return ok;
+  }
+
+  /// Records, server-side, that the signed-in user accepted the current Terms
+  /// of Service and Privacy Policy and confirmed they are at least 16.
+  Future<void> recordLegalConsent({String source = 'app'}) async {
+    await _client.rpc('record_legal_consent', params: {
+      'p_terms_version': LegalVersions.terms,
+      'p_privacy_version': LegalVersions.privacy,
+      'p_source': source,
+    });
+    _consentCachedFor = _client.auth.currentUser?.id;
+  }
 
   /// Permanently deletes the current user's account and all their data.
   ///

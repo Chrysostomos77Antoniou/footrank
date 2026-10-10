@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:footrank/auth/data/auth_flow.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
+import 'package:footrank/auth/presentation/pages/accept_terms_page.dart';
 import 'package:footrank/auth/presentation/pages/login_page.dart';
 import 'package:footrank/auth/presentation/pages/register_page.dart';
 import 'package:footrank/auth/presentation/pages/reset_password_page.dart';
@@ -38,6 +39,7 @@ import 'package:footrank/core/theme/app_tokens.dart';
 class AppRoutes {
   static const login = '/login';
   static const register = '/register';
+  static const acceptTerms = '/accept-terms';
   static const profileSetup = '/profile-setup';
   static const pwrAssessment = '/pwr-assessment';
   static const promoCode = '/promo-code';
@@ -168,7 +170,26 @@ GoRouter buildRouter() => GoRouter(
     // Not logged in: only auth routes are allowed.
     if (!isLoggedIn) {
       ProfileRepository.invalidateCache();
+      AuthRepository.invalidateConsentCache();
       return isAuthRoute ? null : AppRoutes.login;
+    }
+
+    // Logged in but hasn't accepted the current Terms / Privacy Policy yet
+    // (covers new social sign-ins from the login screen, and everyone again
+    // whenever the documents are updated). Checked before anything else so
+    // no profile data is collected until they've agreed. Like the checks
+    // below, a failed lookup (e.g. offline) doesn't block the app.
+    final isConsentRoute = loc == AppRoutes.acceptTerms;
+    bool consented;
+    try {
+      consented = await _authRepo.hasAcceptedCurrentLegal().timeout(
+        const Duration(seconds: 6),
+      );
+    } catch (_) {
+      return isAuthRoute ? AppRoutes.home : null;
+    }
+    if (!consented) {
+      return isConsentRoute ? null : AppRoutes.acceptTerms;
     }
 
     // Logged in: ensure a profile row exists before entering the app.
@@ -204,7 +225,9 @@ GoRouter buildRouter() => GoRouter(
     }
 
     // Fully set up: keep them out of auth/setup/quiz screens.
-    if (isAuthRoute || isSetupRoute || isPwrRoute) return AppRoutes.home;
+    if (isAuthRoute || isSetupRoute || isPwrRoute || isConsentRoute) {
+      return AppRoutes.home;
+    }
     return null;
   },
   refreshListenable: _routerRefreshListenable(),
@@ -220,6 +243,10 @@ GoRouter buildRouter() => GoRouter(
     GoRoute(
       path: AppRoutes.register,
       builder: (context, state) => const RegisterPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.acceptTerms,
+      builder: (context, state) => const AcceptTermsPage(),
     ),
     GoRoute(
       path: AppRoutes.resetPassword,

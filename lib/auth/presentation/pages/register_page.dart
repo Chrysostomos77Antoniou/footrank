@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
+import 'package:footrank/auth/data/legal_versions.dart';
 import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
 import 'package:footrank/core/utils/password_strength.dart';
@@ -40,7 +41,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> _openLegal(String path) async {
     final uri = Uri.parse(
-      'https://chrysostomos77antoniou.github.io/footrank/$path',
+      '${LegalVersions.baseUrl}/$path',
     );
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
