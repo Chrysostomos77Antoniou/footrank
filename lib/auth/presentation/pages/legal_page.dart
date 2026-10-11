@@ -39,6 +39,7 @@ class _LegalPageState extends State<LegalPage> {
   late final WebViewController _controller;
   int _progress = 0;
   bool _failed = false;
+  double _swipeDx = 0;
 
   @override
   void initState() {
@@ -77,6 +78,27 @@ class _LegalPageState extends State<LegalPage> {
       ..loadRequest(widget.document.uri);
   }
 
+  /// A native web view swallows the iOS edge-swipe, so a thin strip on the
+  /// left edge listens for a right swipe and closes the page (back to Profile).
+  Widget _backSwipeStrip() {
+    return Positioned(
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 28,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragStart: (_) => _swipeDx = 0,
+        onHorizontalDragUpdate: (d) => _swipeDx += d.delta.dx,
+        onHorizontalDragEnd: (d) {
+          final fling = (d.primaryVelocity ?? 0) > 300;
+          if (_swipeDx > 48 || fling) Navigator.of(context).maybePop();
+          _swipeDx = 0;
+        },
+      ),
+    );
+  }
+
   void _reload() {
     setState(() {
       _failed = false;
@@ -85,48 +107,54 @@ class _LegalPageState extends State<LegalPage> {
     _controller.loadRequest(widget.document.uri);
   }
 
+  Widget _errorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 40),
+            const SizedBox(height: 12),
+            Text(
+              'Could not load the ${widget.document.title}. '
+              'Check your connection and try again.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _reload,
+              child: const Text('Try again'),
+            ),
+            TextButton(
+              onPressed: () => launchUrl(
+                widget.document.uri,
+                mode: LaunchMode.externalApplication,
+              ),
+              child: const Text('Open in browser'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.document.title)),
       body: SafeArea(
-        child: _failed
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.wifi_off_rounded, size: 40),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Could not load the ${widget.document.title}. '
-                        'Check your connection and try again.',
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      FilledButton(
-                        onPressed: _reload,
-                        child: const Text('Try again'),
-                      ),
-                      TextButton(
-                        onPressed: () => launchUrl(
-                          widget.document.uri,
-                          mode: LaunchMode.externalApplication,
-                        ),
-                        child: const Text('Open in browser'),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : Stack(
-                children: [
-                  WebViewWidget(controller: _controller),
-                  if (_progress < 100)
-                    LinearProgressIndicator(value: _progress / 100),
-                ],
-              ),
+        child: Stack(
+          children: [
+            if (_failed)
+              _errorView()
+            else
+              WebViewWidget(controller: _controller),
+            if (!_failed && _progress < 100)
+              LinearProgressIndicator(value: _progress / 100),
+            _backSwipeStrip(),
+          ],
+        ),
       ),
     );
   }
