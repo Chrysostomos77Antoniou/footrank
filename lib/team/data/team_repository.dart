@@ -62,9 +62,11 @@ class TeamRepository {
         .toList();
   }
 
-  /// Projected change of the team's Pitch Power (the average Pwr of its
-  /// roster) for [teamId] if its next [matchType] match is a win/draw/loss,
-  /// computed server-side (preview_team_rating_delta).
+  /// Projected Pitch Power (team rating) change for [teamId] if its next
+  /// [matchType] match is a win/draw/loss -- computed server-side with the
+  /// same catch-up-aware formula the completion trigger applies, so the
+  /// hidden roster-power number behind the catch-up bonus is never sent to
+  /// the client, only the resulting deltas.
   Future<({int win, int draw, int loss})> previewRatingDelta({
     required String teamId,
     required String matchType,
