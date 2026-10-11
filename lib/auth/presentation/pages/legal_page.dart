@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -21,9 +22,9 @@ enum LegalDocument {
 /// linked in the App Store / Google Play listings and can be updated without
 /// shipping a new app version.
 Future<void> openLegalDocument(BuildContext context, LegalDocument doc) {
-  return Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => LegalPage(document: doc)),
-  );
+  return Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => LegalPage(document: doc)));
 }
 
 class LegalPage extends StatefulWidget {
@@ -39,7 +40,6 @@ class _LegalPageState extends State<LegalPage> {
   late final WebViewController _controller;
   int _progress = 0;
   bool _failed = false;
-  double _swipeDx = 0;
 
   @override
   void initState() {
@@ -63,8 +63,8 @@ class _LegalPageState extends State<LegalPage> {
             // Keep the two legal pages in the app; send any other link
             // (e.g. the Commissioner's website) to the system browser.
             final url = Uri.tryParse(request.url);
-            final isOurs = url != null &&
-                request.url.startsWith(LegalVersions.baseUrl);
+            final isOurs =
+                url != null && request.url.startsWith(LegalVersions.baseUrl);
             if (isOurs || request.url == 'about:blank') {
               return NavigationDecision.navigate;
             }
@@ -76,27 +76,6 @@ class _LegalPageState extends State<LegalPage> {
         ),
       )
       ..loadRequest(widget.document.uri);
-  }
-
-  /// A native web view swallows the iOS edge-swipe, so a thin strip on the
-  /// left edge listens for a right swipe and closes the page (back to Profile).
-  Widget _backSwipeStrip() {
-    return Positioned(
-      left: 0,
-      top: 0,
-      bottom: 0,
-      width: 28,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: (_) => _swipeDx = 0,
-        onHorizontalDragUpdate: (d) => _swipeDx += d.delta.dx,
-        onHorizontalDragEnd: (d) {
-          final fling = (d.primaryVelocity ?? 0) > 300;
-          if (_swipeDx > 48 || fling) Navigator.of(context).maybePop();
-          _swipeDx = 0;
-        },
-      ),
-    );
   }
 
   void _reload() {
@@ -122,10 +101,7 @@ class _LegalPageState extends State<LegalPage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _reload,
-              child: const Text('Try again'),
-            ),
+            FilledButton(onPressed: _reload, child: const Text('Try again')),
             TextButton(
               onPressed: () => launchUrl(
                 widget.document.uri,
@@ -141,19 +117,36 @@ class _LegalPageState extends State<LegalPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.document.title)),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            if (_failed)
-              _errorView()
-            else
-              WebViewWidget(controller: _controller),
-            if (!_failed && _progress < 100)
-              LinearProgressIndicator(value: _progress / 100),
-            _backSwipeStrip(),
-          ],
+    // Swiping right must NOT leave this page (iOS edge-swipe back is off);
+    // the back arrow in the app bar is the way out. Android's system back
+    // still closes the page.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && defaultTargetPlatform == TargetPlatform.android) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.document.title),
+          leading: IconButton(
+            icon: const BackButtonIcon(),
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              if (_failed)
+                _errorView()
+              else
+                WebViewWidget(controller: _controller),
+              if (!_failed && _progress < 100)
+                LinearProgressIndicator(value: _progress / 100),
+            ],
+          ),
         ),
       ),
     );
