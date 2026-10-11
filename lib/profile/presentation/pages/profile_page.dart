@@ -1,7 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:footrank/auth/presentation/pages/legal_page.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
@@ -93,17 +93,6 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
       return;
     }
     if (mounted) context.go(AppRoutes.login);
-  }
-
-  Future<void> _openLegal(String path, String label) async {
-    final uri = Uri.parse(
-      'https://chrysostomos77antoniou.github.io/footrank/$path',
-    );
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        showError(context, 'Could not open the $label');
-      }
-    }
   }
 
   Future<void> _deleteAccount() async {
@@ -279,16 +268,16 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
                           _SettingsRow(
                             icon: Icons.privacy_tip_outlined,
                             label: 'Privacy Policy',
-                            trailing: Icons.open_in_new,
+                            trailing: Icons.chevron_right,
                             onTap: () =>
-                                _openLegal('privacy.html', 'privacy policy'),
+                                openLegalDocument(context, LegalDocument.privacy),
                           ),
                           _SettingsRow(
                             icon: Icons.description_outlined,
                             label: 'Terms of Service',
-                            trailing: Icons.open_in_new,
+                            trailing: Icons.chevron_right,
                             onTap: () =>
-                                _openLegal('terms.html', 'terms of service'),
+                                openLegalDocument(context, LegalDocument.terms),
                           ),
                           _SettingsRow(
                             icon: Icons.code,

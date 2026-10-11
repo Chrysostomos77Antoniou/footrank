@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
-import 'package:footrank/auth/data/legal_versions.dart';
+import 'package:footrank/auth/presentation/pages/legal_page.dart';
 import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
 import 'package:footrank/core/utils/password_strength.dart';
@@ -37,13 +36,6 @@ class _RegisterPageState extends State<RegisterPage> {
     _passwordCtrl.dispose();
     _passwordFocus.dispose();
     super.dispose();
-  }
-
-  Future<void> _openLegal(String path) async {
-    final uri = Uri.parse(
-      '${LegalVersions.baseUrl}/$path',
-    );
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   bool _requireAgreement() {
@@ -156,7 +148,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 children: [
                   Text('I agree to the ', style: textStyle),
                   InkWell(
-                    onTap: () => _openLegal('terms.html'),
+                    onTap: () => openLegalDocument(context, LegalDocument.terms),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Text('Terms of Service', style: linkStyle),
@@ -164,7 +156,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   Text(' and ', style: textStyle),
                   InkWell(
-                    onTap: () => _openLegal('privacy.html'),
+                    onTap: () => openLegalDocument(context, LegalDocument.privacy),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Text('Privacy Policy', style: linkStyle),

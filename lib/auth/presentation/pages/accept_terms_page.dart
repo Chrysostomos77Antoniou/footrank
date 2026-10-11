@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
-import 'package:footrank/auth/data/legal_versions.dart';
+import 'package:footrank/auth/presentation/pages/legal_page.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/routing/app_router.dart';
 
@@ -21,13 +20,6 @@ class _AcceptTermsPageState extends State<AcceptTermsPage> {
   final _repo = AuthRepository();
   bool _agreed = false;
   bool _saving = false;
-
-  Future<void> _open(String path) async {
-    await launchUrl(
-      Uri.parse('${LegalVersions.baseUrl}/$path'),
-      mode: LaunchMode.externalApplication,
-    );
-  }
 
   Future<void> _accept() async {
     setState(() => _saving = true);
@@ -84,14 +76,14 @@ class _AcceptTermsPageState extends State<AcceptTermsPage> {
                     spacing: 20,
                     children: [
                       InkWell(
-                        onTap: () => _open('terms.html'),
+                        onTap: () => openLegalDocument(context, LegalDocument.terms),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Text('Terms of Service', style: linkStyle),
                         ),
                       ),
                       InkWell(
-                        onTap: () => _open('privacy.html'),
+                        onTap: () => openLegalDocument(context, LegalDocument.privacy),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Text('Privacy Policy', style: linkStyle),
