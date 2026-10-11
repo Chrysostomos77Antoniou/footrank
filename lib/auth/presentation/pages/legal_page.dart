@@ -22,8 +22,11 @@ enum LegalDocument {
 /// linked in the App Store / Google Play listings and can be updated without
 /// shipping a new app version.
 Future<void> openLegalDocument(BuildContext context, LegalDocument doc) {
+  // Root navigator: the page must sit above the whole app, not inside the
+  // Profile tab, otherwise the tab bar's horizontal swipe still switches tabs.
   return Navigator.of(
     context,
+    rootNavigator: true,
   ).push(MaterialPageRoute<void>(builder: (_) => LegalPage(document: doc)));
 }
 
