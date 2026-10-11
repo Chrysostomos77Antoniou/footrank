@@ -53,12 +53,12 @@ football,soccer,5-a-side,matchmaking,ranking,elo,team,league,futsal,sports,amate
 - Data collected: name, email, profile photo, phone (optional), city, gameplay stats.
 - Used for: app functionality (account, matchmaking, rankings). Not sold.
 - In-app **account deletion** path: Profile → Delete Account ✅ (done), plus
-  email tomisapoelcity@gmail.com for other deletion requests.
+  email chrysostomos@footrankcy.com for other deletion requests.
 - Signup requires ticking "I agree to the Terms of Service and Privacy
   Policy" ✅ (done).
 
 ## Support
-- Support email: tomisapoelcity@gmail.com
+- Support email: chrysostomos@footrankcy.com
 
 ---
 
