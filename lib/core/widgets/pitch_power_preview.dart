@@ -3,12 +3,11 @@ import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/team/data/team_repository.dart';
 
-/// Shows the Pitch Power (team rating) a team stands to gain or lose for
-/// each possible outcome of its next match, before it's proposed, accepted,
-/// or played. The projection comes from a server RPC -- team rating now
-/// moves independently of player ELO (see apply_elo_on_completion), with a
-/// catch-up bonus based on the roster's hidden real skill, and that hidden
-/// number is never sent to the client, only the resulting deltas.
+/// Shows how much a team's Pitch Power (the average Pwr of its roster) is
+/// projected to move for each possible outcome of its next match, before it's
+/// proposed, accepted, or played. The projection comes from a server RPC
+/// (preview_team_rating_delta): team Pwr is the average of the players' Pwr,
+/// so it changes only when the players' own Pwr changes.
 class PitchPowerPreview extends StatefulWidget {
   final String teamId;
   final String matchType;
