@@ -1,10 +1,11 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 
 /// Route transition: incoming page fades in while drifting up slightly;
 /// the page underneath settles back. Subtle spatial continuity instead of a
-/// hard cut — applied app-wide via [ThemeData.pageTransitionsTheme].
+/// hard cut â€” applied app-wide via [ThemeData.pageTransitionsTheme].
 class _FadeSlidePageTransitionsBuilder extends PageTransitionsBuilder {
   const _FadeSlidePageTransitionsBuilder();
 
@@ -47,7 +48,7 @@ class _FadeSlidePageTransitionsBuilder extends PageTransitionsBuilder {
 ///
 /// This file consumes semantic tokens ([AppSemantic], [AppOpacity],
 /// [AppTypeScale], [AppFonts], [AppIconSize], [AppElevation]) and colours from
-/// [AppColors] — and nothing else. If you find yourself typing a number or a
+/// [AppColors] â€” and nothing else. If you find yourself typing a number or a
 /// `Color(0x...)` here, it belongs in `app_tokens.dart` or `app_colors.dart`
 /// first. The token file calls itself the single source of truth; this file is
 /// the one that has to prove it.
