@@ -13,6 +13,7 @@ import 'package:footrank/core/utils/motion.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/team_model.dart';
+import 'package:footrank/match/presentation/widgets/roster_picker.dart';
 import 'package:footrank/models/user_model.dart';
 import 'package:footrank/notifications/data/notification_repository.dart';
 import 'package:footrank/payment/presentation/widgets/pending_fee_banner.dart';
@@ -139,7 +140,17 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
       return;
     }
 
-    context.push(AppRoutes.createMatch, extra: team.id);
+    // Choose who is playing before the match details.
+    final roster = await showRosterSheet(
+      context,
+      members: members,
+      title: 'Who is playing for ${team.name}?',
+      confirmLabel: 'Continue',
+    );
+    if (!mounted || roster == null) return;
+
+    context.push(AppRoutes.createMatch,
+        extra: CreateMatchArgs(team.id, roster));
   }
 
   Future<void> _sync() async {

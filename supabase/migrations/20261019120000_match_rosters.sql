@@ -21,8 +21,13 @@ begin
   if new.roster_user_ids is null then
     return new;
   end if;
-  v_team := case when tg_table_name = 'match_requests'
-                 then new.team_id else new.proposing_team_id end;
+  -- Separate statements: plpgsql resolves NEW.<field> per executed statement,
+  -- a CASE expression would fail on the table that lacks the other column.
+  if tg_table_name = 'match_requests' then
+    v_team := new.team_id;
+  else
+    v_team := new.proposing_team_id;
+  end if;
   select array_agg(distinct x) into v_ids from unnest(new.roster_user_ids) x;
   if coalesce(array_length(v_ids, 1), 0) < 5 then
     raise exception 'ROSTER_MIN: a match roster needs at least 5 players';

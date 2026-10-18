@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
@@ -7,7 +8,6 @@ import 'package:footrank/core/widgets/app_button.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
-import 'package:footrank/profile/presentation/widgets/profile_fields.dart';
 import 'package:footrank/routing/app_router.dart';
 
 /// Minimum age to use FootRank. Mirrored server-side in
@@ -35,32 +35,73 @@ class DateOfBirthPage extends StatefulWidget {
 }
 
 class _DateOfBirthPageState extends State<DateOfBirthPage> {
+  static const _months = [
+    'January', 'February', 'March', 'April', 'May', 'June', 'July',
+    'August', 'September', 'October', 'November', 'December',
+  ];
+
   final _repo = ProfileRepository();
-  DateTime? _dob;
+  late int _year;
+  int _month = 1;
+  int _day = 1;
+  // Continue stays disabled until the user actually scrolls a wheel, so the
+  // starting position can never be saved as a made-up birthday.
+  bool _touched = false;
   bool _saving = false;
 
-  static String _fmt(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  late final FixedExtentScrollController _dayCtrl;
+  late final FixedExtentScrollController _monthCtrl;
+  late final FixedExtentScrollController _yearCtrl;
+
+  late final int _firstYear;
+  late final int _lastYear;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _lastYear = now.year;
+    _firstYear = 1920;
+    _year = now.year - 25;
+    _dayCtrl = FixedExtentScrollController(initialItem: _day - 1);
+    _monthCtrl = FixedExtentScrollController(initialItem: _month - 1);
+    _yearCtrl = FixedExtentScrollController(initialItem: _year - _firstYear);
+  }
+
+  @override
+  void dispose() {
+    _dayCtrl.dispose();
+    _monthCtrl.dispose();
+    _yearCtrl.dispose();
+    super.dispose();
+  }
+
+  int _daysIn(int month, int year) => DateTime(year, month + 1, 0).day;
+
+  DateTime get _dob => DateTime(_year, _month, _day);
+
+  bool get _future => _dob.isAfter(DateTime.now());
 
   bool get _underage =>
-      _dob != null && ageOn(_dob!, DateTime.now()) < kMinimumAge;
+      _touched && !_future && ageOn(_dob, DateTime.now()) < kMinimumAge;
 
-  Future<void> _pick() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _dob ?? DateTime(now.year - 25, 1, 1),
-      firstDate: DateTime(1920),
-      lastDate: now,
-      initialDatePickerMode: DatePickerMode.year,
-      helpText: 'Date of birth',
-    );
-    if (picked != null && mounted) setState(() => _dob = picked);
+  void _changed({int? day, int? month, int? year}) {
+    setState(() {
+      _touched = true;
+      if (day != null) _day = day;
+      if (month != null) _month = month;
+      if (year != null) _year = year;
+      final max = _daysIn(_month, _year);
+      if (_day > max) {
+        _day = max;
+        _dayCtrl.jumpToItem(_day - 1);
+      }
+    });
   }
 
   Future<void> _save() async {
+    if (!_touched || _underage || _future) return;
     final dob = _dob;
-    if (dob == null || _underage) return;
     setState(() => _saving = true);
     try {
       await _repo.saveMyDateOfBirth(dob);
@@ -84,10 +125,45 @@ class _DateOfBirthPageState extends State<DateOfBirthPage> {
     await AuthRepository().signOut();
   }
 
+  Widget _wheel({
+    required FixedExtentScrollController controller,
+    required int count,
+    required String Function(int) label,
+    required ValueChanged<int> onChanged,
+  }) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return CupertinoPicker(
+      scrollController: controller,
+      itemExtent: 42,
+      magnification: 1.08,
+      useMagnifier: true,
+      squeeze: 1.1,
+      selectionOverlay: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: AppColors.brand(context).withValues(alpha: 0.12),
+        ),
+      ),
+      onSelectedItemChanged: onChanged,
+      children: [
+        for (var i = 0; i < count; i++)
+          Center(
+            child: Text(
+              label(i),
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w600,
+                color: onSurface,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final fieldStyle = profileFieldTextStyle(context);
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -124,26 +200,64 @@ class _DateOfBirthPageState extends State<DateOfBirthPage> {
                           ),
                         ),
                         const SizedBox(height: 24),
-                        LabeledField(
-                          label: 'Date of birth',
-                          child: InkWell(
-                            onTap: _saving ? null : _pick,
-                            borderRadius: BorderRadius.circular(14),
-                            child: IgnorePointer(
-                              child: TextFormField(
-                                key: ValueKey(_dob),
-                                initialValue: _dob == null ? '' : _fmt(_dob!),
-                                readOnly: true,
-                                style: fieldStyle,
-                                decoration: profileInputDecoration(
-                                  context,
-                                  icon: Icons.cake_outlined,
-                                  hintText: 'Tap to choose',
-                                  helperText:
-                                      'Private. Only visible to FootRank admins.',
+                        SizedBox(
+                          height: 210,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: _wheel(
+                                  controller: _dayCtrl,
+                                  count: _daysIn(_month, _year),
+                                  label: (i) => '${i + 1}',
+                                  onChanged: (i) => _changed(day: i + 1),
                                 ),
                               ),
-                            ),
+                              Expanded(
+                                flex: 6,
+                                child: _wheel(
+                                  controller: _monthCtrl,
+                                  count: 12,
+                                  label: (i) => _months[i],
+                                  onChanged: (i) => _changed(month: i + 1),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 4,
+                                child: _wheel(
+                                  controller: _yearCtrl,
+                                  count: _lastYear - _firstYear + 1,
+                                  label: (i) => '${_firstYear + i}',
+                                  onChanged: (i) =>
+                                      _changed(year: _firstYear + i),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          !_touched
+                              ? 'Scroll each column to choose'
+                              : _future
+                                  ? 'That date is in the future'
+                                  : '${_dob.day} ${_months[_dob.month - 1]} ${_dob.year}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: _touched && !_future
+                                ? onSurface
+                                : AppColors.muted(context),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Private. Only visible to FootRank admins.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.muted(context),
                           ),
                         ),
                         if (_underage) ...[
@@ -171,7 +285,7 @@ class _DateOfBirthPageState extends State<DateOfBirthPage> {
                       AppButton(
                         label: 'Continue',
                         loading: _saving,
-                        onPressed: (_dob == null || _underage) ? null : _save,
+                        onPressed: (!_touched || _underage || _future) ? null : _save,
                       ),
                       const SizedBox(height: 4),
                       AppButton(

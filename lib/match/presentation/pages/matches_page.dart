@@ -434,9 +434,25 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     if (!mounted || team == null) return;
     // Keep the Matches view in sync with the team just chosen.
     _selectTeam(team);
+    // Then choose who is playing (same style of picker as the team choice).
+    final members = await _teamRepo.fetchMembers(team.id);
+    if (!mounted) return;
+    if (members.length < 5) {
+      showError(context,
+          '${team.name} needs at least 5 players before you can create a '
+          'match (currently ${members.length}).');
+      return;
+    }
+    final roster = await showRosterSheet(
+      context,
+      members: members,
+      title: 'Who is playing for ${team.name}?',
+      confirmLabel: 'Continue',
+    );
+    if (!mounted || roster == null) return;
     final created = await context.push<MatchRequestModel>(
       AppRoutes.createMatch,
-      extra: team.id,
+      extra: CreateMatchArgs(team.id, roster),
     );
     if (created != null) {
       _reloadRequests();

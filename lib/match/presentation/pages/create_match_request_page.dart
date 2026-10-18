@@ -23,14 +23,19 @@ import 'package:footrank/core/theme/theme_controller.dart';
 class CreateMatchRequestPage extends StatefulWidget {
   /// The captain's team id (required to create a request).
   final String teamId;
-  const CreateMatchRequestPage({super.key, required this.teamId});
+
+  /// Players chosen for the roster in the picker shown right after the team
+  /// selection (null = whole team).
+  final List<String>? initialRoster;
+  const CreateMatchRequestPage(
+      {super.key, required this.teamId, this.initialRoster});
 
   @override
   State<CreateMatchRequestPage> createState() => _CreateMatchRequestPageState();
 }
 
 class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
-    with ThemeRepaintMixin, SingleTickerProviderStateMixin {
+    with ThemeRepaintMixin {
   final _formKey = GlobalKey<FormState>();
   final _repo = MatchRepository();
   final _teamRepo = TeamRepository();
@@ -51,14 +56,11 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
   int _courtPage = 0;
 
   // Roster tab: who is playing. Starts with the whole team selected.
-  late final TabController _tabs;
   List<TeamMemberModel> _members = [];
   Set<String> _roster = {};
-  bool _membersLoading = true;
 
   @override
   void dispose() {
-    _tabs.dispose();
     _courtPageController.dispose();
     super.dispose();
   }
@@ -66,10 +68,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this)
-      ..addListener(() {
-        if (mounted) setState(() {});
-      });
+    _roster = {...?widget.initialRoster};
     _loadMembers();
     // Sensible defaults so a captain can create a match in a couple of taps.
     final now = DateTime.now();
@@ -87,11 +86,12 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
       if (!mounted) return;
       setState(() {
         _members = members;
-        _roster = members.map((m) => m.userId).toSet();
-        _membersLoading = false;
+        if (_roster.isEmpty) {
+          _roster = members.map((m) => m.userId).toSet();
+        }
       });
     } catch (_) {
-      if (mounted) setState(() => _membersLoading = false);
+      // The roster row just stays on its default; submit still validates.
     }
   }
 
@@ -171,7 +171,6 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
       return;
     }
     if (_roster.length < kMinRoster) {
-      _tabs.animateTo(1);
       showError(context,
           'Pick at least $kMinRoster players for your roster');
       return;
@@ -456,6 +455,56 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
     ),
   );
 
+  Future<void> _editRoster() async {
+    if (_members.isEmpty) return;
+    final picked = await showRosterSheet(
+      context,
+      members: _members,
+      initial: _roster,
+    );
+    if (picked != null && mounted) setState(() => _roster = picked.toSet());
+  }
+
+  Widget _buildRosterRow() {
+    final theme = Theme.of(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
+      onTap: _editRoster,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.chip(context),
+          borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.groups_outlined, color: AppColors.brand(context)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Roster',
+                      style: theme.textTheme.labelLarge
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    '${_roster.length} players selected',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.muted(context)),
+                  ),
+                ],
+              ),
+            ),
+            Text('Edit',
+                style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.brand(context))),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateLabel = _date == null
@@ -472,26 +521,15 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
       ),
       body: AmbientBackground(
         child: SafeArea(
-          child: Column(
-            children: [
-              TabBar(
-                controller: _tabs,
-                tabs: [
-                  const Tab(text: 'Match'),
-                  Tab(text: 'Roster (${_roster.length})'),
-                ],
-              ),
-              Expanded(
-                child: IndexedStack(
-                  index: _tabs.index,
-                  children: [
-          SingleChildScrollView(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  FadeSlideIn(child: _buildRosterRow()),
+                  const SizedBox(height: 16),
                   FadeSlideIn(
                     child: Row(
                       children: [
@@ -672,60 +710,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
               ),
             ),
           ),
-                    _buildRosterTab(),
-                  ],
-                ),
-              ),
-            ],
-          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildRosterTab() {
-    final theme = Theme.of(context);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Who is playing?',
-              style: theme.textTheme.labelLarge
-                  ?.copyWith(fontSize: 14, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
-          Text(
-            'Pick the players for this match (at least $kMinRoster). '
-            'You and your vice-captain can change the roster any time until kick-off.',
-            style: theme.textTheme.bodySmall?.copyWith(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppColors.muted(context)),
-          ),
-          const SizedBox(height: 12),
-          if (_membersLoading)
-            const LoadingView()
-          else
-            RosterPicker(
-              members: _members,
-              selected: _roster,
-              onChanged: (s) => setState(() => _roster = s),
-            ),
-          const SizedBox(height: 20),
-          FilledButton(
-            onPressed: _loading ? null : _submit,
-            child: _loading
-                ? SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.onAction(context),
-                    ),
-                  )
-                : const Text('Create Match Request'),
-          ),
-        ],
       ),
     );
   }

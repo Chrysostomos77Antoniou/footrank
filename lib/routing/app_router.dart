@@ -37,6 +37,14 @@ import 'package:footrank/team/presentation/pages/join_team_page.dart';
 import 'package:footrank/team/presentation/pages/team_page.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 
+/// Extra passed to [AppRoutes.createMatch]: the chosen team plus the roster
+/// picked right after the team selection.
+class CreateMatchArgs {
+  final String teamId;
+  final List<String> roster;
+  const CreateMatchArgs(this.teamId, this.roster);
+}
+
 class AppRoutes {
   static const login = '/login';
   static const register = '/register';
@@ -348,7 +356,12 @@ GoRouter buildRouter() => GoRouter(
     GoRoute(
       path: AppRoutes.createMatch,
       pageBuilder: (context, state) => _animatedPage(
-        CreateMatchRequestPage(teamId: state.extra! as String),
+        state.extra is CreateMatchArgs
+            ? CreateMatchRequestPage(
+                teamId: (state.extra! as CreateMatchArgs).teamId,
+                initialRoster: (state.extra! as CreateMatchArgs).roster,
+              )
+            : CreateMatchRequestPage(teamId: state.extra! as String),
         state,
       ),
     ),
