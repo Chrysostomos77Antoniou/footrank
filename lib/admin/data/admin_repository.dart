@@ -12,6 +12,9 @@ import 'package:footrank/profile/data/profile_repository.dart'
     show normalizeImageExt, imageContentType;
 import 'package:footrank/services/supabase_service.dart';
 
+/// A team a player belongs to, with their role and join date.
+typedef AdminUserTeam = ({String role, DateTime joinedAt, TeamModel team});
+
 /// Backs the admin web panel. Reads rely on this app's already-open
 /// `SELECT` policies (any authenticated user can read courts/matches/
 /// requests/teams/users -- verified during the security assessment
@@ -176,9 +179,7 @@ class AdminRepository {
   Future<List<MatchCancellationModel>> fetchMatchCancellations() async {
     final data = await _client.rpc('admin_fetch_match_cancellations');
     return (data as List)
-        .map(
-          (e) => MatchCancellationModel.fromJson(e as Map<String, dynamic>),
-        )
+        .map((e) => MatchCancellationModel.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
@@ -200,7 +201,7 @@ class AdminRepository {
   static const _userColumns =
       'id,name,username,city,position,elo,reliability,'
       'behavior_positive,behavior_negative,matches_played,avatar_url,'
-      'dispute_count,flagged,created_at';
+      'dispute_count,flagged,created_at,pwr_assessment_completed_at';
 
   Future<List<UserModel>> fetchAllUsers() async {
     final data = await _client
@@ -211,6 +212,23 @@ class AdminRepository {
     return (data as List)
         .map((e) => UserModel.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Just the two columns the dashboard's growth numbers need -- cheap enough
+  /// to pull for every player, so the totals don't stop at the list cap above.
+  Future<List<({DateTime createdAt, int matchesPlayed})>>
+  fetchUserGrowth() async {
+    final data = await _client
+        .from('users')
+        .select('created_at,matches_played')
+        .limit(10000);
+    return (data as List).map((e) {
+      final m = e as Map<String, dynamic>;
+      return (
+        createdAt: DateTime.parse(m['created_at'] as String),
+        matchesPlayed: (m['matches_played'] as num?)?.toInt() ?? 0,
+      );
+    }).toList();
   }
 
   Future<List<UserModel>> searchUsers(String query) async {
@@ -262,6 +280,76 @@ class AdminRepository {
         )
         .gt('dispute_rounds', 0)
         .order('scheduled_at', ascending: false);
+    return (data as List)
+        .map((e) => MatchModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  // ---- Player / team detail ----
+
+  /// A player's private details (contact phone, date of birth). Both live in
+  /// owner-only tables, so this goes through an admin-only RPC. Each is null
+  /// when the player never provided it.
+  Future<({String? phone, DateTime? dateOfBirth})> fetchUserPrivate(
+    String userId,
+  ) async {
+    final data = await _client.rpc(
+      'admin_get_user_private',
+      params: {'p_user_id': userId},
+    );
+    final rows = data as List;
+    if (rows.isEmpty) return (phone: null, dateOfBirth: null);
+    final row = rows.first as Map<String, dynamic>;
+    final phone = row['phone'] as String?;
+    final dob = row['date_of_birth'] as String?;
+    return (
+      phone: (phone == null || phone.isEmpty) ? null : phone,
+      dateOfBirth: dob == null ? null : DateTime.tryParse(dob),
+    );
+  }
+
+  /// A player's sign-in email (lives in auth.users, so admin-only RPC).
+  Future<String?> fetchUserEmail(String userId) async {
+    final data = await _client
+        .rpc('admin_get_user_email', params: {'p_user_id': userId});
+    final email = data as String?;
+    return (email == null || email.isEmpty) ? null : email;
+  }
+
+  /// Every team [userId] belongs to (newest membership first).
+  Future<List<AdminUserTeam>> fetchUserTeams(String userId) async {
+    final data = await _client
+        .from('team_members')
+        .select('role,joined_at,teams(*)')
+        .eq('user_id', userId);
+    final out = <AdminUserTeam>[];
+    for (final e in data as List) {
+      final m = e as Map<String, dynamic>;
+      final t = m['teams'];
+      if (t is! Map<String, dynamic>) continue;
+      out.add((
+        role: m['role'] as String,
+        joinedAt: DateTime.parse(m['joined_at'] as String),
+        team: TeamModel.fromJson(t),
+      ));
+    }
+    out.sort((a, b) => b.joinedAt.compareTo(a.joinedAt));
+    return out;
+  }
+
+  /// Latest matches involving any of [teamIds], newest first.
+  Future<List<MatchModel>> fetchMatchesForTeams(
+    List<String> teamIds, {
+    int limit = 30,
+  }) async {
+    if (teamIds.isEmpty) return [];
+    final ids = teamIds.join(',');
+    final data = await _client
+        .from('matches')
+        .select(_matchJoins)
+        .or('home_team_id.in.($ids),away_team_id.in.($ids)')
+        .order('scheduled_at', ascending: false)
+        .limit(limit);
     return (data as List)
         .map((e) => MatchModel.fromJson(e as Map<String, dynamic>))
         .toList();

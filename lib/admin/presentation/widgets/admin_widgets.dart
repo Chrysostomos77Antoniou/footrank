@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:footrank/admin/presentation/widgets/admin_ui.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
+import 'package:footrank/core/utils/motion.dart';
 import 'package:footrank/core/widgets/premium.dart';
+
+export 'admin_ui.dart';
 
 /// Shared showDialog(...) timing for every dialog in the admin panel.
 /// Flutter's own default (confirmed in the SDK source) is a 150ms fade with
@@ -94,6 +98,9 @@ class AdminStatCard extends StatelessWidget {
   final Color? accent;
   final VoidCallback? onTap;
 
+  /// Position in the dashboard grid -- drives the entrance stagger.
+  final int index;
+
   const AdminStatCard({
     super.key,
     required this.icon,
@@ -101,44 +108,43 @@ class AdminStatCard extends StatelessWidget {
     required this.label,
     this.accent,
     this.onTap,
+    this.index = 0,
   });
 
   @override
   Widget build(BuildContext context) {
     final color = accent ?? AppColors.brand(context);
-    return GlassCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(AppRadius.md),
+    return FadeSlideIn(
+      delay: AppMotion.staggerFor(index),
+      animateOnceId: 'admin-stat-$label',
+      offsetY: 8,
+      child: GlassCard(
+        onTap: onTap,
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Row(
+          children: [
+            AdminIconChip(icon: icon, color: color, size: 46),
+            const SizedBox(width: AppSpacing.md),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _StatValue(
+                  value,
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).hintColor,
+                  ),
+                ),
+              ],
             ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: Theme.of(
-                  context,
-                ).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              Text(
-                label,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -244,7 +250,18 @@ class AdminTableHeader extends StatelessWidget {
 class AdminEmptyState extends StatelessWidget {
   final IconData icon;
   final String message;
-  const AdminEmptyState({super.key, required this.icon, required this.message});
+
+  /// Optional recovery action, e.g. "Clear filters".
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const AdminEmptyState({
+    super.key,
+    required this.icon,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -252,13 +269,46 @@ class AdminEmptyState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl),
       child: Center(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 40, color: Theme.of(context).hintColor),
             const SizedBox(height: AppSpacing.sm),
             Text(message, style: TextStyle(color: Theme.of(context).hintColor)),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              AdminPressScale(
+                child: TextButton(
+                  onPressed: onAction,
+                  style: TextButton.styleFrom(
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    foregroundColor: AppColors.brand(context),
+                  ),
+                  child: Text(actionLabel!),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+}
+
+/// Stat number: counts up the first time it appears when it is an integer
+/// (the dashboard's payoff moment), otherwise renders as plain text.
+class _StatValue extends StatelessWidget {
+  final String value;
+  final TextStyle? style;
+  const _StatValue(this.value, {this.style});
+
+  @override
+  Widget build(BuildContext context) {
+    final n = int.tryParse(value);
+    if (n == null || reduceMotion(context)) return Text(value, style: style);
+    return AnimatedCount(n, style: style, duration: AppMotion.count);
   }
 }

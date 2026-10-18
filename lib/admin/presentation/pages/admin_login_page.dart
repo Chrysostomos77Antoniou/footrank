@@ -1,9 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:footrank/admin/data/admin_repository.dart';
 import 'package:footrank/admin/presentation/widgets/admin_widgets.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/utils/error_text.dart';
+import 'package:footrank/core/utils/motion.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/services/supabase_service.dart';
@@ -32,6 +35,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   final _adminRepo = AdminRepository();
   bool _loading = false;
   String? _error;
+  int _shakes = 0;
 
   @override
   void dispose() {
@@ -60,6 +64,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
       if (mounted) {
         setState(() {
           _error = e is StateError ? e.message : friendlyError(e);
+          _shakes++;
         });
       }
     } finally {
@@ -78,71 +83,89 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 380),
               child: FadeSlideIn(
-                child: GlassCard(
-                  padding: const EdgeInsets.all(AppSpacing.xxl),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Center(child: AdminLogo(size: 64)),
-                        const SizedBox(height: AppSpacing.lg),
-                        Center(
-                          child: GradientText(
-                            'FootRank Admin',
-                            style: Theme.of(context).textTheme.displayMedium!.copyWith(
-                              fontSize: 26,
-                              letterSpacing: -0.5,
+                child: _Shake(
+                  trigger: _shakes,
+                  child: GlassCard(
+                    padding: const EdgeInsets.all(AppSpacing.xxl),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Center(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.brand(
+                                      context,
+                                    ).withValues(alpha: 0.28),
+                                    blurRadius: 36,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: const AdminLogo(size: 64),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: AppSpacing.xxs),
-                        Center(
-                          child: Text(
-                            'Enter your password to continue',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).hintColor,
-                              fontSize: 13,
+                          const SizedBox(height: AppSpacing.lg),
+                          Center(
+                            child: GradientText(
+                              'FootRank Admin',
+                              style: Theme.of(context).textTheme.displayMedium!
+                                  .copyWith(fontSize: 26, letterSpacing: -0.5),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: AppSpacing.xl),
-                        TextFormField(
-                          controller: _password,
-                          autofocus: true,
-                          obscureText: true,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.headlineSmall?.copyWith(letterSpacing: 4),
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.lock_outline),
+                          const SizedBox(height: AppSpacing.xxs),
+                          Center(
+                            child: Text(
+                              'Enter your password to continue',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context).hintColor,
+                                    fontSize: 13,
+                                  ),
+                            ),
                           ),
-                          onFieldSubmitted: (_) => _submit(),
-                          validator: (v) => v == null || v.isEmpty
-                              ? 'Enter your password'
-                              : null,
-                        ),
-                        if (_error != null) ...[
-                          const SizedBox(height: AppSpacing.md),
-                          Text(
-                            _error!,
+                          const SizedBox(height: AppSpacing.xl),
+                          TextFormField(
+                            controller: _password,
+                            autofocus: true,
+                            obscureText: true,
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.danger,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(letterSpacing: 4),
+                            decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.lock_outline),
                             ),
+                            onFieldSubmitted: (_) => _submit(),
+                            validator: (v) => v == null || v.isEmpty
+                                ? 'Enter your password'
+                                : null,
+                          ),
+                          if (_error != null) ...[
+                            const SizedBox(height: AppSpacing.md),
+                            Text(
+                              _error!,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: AppColors.danger,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ],
+                          const SizedBox(height: AppSpacing.xl),
+                          BrandButton(
+                            label: 'Sign in',
+                            loading: _loading,
+                            onPressed: _submit,
                           ),
                         ],
-                        const SizedBox(height: AppSpacing.xl),
-                        BrandButton(
-                          label: 'Sign in',
-                          loading: _loading,
-                          onPressed: _submit,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -151,6 +174,52 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A short horizontal shake that replays whenever [trigger] changes -- the
+/// form's way of saying "no" without a modal. Skipped for reduced motion.
+class _Shake extends StatefulWidget {
+  final int trigger;
+  final Widget child;
+  const _Shake({required this.trigger, required this.child});
+
+  @override
+  State<_Shake> createState() => _ShakeState();
+}
+
+class _ShakeState extends State<_Shake> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 360),
+  );
+
+  @override
+  void didUpdateWidget(_Shake old) {
+    super.didUpdateWidget(old);
+    if (widget.trigger != old.trigger && !reduceMotion(context)) {
+      _c.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      child: widget.child,
+      builder: (context, child) {
+        // Decaying sine: 3 swings, fading out.
+        final t = _c.value;
+        final dx = math.sin(t * math.pi * 6) * (1 - t) * 9;
+        return Transform.translate(offset: Offset(dx, 0), child: child);
+      },
     );
   }
 }

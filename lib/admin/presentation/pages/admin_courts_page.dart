@@ -6,56 +6,65 @@ import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/utils/error_text.dart';
+import 'package:footrank/core/utils/motion.dart';
 import 'package:footrank/core/widgets/brand_widgets.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:footrank/core/widgets/feedback.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AdminCourtsPage extends StatefulWidget {
-  const AdminCourtsPage({super.key});
+  /// Injected in widget tests; production uses the real repository.
+  final AdminRepository? repo;
+
+  const AdminCourtsPage({super.key, this.repo});
 
   @override
   State<AdminCourtsPage> createState() => _AdminCourtsPageState();
 }
 
-enum _ActiveFilter { all, active, inactive }
-
 class _AdminCourtsPageState extends State<AdminCourtsPage> {
-  final _repo = AdminRepository();
-  late Future<List<AdminCourtModel>> _future;
-  _ActiveFilter _filter = _ActiveFilter.all;
+  late final AdminRepository _repo = widget.repo ?? AdminRepository();
+  List<AdminCourtModel>? _courts;
+  Object? _error;
 
   @override
   void initState() {
     super.initState();
-    _reload();
+    _load();
   }
 
-  void _reload() => setState(() {
-    _future = _repo.fetchAllCourts();
-  });
-
-  List<AdminCourtModel> _applyFilter(List<AdminCourtModel> courts) {
-    switch (_filter) {
-      case _ActiveFilter.all:
-        return courts;
-      case _ActiveFilter.active:
-        return courts.where((c) => c.active).toList();
-      case _ActiveFilter.inactive:
-        return courts.where((c) => !c.active).toList();
+  Future<void> _load() async {
+    try {
+      final courts = await _repo.fetchAllCourts();
+      if (!mounted) return;
+      setState(() {
+        _courts = courts;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e);
     }
   }
 
+  void _replace(AdminCourtModel court) {
+    final current = _courts;
+    if (current == null) return;
+    setState(() {
+      _courts = [for (final c in current) c.id == court.id ? court : c];
+    });
+  }
+
   Future<void> _openEditor([AdminCourtModel? court]) async {
-    final result = await showDialog<AdminCourtModel>(
+    final result = await showAdminDialog<AdminCourtModel>(
       context: context,
-      animationStyle: kAdminDialogAnimationStyle,
       builder: (_) => _CourtEditorDialog(court: court),
     );
     if (result == null) return;
     try {
       await _repo.upsertCourt(result, isNew: court == null);
-      _reload();
+      await _load();
     } catch (e) {
       if (mounted) {
         showError(context, e);
@@ -63,11 +72,16 @@ class _AdminCourtsPageState extends State<AdminCourtsPage> {
     }
   }
 
+  /// Optimistic: the switch moves the instant it is tapped, and snaps back
+  /// (with an error) only if the save fails -- waiting on the network before
+  /// the control responds makes it feel broken.
   Future<void> _toggleActive(AdminCourtModel court) async {
+    final next = court.copyWith(active: !court.active);
+    _replace(next);
     try {
-      await _repo.upsertCourt(court.copyWith(active: !court.active));
-      _reload();
+      await _repo.upsertCourt(next);
     } catch (e) {
+      _replace(court);
       if (mounted) {
         showError(context, e);
       }
@@ -76,112 +90,520 @@ class _AdminCourtsPageState extends State<AdminCourtsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final courts = _courts;
+    final Widget body;
+    final String bodyKey;
+    if (courts != null) {
+      bodyKey = 'content';
+      body = AdminCourtsView(
+        courts: courts,
+        onEdit: _openEditor,
+        onToggleActive: _toggleActive,
+      );
+    } else if (_error != null) {
+      bodyKey = 'error';
+      body = Align(
+        alignment: Alignment.topCenter,
+        child: AdminEmptyState(
+          icon: Icons.error_outline,
+          message: friendlyError(_error!),
+          actionLabel: 'Try again',
+          onAction: () {
+            setState(() => _error = null);
+            _load();
+          },
+        ),
+      );
+    } else {
+      bodyKey = 'loading';
+      body = const AdminTableSkeleton();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AdminHeader(
           title: 'Courts',
           subtitle: 'Every bookable court, across every city.',
-          action: FilledButton.icon(
-            onPressed: () => _openEditor(),
-            // The app's global FilledButtonThemeData sets minimumSize to
-            // Size.fromHeight(52) for the mobile app's full-width buttons --
-            // that's Size(double.infinity, 52). Left as-is here, this button
-            // (a sibling of Expanded in a Row) claims effectively all the
-            // header's width, squeezing the title down to a sliver.
-            style: FilledButton.styleFrom(
-              minimumSize: Size.zero,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          action: AdminPressScale(
+            child: FilledButton.icon(
+              onPressed: () => _openEditor(),
+              // The app's global FilledButtonThemeData sets minimumSize to
+              // Size.fromHeight(52) for the mobile app's full-width buttons --
+              // that's Size(double.infinity, 52). Left as-is here, this button
+              // (a sibling of Expanded in a Row) claims effectively all the
+              // header's width, squeezing the title down to a sliver.
+              style: FilledButton.styleFrom(
+                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(isAdminPhone(context) ? 'Add' : 'Add court'),
             ),
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add court'),
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        Row(
-          children: [
-            ChoiceChip(
-              label: const Text('All'),
-              selected: _filter == _ActiveFilter.all,
-              onSelected: (_) => setState(() => _filter = _ActiveFilter.all),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            ChoiceChip(
-              label: const Text('Active'),
-              selected: _filter == _ActiveFilter.active,
-              onSelected: (_) =>
-                  setState(() => _filter = _ActiveFilter.active),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            ChoiceChip(
-              label: const Text('Inactive'),
-              selected: _filter == _ActiveFilter.inactive,
-              onSelected: (_) =>
-                  setState(() => _filter = _ActiveFilter.inactive),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
         Expanded(
-          child: FutureBuilder<List<AdminCourtModel>>(
-            future: _future,
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final courts = _applyFilter(snapshot.data!);
-              if (courts.isEmpty) {
-                return AdminEmptyState(
-                  icon: Icons.place_outlined,
-                  message: _filter == _ActiveFilter.all
-                      ? 'No courts yet -- add the first one.'
-                      : 'No ${_filter == _ActiveFilter.active ? 'active' : 'inactive'} courts.',
-                );
-              }
-              return FadeSlideIn(
-                // GlassCard doesn't force a width, so under the loose
-                // constraints this sits inside it shrinks to fit its
-                // content and then gets left where the Column places it --
-                // forcing full width here guarantees it always spans the
-                // page instead of floating narrower than expected.
-                child: SizedBox(
-                  width: double.infinity,
-                  child: GlassCard(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    child: AdminScrollableTable(
-                      child: Column(
-                        children: [
-                          const AdminTableHeader(
-                            columns: ['Court', 'City', 'Hours', 'Active', ''],
-                            flex: [3, 2, 3, 0, 0],
-                            fixedWidths: [null, null, null, 56, 44],
-                          ),
-                          for (final court in courts)
-                            _CourtRow(
-                              court: court,
-                              onEdit: () => _openEditor(court),
-                              onToggleActive: () => _toggleActive(court),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
+          child: AsyncSwitcher(switcherKey: bodyKey, child: body),
         ),
       ],
     );
   }
 }
 
-class _CourtRow extends StatelessWidget {
+/// Columns the admin can show or hide in the courts table. The court name
+/// itself is always shown. Declaration order is display order.
+enum CourtColumn {
+  city('City', 2),
+  address('Address', 3),
+  phone('Phone', 2),
+  hours('Hours', 3),
+  active('Active', 0, 56);
+
+  const CourtColumn(this.label, this.flex, [this.fixedWidth]);
+  final String label;
+  final int flex;
+  final double? fixedWidth;
+}
+
+enum CourtStatusFilter { all, active, inactive }
+
+const _kColumnsPrefsKey = 'admin_courts_columns';
+const _kDefaultColumns = {
+  CourtColumn.city,
+  CourtColumn.hours,
+  CourtColumn.active,
+};
+
+/// The courts filter bar + table. Public (and free of any network code) so
+/// it can be exercised in widget tests with fake data.
+class AdminCourtsView extends StatefulWidget {
+  final List<AdminCourtModel> courts;
+  final ValueChanged<AdminCourtModel> onEdit;
+  final ValueChanged<AdminCourtModel> onToggleActive;
+
+  const AdminCourtsView({
+    super.key,
+    required this.courts,
+    required this.onEdit,
+    required this.onToggleActive,
+  });
+
+  @override
+  State<AdminCourtsView> createState() => _AdminCourtsViewState();
+}
+
+class _AdminCourtsViewState extends State<AdminCourtsView> {
+  CourtStatusFilter _status = CourtStatusFilter.all;
+  String? _city;
+  String _query = '';
+  final _search = TextEditingController();
+  Set<CourtColumn> _columns = {..._kDefaultColumns};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadColumns();
+  }
+
+  // Which columns are shown is a personal view preference, so it survives
+  // reloads. Best-effort: if storage is unavailable the defaults stand.
+  Future<void> _loadColumns() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList(_kColumnsPrefsKey);
+      if (saved == null || !mounted) return;
+      setState(() {
+        _columns = CourtColumn.values
+            .where((c) => saved.contains(c.name))
+            .toSet();
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveColumns() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+        _kColumnsPrefsKey,
+        _columns.map((c) => c.name).toList(),
+      );
+    } catch (_) {}
+  }
+
+  void _toggleColumn(CourtColumn column) {
+    setState(() {
+      _columns = _columns.contains(column)
+          ? ({..._columns}..remove(column))
+          : ({..._columns}..add(column));
+    });
+    _saveColumns();
+  }
+
+  void _clearFilters() {
+    _search.clear();
+    setState(() {
+      _status = CourtStatusFilter.all;
+      _city = null;
+      _query = '';
+    });
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  /// A court is "complete" once players have everything they need to
+  /// actually go there: opening hours, a phone number and a photo.
+  static bool _isComplete(AdminCourtModel c) =>
+      (c.hours?.trim().isNotEmpty ?? false) &&
+      (c.phone?.trim().isNotEmpty ?? false) &&
+      (c.imageUrl?.trim().isNotEmpty ?? false);
+
+  @override
+  Widget build(BuildContext context) {
+    final all = widget.courts;
+
+    // City -> number of courts. A city that vanished (its last court was
+    // edited to another city) quietly stops filtering.
+    final cityCounts = <String, int>{};
+    for (final c in all) {
+      cityCounts[c.city] = (cityCounts[c.city] ?? 0) + 1;
+    }
+    final cities = cityCounts.keys.toList()..sort();
+    final city = cityCounts.containsKey(_city) ? _city : null;
+
+    // Status counts reflect the chosen city, so a chip never promises
+    // courts the city filter has already excluded.
+    final inCity = city == null
+        ? all
+        : all.where((c) => c.city == city).toList();
+    final activeCount = inCity.where((c) => c.active).length;
+    final byStatus = switch (_status) {
+      CourtStatusFilter.all => inCity,
+      CourtStatusFilter.active => inCity.where((c) => c.active).toList(),
+      CourtStatusFilter.inactive => inCity.where((c) => !c.active).toList(),
+    };
+    final q = _query.trim().toLowerCase();
+    final shown = q.isEmpty
+        ? byStatus
+        : byStatus
+              .where(
+                (c) =>
+                    c.name.toLowerCase().contains(q) ||
+                    c.city.toLowerCase().contains(q) ||
+                    (c.address?.toLowerCase().contains(q) ?? false),
+              )
+              .toList();
+    final isFiltered =
+        city != null || _status != CourtStatusFilter.all || q.isNotEmpty;
+    final completeCount = all.where(_isComplete).length;
+
+    final columns = CourtColumn.values.where(_columns.contains).toList();
+
+    final phone = isAdminPhone(context);
+    final searchField = AdminSearchField(
+      controller: _search,
+      hint: 'Search courts…',
+      onChanged: (v) => setState(() => _query = v),
+    );
+    final statusChips = <Widget>[
+      AdminFilterChip(
+        label: 'All',
+        count: inCity.length,
+        selected: _status == CourtStatusFilter.all,
+        onTap: () => setState(() => _status = CourtStatusFilter.all),
+      ),
+      AdminFilterChip(
+        label: 'Active',
+        count: activeCount,
+        selected: _status == CourtStatusFilter.active,
+        onTap: () => setState(() => _status = CourtStatusFilter.active),
+      ),
+      AdminFilterChip(
+        label: 'Inactive',
+        count: inCity.length - activeCount,
+        selected: _status == CourtStatusFilter.inactive,
+        onTap: () => setState(() => _status = CourtStatusFilter.inactive),
+      ),
+    ];
+    final divider = Container(
+      width: 1,
+      height: 18,
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      color: AppColors.inputBorder(context),
+    );
+    final cityPopover = AdminPopover(
+      triggerBuilder: (context, toggle, open) => AdminFilterChip(
+        icon: Icons.location_city_outlined,
+        label: city ?? 'All cities',
+        selected: city != null,
+        caret: true,
+        open: open,
+        onTap: toggle,
+      ),
+      menuBuilder: (context, close) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AdminMenuItem(
+            label: 'All cities',
+            hint: '${all.length}',
+            checked: city == null,
+            onTap: () {
+              setState(() => _city = null);
+              close();
+            },
+          ),
+          for (final name in cities)
+            AdminMenuItem(
+              label: name,
+              hint: '${cityCounts[name]}',
+              checked: city == name,
+              onTap: () {
+                setState(() => _city = name);
+                close();
+              },
+            ),
+        ],
+      ),
+    );
+    final columnsPopover = AdminPopover(
+      alignEnd: true,
+      width: 200,
+      triggerBuilder: (context, toggle, open) => AdminFilterChip(
+        icon: Icons.view_column_outlined,
+        label: 'Columns',
+        selected: false,
+        caret: true,
+        open: open,
+        onTap: toggle,
+      ),
+      // Stays open while toggling so several columns can be changed in one go.
+      menuBuilder: (context, close) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+            child: Text(
+              'SHOW COLUMNS',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).hintColor,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+              ),
+            ),
+          ),
+          for (final c in CourtColumn.values)
+            AdminMenuItem(
+              label: c.label,
+              checked: _columns.contains(c),
+              onTap: () => _toggleColumn(c),
+            ),
+        ],
+      ),
+    );
+
+    final brand = AppColors.brand(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AdminGrid(
+          phoneScroll: true,
+          minTileWidth: 210,
+          count: 4,
+          itemBuilder: (i, w) => switch (i) {
+            0 => AdminMiniStat(
+              index: 0,
+              icon: Icons.place_rounded,
+              value: '${all.length}',
+              label: 'Courts on file',
+              color: brand,
+            ),
+            1 => AdminMiniStat(
+              index: 1,
+              icon: Icons.visibility_rounded,
+              value: '${all.where((c) => c.active).length}',
+              label: 'Live for players',
+              color: AppColors.success,
+            ),
+            2 => AdminMiniStat(
+              index: 2,
+              icon: Icons.fact_check_rounded,
+              value: '$completeCount of ${all.length}',
+              label: 'Profiles complete',
+              color: AppColors.gold,
+              progress: all.isEmpty ? 0 : completeCount / all.length,
+            ),
+            _ => AdminMiniStat(
+              index: 3,
+              icon: Icons.location_city_rounded,
+              value: '${cityCounts.length}',
+              label: cityCounts.length == 1 ? 'City covered' : 'Cities covered',
+              color: brand,
+            ),
+          },
+        ),
+        const SizedBox(height: AppSpacing.md),
+        if (phone)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              searchField,
+              const SizedBox(height: AppSpacing.xs),
+              AdminFilterBar(children: [...statusChips, divider, cityPopover]),
+            ],
+          )
+        else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(width: 250, child: searchField),
+                    ...statusChips,
+                    divider,
+                    cityPopover,
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              columnsPopover,
+            ],
+          ),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          children: [
+            Text(
+              isFiltered
+                  ? 'Showing ${shown.length} of ${all.length} courts'
+                  : '${all.length} ${all.length == 1 ? 'court' : 'courts'}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).hintColor,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            if (isFiltered) ...[
+              const SizedBox(width: AppSpacing.xs),
+              AdminPressScale(
+                child: TextButton(
+                  onPressed: _clearFilters,
+                  style: TextButton.styleFrom(
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    foregroundColor: AppColors.brand(context),
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: const Text('Clear filters'),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Expanded(
+          child: shown.isEmpty
+              ? Align(
+                  alignment: Alignment.topCenter,
+                  child: AdminEmptyState(
+                    icon: Icons.place_outlined,
+                    message: all.isEmpty
+                        ? 'No courts yet -- add the first one.'
+                        : 'No courts match these filters.',
+                    actionLabel: all.isEmpty ? null : 'Clear filters',
+                    onAction: all.isEmpty ? null : _clearFilters,
+                  ),
+                )
+              : FadeSlideIn(
+                  // GlassCard doesn't force a width, so under the loose
+                  // constraints this sits inside it shrinks to fit its
+                  // content and then gets left where the Column places it --
+                  // forcing full width here guarantees it always spans the
+                  // page instead of floating narrower than expected.
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: GlassCard(
+                      padding: EdgeInsets.all(
+                        phone ? AppSpacing.xxs : AppSpacing.sm,
+                      ),
+                      child: AdminScrollableTable(
+                        child: Column(
+                          children: [
+                            if (!phone)
+                              AdminTableHeader(
+                                columns: [
+                                  'Court',
+                                  for (final c in columns) c.label,
+                                  '',
+                                ],
+                                flex: [3, for (final c in columns) c.flex, 0],
+                                fixedWidths: [
+                                  null,
+                                  for (final c in columns) c.fixedWidth,
+                                  44,
+                                ],
+                              ),
+                            for (var i = 0; i < shown.length; i++)
+                              // Only the first screenful cascades in, once
+                              // per court per session -- re-filtering is a
+                              // frequent action and must feel instant.
+                              FadeSlideIn(
+                                key: ValueKey(shown[i].id),
+                                delay: AppMotion.staggerFor(i),
+                                animateOnceId: 'admin-court-${shown[i].id}',
+                                offsetY: 6,
+                                child: phone
+                                    ? _CourtCard(
+                                        court: shown[i],
+                                        onEdit: () => widget.onEdit(shown[i]),
+                                        onToggleActive: () =>
+                                            widget.onToggleActive(shown[i]),
+                                      )
+                                    : _CourtRow(
+                                        court: shown[i],
+                                        columns: columns,
+                                        onEdit: () => widget.onEdit(shown[i]),
+                                        onToggleActive: () =>
+                                            widget.onToggleActive(shown[i]),
+                                      ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Phone version of a court row: two lines of identity on the left, the
+/// live switch on the right. The whole card opens the editor.
+class _CourtCard extends StatelessWidget {
   final AdminCourtModel court;
   final VoidCallback onEdit;
   final VoidCallback onToggleActive;
 
-  const _CourtRow({
+  const _CourtCard({
     required this.court,
     required this.onEdit,
     required this.onToggleActive,
@@ -189,82 +611,157 @@ class _CourtRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    final hint = Theme.of(context).hintColor;
+    final detail = [
+      court.city,
+      if (court.hours?.trim().isNotEmpty ?? false) court.hours!.trim(),
+    ].join(' · ');
+    return AdminRowTile(
       onTap: onEdit,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: 10,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Row(
-                children: [
-                  GradientAvatar(
-                    name: court.name,
-                    imageUrl: court.imageUrl,
-                    radius: 16,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      court.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(court.city),
-              ),
-            ),
-            Expanded(
-              flex: 3,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  court.hours ?? '—',
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          GradientAvatar(
+            name: court.name,
+            imageUrl: court.imageUrl,
+            radius: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  court.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Theme.of(context).hintColor),
-                ),
-              ),
-            ),
-            // Fixed-width trailing columns (not flex-proportional) so the
-            // switch and edit button sit in the same pixel position on
-            // every row, instead of drifting with each row's text length.
-            SizedBox(
-              width: 56,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Tooltip(
-                  message: court.active ? 'Active — tap to deactivate' : 'Inactive — tap to activate',
-                  child: Switch(
-                    value: court.active,
-                    onChanged: (_) => onToggleActive(),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
                   ),
                 ),
-              ),
+                const SizedBox(height: 2),
+                Text(
+                  detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12.5, color: hint),
+                ),
+              ],
             ),
-            SizedBox(
-              width: 44,
-              child: IconButton(
-                tooltip: 'Edit court',
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                onPressed: onEdit,
-              ),
+          ),
+          const SizedBox(width: 8),
+          Semantics(
+            label: court.active ? 'Active' : 'Inactive',
+            child: Switch(
+              value: court.active,
+              onChanged: (_) => onToggleActive(),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CourtRow extends StatelessWidget {
+  final AdminCourtModel court;
+  final List<CourtColumn> columns;
+  final VoidCallback onEdit;
+  final VoidCallback onToggleActive;
+
+  const _CourtRow({
+    required this.court,
+    required this.columns,
+    required this.onEdit,
+    required this.onToggleActive,
+  });
+
+  Widget _textCell(BuildContext context, CourtColumn column, String? text) {
+    final muted = column != CourtColumn.city;
+    return Expanded(
+      flex: column.flex,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          (text == null || text.isEmpty) ? '—' : text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: muted ? TextStyle(color: Theme.of(context).hintColor) : null,
         ),
+      ),
+    );
+  }
+
+  Widget _cell(BuildContext context, CourtColumn column) {
+    switch (column) {
+      case CourtColumn.city:
+        return _textCell(context, column, court.city);
+      case CourtColumn.address:
+        return _textCell(context, column, court.address);
+      case CourtColumn.phone:
+        return _textCell(context, column, court.phone);
+      case CourtColumn.hours:
+        return _textCell(context, column, court.hours);
+      case CourtColumn.active:
+        // Fixed-width trailing column (not flex-proportional) so the
+        // switch sits in the same pixel position on every row, instead of
+        // drifting with each row's text length.
+        return SizedBox(
+          width: column.fixedWidth,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Tooltip(
+              message: court.active
+                  ? 'Active — tap to deactivate'
+                  : 'Inactive — tap to activate',
+              child: Switch(
+                value: court.active,
+                onChanged: (_) => onToggleActive(),
+              ),
+            ),
+          ),
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AdminRowTile(
+      onTap: onEdit,
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Row(
+              children: [
+                GradientAvatar(
+                  name: court.name,
+                  imageUrl: court.imageUrl,
+                  radius: 16,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    court.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          for (final c in columns) _cell(context, c),
+          SizedBox(
+            width: 44,
+            child: IconButton(
+              tooltip: 'Edit court',
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              onPressed: onEdit,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -413,7 +910,9 @@ class _CourtEditorDialogState extends State<_CourtEditorDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _DialogTitleBar(
-                  icon: isNew ? Icons.add_location_alt_outlined : Icons.edit_location_alt_outlined,
+                  icon: isNew
+                      ? Icons.add_location_alt_outlined
+                      : Icons.edit_location_alt_outlined,
                   title: isNew ? 'Add court' : 'Edit court',
                   subtitle: isNew
                       ? 'Create a new bookable court'
@@ -440,9 +939,8 @@ class _CourtEditorDialogState extends State<_CourtEditorDialog> {
                           const SizedBox(height: AppSpacing.xs),
                           Text(
                             _uploadError!,
-                            style: Theme.of(
-                              context,
-                            ).textTheme.labelMedium?.copyWith(color: AppColors.danger),
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(color: AppColors.danger),
                           ),
                         ],
                         const SizedBox(height: AppSpacing.xl),
@@ -462,14 +960,15 @@ class _CourtEditorDialogState extends State<_CourtEditorDialog> {
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         DropdownButtonFormField<String>(
-                          value: _city,
+                          initialValue: _city,
                           decoration: const InputDecoration(
                             labelText: 'City',
                             prefixIcon: Icon(Icons.location_city, size: 20),
                           ),
                           items: kCities
                               .map(
-                                (c) => DropdownMenuItem(value: c, child: Text(c)),
+                                (c) =>
+                                    DropdownMenuItem(value: c, child: Text(c)),
                               )
                               .toList(),
                           onChanged: (c) => setState(() => _city = c ?? _city),
@@ -497,7 +996,10 @@ class _CourtEditorDialogState extends State<_CourtEditorDialog> {
                                 controller: _phone,
                                 decoration: const InputDecoration(
                                   labelText: 'Phone',
-                                  prefixIcon: Icon(Icons.call_outlined, size: 20),
+                                  prefixIcon: Icon(
+                                    Icons.call_outlined,
+                                    size: 20,
+                                  ),
                                 ),
                               ),
                             ),
@@ -555,7 +1057,9 @@ class _CourtEditorDialogState extends State<_CourtEditorDialog> {
                               context,
                             ).withValues(alpha: _active ? 0.08 : 0),
                             borderRadius: BorderRadius.circular(AppRadius.md),
-                            border: Border.all(color: AppColors.border(context)),
+                            border: Border.all(
+                              color: AppColors.border(context),
+                            ),
                           ),
                           child: SwitchListTile(
                             contentPadding: const EdgeInsets.symmetric(
@@ -592,16 +1096,20 @@ class _CourtEditorDialogState extends State<_CourtEditorDialog> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('Cancel'),
+                        child: AdminPressScale(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('Cancel'),
+                          ),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
-                        child: FilledButton(
-                          onPressed: _save,
-                          child: const Text('Save'),
+                        child: AdminPressScale(
+                          child: FilledButton(
+                            onPressed: _save,
+                            child: const Text('Save'),
+                          ),
                         ),
                       ),
                     ],
@@ -672,9 +1180,9 @@ class _DialogTitleBar extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).hintColor,
+                  ),
                 ),
               ],
             ),
@@ -821,7 +1329,9 @@ class _CourtPhotoPicker extends StatelessWidget {
                       Icon(
                         Icons.upload_outlined,
                         size: 16,
-                        color: hasImage ? Colors.white : AppColors.brand(context),
+                        color: hasImage
+                            ? Colors.white
+                            : AppColors.brand(context),
                       ),
                     const SizedBox(width: AppSpacing.xs),
                     Text(
