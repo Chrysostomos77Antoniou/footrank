@@ -12,6 +12,7 @@ import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/core/utils/error_text.dart';
 import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
+import 'package:footrank/match/presentation/widgets/roster_picker.dart';
 import 'package:footrank/models/court_model.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/payment/data/payment_repository.dart';
@@ -302,8 +303,24 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       return;
     }
 
+    // Captain / vice-captain choose who is playing. Other members propose
+    // with the whole team on the roster (they can edit it afterwards).
+    final uid = SupabaseService.client.auth.currentUser?.id;
+    final me = members.where((m) => m.userId == uid).firstOrNull;
+    List<String>? roster;
+    if (me != null && (me.isCaptain || me.isViceCaptain)) {
+      roster = await showRosterSheet(
+        context,
+        members: members,
+        title: 'Who is playing for ${team.name}?',
+        confirmLabel: 'Send Proposal',
+      );
+      if (roster == null || !mounted) return;
+    }
+
     try {
-      await _matchRepo.proposeMatch(requestId: opponent.id, teamId: team.id);
+      await _matchRepo.proposeMatch(
+          requestId: opponent.id, teamId: team.id, rosterUserIds: roster);
       if (!mounted) return;
       showSuccess(context, 'Proposal sent vs ${opponent.teamName}. Waiting for their '
                 'captain to pick.');

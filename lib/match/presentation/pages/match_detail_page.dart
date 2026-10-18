@@ -8,6 +8,7 @@ import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/pitch_power_preview.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/match_repository.dart';
+import 'package:footrank/match/presentation/widgets/roster_picker.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_player_model.dart';
 import 'package:footrank/models/match_payment_model.dart';
@@ -70,6 +71,9 @@ class _MatchDetailPageState extends State<MatchDetailPage>
   List<TeamMemberModel> _awayMembers = [];
   List<Map<String, dynamic>> _contacts = [];
   Map<String, MatchPlayerModel> _attendance = {};
+  // Unsaved roster edits for the signed-in user's own team (null = no edits).
+  Set<String>? _rosterDraft;
+  bool _savingRoster = false;
   Map<String, String> _myBehavior = {}; // targetUserId -> 'good'|'bad'
 
   /// This team's match-fee row, when payments are configured in this build.
@@ -87,7 +91,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
   bool _feeWaived = false;
   bool _feeCredited = false;
 
-  // Information / Contact / Attendance.
+  // Information / Contact / Roster / Behaviour.
   int _tab = 0;
 
   @override
@@ -267,30 +271,57 @@ class _MatchDetailPageState extends State<MatchDetailPage>
     if (mounted && summary != null) setState(() => _paymentSummary = summary);
   }
 
-  Future<void> _mark(TeamMemberModel player, bool attended) async {
+  /// Whether the signed-in user is the captain / vice-captain of their side.
+  bool get _canEditRoster {
+    final uid = SupabaseService.client.auth.currentUser?.id;
+    final teamId = _myTeamId;
+    if (uid == null || teamId == null) return false;
+    final members = teamId == _match?.homeTeamId ? _homeMembers : _awayMembers;
+    return members.any(
+        (m) => m.userId == uid && (m.isCaptain || m.isViceCaptain));
+  }
+
+  /// The roster is editable until kick-off, on a confirmed match.
+  bool get _rosterOpen =>
+      _match != null &&
+      _match!.status == 'confirmed' &&
+      DateTime.now().isBefore(_match!.scheduledAt);
+
+  Set<String> _savedRosterOf(String teamId, List<TeamMemberModel> members) {
+    final playing = members
+        .where((m) => _attendance[m.userId]?.attended == true)
+        .map((m) => m.userId)
+        .toSet();
+    return playing.isEmpty ? members.map((m) => m.userId).toSet() : playing;
+  }
+
+  Future<void> _saveRoster() async {
     final match = _match!;
-    // No upper bound: a squad can field more than 5 across a match (rolling
-    // subs), so any number can be marked attended. submitScore enforces the
-    // floor of 5 -- a side must show at least a full team actually played.
+    final teamId = _myTeamId;
+    final draft = _rosterDraft;
+    if (teamId == null || draft == null) return;
+    if (draft.length < kMinRoster) {
+      showError(context, 'A roster needs at least $kMinRoster players.');
+      return;
+    }
+    setState(() => _savingRoster = true);
     try {
-      await _matchRepo.markAttendance(
+      await _matchRepo.setMatchRoster(
         matchId: match.id,
-        userId: player.userId,
-        teamId: player.teamId,
-        attended: attended,
+        teamId: teamId,
+        userIds: draft.toList(),
       );
+      final attendance = await _matchRepo.fetchAttendance(match.id);
+      if (!mounted) return;
       setState(() {
-        _attendance[player.userId] = MatchPlayerModel(
-          matchId: match.id,
-          userId: player.userId,
-          teamId: player.teamId,
-          attended: attended,
-        );
+        _attendance = attendance;
+        _rosterDraft = null;
       });
+      showSuccess(context, 'Roster saved');
     } catch (e) {
-      if (mounted) {
-        showError(context, e);
-      }
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _savingRoster = false);
     }
   }
 
@@ -349,15 +380,14 @@ class _MatchDetailPageState extends State<MatchDetailPage>
       showError(context, 'You can submit the score 90 minutes after kick-off (from ${_kickoffLabel()}).',);
       return;
     }
-    // Attendance is never auto-marked -- every captain must explicitly
-    // confirm at least 5 of their own players before a score can go in. No
-    // upper bound: more than 5 is fine (rolling substitutes).
+    // The roster (set before the match) is who counts: a side needs at least
+    // 5 players on it before a score can go in.
     final attendedCount = _attendance.values
         .where((p) => p.teamId == _myTeamId && p.attended == true)
         .length;
-    if (attendedCount < 5) {
-      setState(() => _tab = 2); // Attendance tab -- unmarked players get a "!"
-      showError(context, 'Mark at least 5 attended players for your team before submitting a score.',);
+    if (attendedCount < kMinRoster) {
+      setState(() => _tab = 2); // Roster tab
+      showError(context, 'Your team needs a roster of at least $kMinRoster players before submitting a score.',);
       return;
     }
     final result = await showDialog<({int home, int away})>(
@@ -799,7 +829,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
           delay: const Duration(milliseconds: 120),
           child: GlassTabs(
             index: _tab,
-            tabs: const ['Information', 'Contact', 'Attendance', 'Behaviour'],
+            tabs: const ['Information', 'Contact', 'Roster', 'Behaviour'],
             onChanged: (i) => setState(() => _tab = i),
           ),
         ),
@@ -812,7 +842,7 @@ class _MatchDetailPageState extends State<MatchDetailPage>
             children: [
               _buildInfoTab(match, status),
               _buildContactTab(),
-              _buildAttendanceTab(match),
+              _buildRosterTab(match),
               _buildRateTab(match),
             ],
           ),
@@ -984,42 +1014,91 @@ class _MatchDetailPageState extends State<MatchDetailPage>
     return _buildContactCard();
   }
 
-  Widget _buildAttendanceTab(MatchModel match) {
-    if (_myTeamId == null) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: EmptyView(
-          icon: Icons.groups_outlined,
-          title: 'You are not part of either squad',
-        ),
-      );
-    }
-    final myTeamName = _myTeamId == match.homeTeamId
-        ? (match.homeTeamName ?? 'Home')
-        : (match.awayTeamName ?? 'Away');
-    final myMembers = _myTeamId == match.homeTeamId ? _homeMembers : _awayMembers;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (_isCaptain)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-            child: Text(
-              'Mark which of your players actually played (at least 5). '
-              'You can change a mark any time before the score is submitted.',
+  Widget _buildRosterTab(MatchModel match) {
+    final homeName = match.homeTeamName ?? 'Home';
+    final awayName = match.awayTeamName ?? 'Away';
+    final homePlaying = _homeMembers
+        .where((m) => _attendance[m.userId]?.attended == true)
+        .toList();
+    final awayPlaying = _awayMembers
+        .where((m) => _attendance[m.userId]?.attended == true)
+        .toList();
+    final editing = _canEditRoster && _rosterOpen && _myTeamId != null;
+    final myIsHome = _myTeamId == match.homeTeamId;
+
+    Widget teamSection(String name, List<TeamMemberModel> members,
+        List<TeamMemberModel> playing, bool mine) {
+      if (mine && editing) {
+        final saved = _savedRosterOf(_myTeamId!, members);
+        final draft = _rosterDraft ?? saved;
+        final dirty = _rosterDraft != null &&
+            !(_rosterDraft!.length == saved.length &&
+                _rosterDraft!.containsAll(saved));
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$name — your roster', style: _cardTitleStyle(context)),
+            const SizedBox(height: 4),
+            Text(
+              'Pick who is playing (at least $kMinRoster). You and your '
+              'vice-captain can change it until kick-off at ${_kickoffTimeLabel(match)}.',
               style: _mutedBody(context),
             ),
-          ),
-        const SizedBox(height: 4),
-        _TeamRoster(
-          title: myTeamName,
-          members: myMembers,
-          attendance: _attendance,
-          canMark: _isCaptain,
-          onMark: _mark,
-        ),
-      ],
+            const SizedBox(height: 8),
+            RosterPicker(
+              members: members,
+              selected: draft,
+              onChanged: (s) => setState(() => _rosterDraft = s),
+            ),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: (!dirty || _savingRoster || draft.length < kMinRoster)
+                  ? null
+                  : _saveRoster,
+              child: _savingRoster
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Save roster'),
+            ),
+          ],
+        );
+      }
+      return _RosterList(title: '$name — playing (${playing.length})', players: playing);
+    }
+
+    final children = <Widget>[];
+    if (_myTeamId != null && _canEditRoster && !_rosterOpen &&
+        match.status == 'confirmed') {
+      children.add(Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Text('The match has kicked off, so rosters are locked.',
+            style: _mutedBody(context)),
+      ));
+    }
+    if (_myTeamId != null) {
+      children.add(teamSection(myIsHome ? homeName : awayName,
+          myIsHome ? _homeMembers : _awayMembers,
+          myIsHome ? homePlaying : awayPlaying, true));
+      children.add(const SizedBox(height: 20));
+      children.add(teamSection(myIsHome ? awayName : homeName,
+          myIsHome ? _awayMembers : _homeMembers,
+          myIsHome ? awayPlaying : homePlaying, false));
+    } else {
+      children.add(teamSection(homeName, _homeMembers, homePlaying, false));
+      children.add(const SizedBox(height: 20));
+      children.add(teamSection(awayName, _awayMembers, awayPlaying, false));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
     );
+  }
+
+  String _kickoffTimeLabel(MatchModel match) {
+    final d = match.scheduledAt.toLocal();
+    return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
 }
 
@@ -1202,53 +1281,29 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
-/// A single team's squad list. Purely presentational -- takes the already
-/// fetched [members] instead of re-fetching on every rebuild, which used to
-/// cause a loading-spinner flicker (and the resulting scroll jump) every
-/// time a captain marked one player's attendance.
-class _TeamRoster extends StatelessWidget {
+/// Read-only list of the players on a team's roster for this match.
+class _RosterList extends StatelessWidget {
   final String title;
-  final List<TeamMemberModel> members;
-  final Map<String, MatchPlayerModel> attendance;
-  final bool canMark;
-  final void Function(TeamMemberModel player, bool attended) onMark;
+  final List<TeamMemberModel> players;
 
-  const _TeamRoster({
-    required this.title,
-    required this.members,
-    required this.attendance,
-    required this.canMark,
-    required this.onMark,
-  });
+  const _RosterList({required this.title, required this.players});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '$title — Players',
-          style: _cardTitleStyle(context),
-        ),
+        Text(title, style: _cardTitleStyle(context)),
         const SizedBox(height: 8),
-        if (members.isEmpty)
+        if (players.isEmpty)
           const EmptyView(
             icon: Icons.person_off_outlined,
-            title: 'No players listed',
+            title: 'No roster yet',
           )
         else
           Column(
-            children: members.asMap().entries.map((e) {
+            children: players.asMap().entries.map((e) {
               final m = e.value;
-              final att = attendance[m.userId]?.attended;
-              final needsAttention = att == null;
-              final Widget trailing = canMark
-                  ? _AttendanceToggle(
-                      attended: att,
-                      onPresent: () => onMark(m, true),
-                      onAbsent: () => onMark(m, false),
-                    )
-                  : _AttendanceBadge(attended: att);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: FadeSlideIn(
@@ -1278,32 +1333,7 @@ class _TeamRoster extends StatelessWidget {
                             ],
                           ),
                         ),
-                        if (needsAttention) ...[
-                          Tooltip(
-                            message: 'Not marked yet',
-                            child: Container(
-                              width: 18,
-                              height: 18,
-                              alignment: Alignment.center,
-                              decoration: const BoxDecoration(
-                                color: AppColors.danger,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Text(
-                                '!',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
                         LevelBadge(value: m.elo, size: 36),
-                        trailing,
                       ],
                     ),
                   ),
@@ -1312,61 +1342,6 @@ class _TeamRoster extends StatelessWidget {
             }).toList(),
           ),
       ],
-    );
-  }
-}
-
-class _AttendanceToggle extends StatelessWidget {
-  final bool? attended;
-  final VoidCallback onPresent;
-  final VoidCallback onAbsent;
-
-  const _AttendanceToggle({
-    required this.attended,
-    required this.onPresent,
-    required this.onAbsent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: Icon(
-            Icons.check_circle,
-            color: attended == true
-                ? AppColors.success
-                : AppColors.muted(context),
-          ),
-          tooltip: 'Attended',
-          onPressed: onPresent,
-        ),
-        IconButton(
-          icon: Icon(
-            Icons.cancel,
-            color: attended == false
-                ? AppColors.dangerText(context)
-                : AppColors.muted(context),
-          ),
-          tooltip: 'Did not attend',
-          onPressed: onAbsent,
-        ),
-      ],
-    );
-  }
-}
-
-class _AttendanceBadge extends StatelessWidget {
-  final bool? attended;
-  const _AttendanceBadge({required this.attended});
-
-  @override
-  Widget build(BuildContext context) {
-    if (attended == null) return const SizedBox.shrink();
-    return Icon(
-      attended! ? Icons.check_circle : Icons.cancel,
-      color: attended! ? AppColors.success : AppColors.dangerText(context),
     );
   }
 }

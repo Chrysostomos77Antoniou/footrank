@@ -27,9 +27,14 @@ class ProfileRepository {
   /// same reasoning as [_cachedHasProfile].
   static bool? _cachedHasCompletedPwr;
 
+  /// Cached "has the current user entered a date of birth" flag, same
+  /// reasoning as [_cachedHasProfile].
+  static bool? _cachedHasDob;
+
   static void invalidateCache() {
     _cachedHasProfile = null;
     _cachedHasCompletedPwr = null;
+    _cachedHasDob = null;
   }
 
   /// Marks the Pwr assessment as done without a round-trip, right after
@@ -95,6 +100,38 @@ class ProfileRepository {
     final done = (await fetchMyProfile())?.hasCompletedPwrAssessment ?? false;
     _cachedHasCompletedPwr = done;
     return done;
+  }
+
+  /// Whether the current user has entered a date of birth. It lives in an
+  /// owner-only table (`user_birthdates`), so only the user's own row is
+  /// visible here. Existing users from before the app asked for it get false
+  /// and are prompted once.
+  Future<bool> hasDateOfBirth() async {
+    if (_cachedHasDob == true) return true;
+    final userId = SupabaseService.client.auth.currentUser?.id;
+    if (userId == null) return false;
+    final rows = await SupabaseService.client
+        .from('user_birthdates')
+        .select('user_id')
+        .eq('user_id', userId)
+        .limit(1);
+    final done = (rows as List).isNotEmpty;
+    _cachedHasDob = done;
+    return done;
+  }
+
+  /// Saves the current user's date of birth through a server-side RPC that
+  /// validates the range and the minimum age (16+). Throws with the message
+  /// DOB_UNDERAGE / DOB_INVALID when rejected.
+  Future<void> saveMyDateOfBirth(DateTime dob) async {
+    final y = dob.year.toString().padLeft(4, '0');
+    final m = dob.month.toString().padLeft(2, '0');
+    final d = dob.day.toString().padLeft(2, '0');
+    await SupabaseService.client.rpc(
+      'set_my_date_of_birth',
+      params: {'p_dob': '$y-$m-$d'},
+    );
+    _cachedHasDob = true;
   }
 
   /// Creates the user record after signup.

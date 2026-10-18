@@ -21,6 +21,7 @@ import 'package:footrank/match/presentation/pages/create_match_request_page.dart
 import 'package:footrank/match/presentation/pages/match_detail_page.dart';
 import 'package:footrank/match/presentation/pages/matches_page.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
+import 'package:footrank/profile/presentation/pages/date_of_birth_page.dart';
 import 'package:footrank/profile/presentation/pages/edit_profile_page.dart';
 import 'package:footrank/profile/presentation/pages/profile_page.dart';
 import 'package:footrank/pwr_assessment/presentation/pages/pwr_assessment_page.dart';
@@ -41,6 +42,7 @@ class AppRoutes {
   static const register = '/register';
   static const acceptTerms = '/accept-terms';
   static const profileSetup = '/profile-setup';
+  static const dateOfBirth = '/date-of-birth';
   static const pwrAssessment = '/pwr-assessment';
   static const promoCode = '/promo-code';
   static const offers = '/offers';
@@ -208,6 +210,26 @@ GoRouter buildRouter() => GoRouter(
       return isSetupRoute ? null : AppRoutes.profileSetup;
     }
 
+    // Has a profile: must have entered a date of birth (required for the 16+
+    // minimum age). Covers new sign-ups right after profile setup and every
+    // existing user from before the app asked for it, on their next open. A
+    // failed lookup (e.g. offline) doesn't block the app, like the checks
+    // around it.
+    final isDobRoute = loc == AppRoutes.dateOfBirth;
+    bool hasDob;
+    try {
+      hasDob = await _profileRepo.hasDateOfBirth().timeout(
+        const Duration(seconds: 6),
+      );
+    } catch (_) {
+      return (isAuthRoute || isSetupRoute || isDobRoute)
+          ? AppRoutes.home
+          : null;
+    }
+    if (!hasDob) {
+      return isDobRoute ? null : AppRoutes.dateOfBirth;
+    }
+
     // Has a profile: still needs the "determine your Pwr" quiz before doing
     // anything else -- creating/joining a team is blocked server-side until
     // it's done, so gate the route too rather than let them hit that error.
@@ -225,7 +247,11 @@ GoRouter buildRouter() => GoRouter(
     }
 
     // Fully set up: keep them out of auth/setup/quiz screens.
-    if (isAuthRoute || isSetupRoute || isPwrRoute || isConsentRoute) {
+    if (isAuthRoute ||
+        isSetupRoute ||
+        isDobRoute ||
+        isPwrRoute ||
+        isConsentRoute) {
       return AppRoutes.home;
     }
     return null;
@@ -256,6 +282,11 @@ GoRouter buildRouter() => GoRouter(
       path: AppRoutes.profileSetup,
       pageBuilder: (context, state) =>
           _animatedPage(const ProfileSetupPage(), state),
+    ),
+    GoRoute(
+      path: AppRoutes.dateOfBirth,
+      pageBuilder: (context, state) =>
+          _animatedPage(const DateOfBirthPage(), state),
     ),
     GoRoute(
       path: AppRoutes.pwrAssessment,

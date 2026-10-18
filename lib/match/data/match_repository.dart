@@ -28,6 +28,7 @@ class MatchRepository {
     required String matchType,
     required String courtId,
     String format = '5v5',
+    List<String>? rosterUserIds,
   }) async {
     final uid = _uid;
     if (uid == null) throw StateError('No authenticated user');
@@ -41,6 +42,7 @@ class MatchRepository {
           'scheduled_at': scheduledAt.toUtc().toIso8601String(),
           'match_type': matchType,
           'format': format,
+          if (rosterUserIds != null) 'roster_user_ids': rosterUserIds,
         })
         .select('*, teams(name)')
         .single();
@@ -225,13 +227,38 @@ class MatchRepository {
   Future<String> proposeMatch({
     required String requestId,
     required String teamId,
+    List<String>? rosterUserIds,
   }) async {
+    if (rosterUserIds != null) {
+      final result = await SupabaseService.client.rpc(
+        'propose_match_with_roster',
+        params: {
+          'p_request_id': requestId,
+          'p_team_id': teamId,
+          'p_roster_user_ids': rosterUserIds,
+        },
+      );
+      return result as String;
+    }
     final result = await SupabaseService.client.rpc(
       'propose_match',
       params: {'p_request_id': requestId, 'p_team_id': teamId},
     );
     return result as String;
   }
+
+  /// Captain / vice-captain sets the team's roster (who is playing) for a
+  /// confirmed match. Allowed until kick-off; needs at least 5 players.
+  Future<void> setMatchRoster({
+    required String matchId,
+    required String teamId,
+    required List<String> userIds,
+  }) =>
+      SupabaseService.client.rpc('set_match_roster', params: {
+        'p_match_id': matchId,
+        'p_team_id': teamId,
+        'p_user_ids': userIds,
+      });
 
   /// Captain-only (the request's own captain): accepts one pending proposal.
   /// Creates the confirmed match immediately and auto-cancels every other
@@ -370,7 +397,7 @@ class MatchRepository {
         .toList();
   }
 
-  // ---- Attendance (Task 6.2) ----
+  // ---- Roster / attendance ----
 
   /// Attendance records for a match, keyed by user_id.
   Future<Map<String, MatchPlayerModel>> fetchAttendance(String matchId) async {
@@ -385,25 +412,6 @@ class MatchRepository {
       map[mp.userId] = mp;
     }
     return map;
-  }
-
-  /// Captain marks one of their own players attended / not attended (upsert).
-  /// No upper bound (rolling substitutes are fine); submitScore enforces a
-  /// floor of at least 5 attended per team (enforced in the DB too).
-  Future<void> markAttendance({
-    required String matchId,
-    required String userId,
-    required String teamId,
-    required bool attended,
-  }) async {
-    final me = _uid;
-    await SupabaseService.client.from(_matchPlayers).upsert({
-      'match_id': matchId,
-      'user_id': userId,
-      'team_id': teamId,
-      'attended': attended,
-      'marked_by': me,
-    }, onConflict: 'match_id,user_id');
   }
 
   // ---- Score submission (Task 6.3) ----

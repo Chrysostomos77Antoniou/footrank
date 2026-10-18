@@ -14,6 +14,8 @@ import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/court_model.dart';
+import 'package:footrank/models/team_member_model.dart';
+import 'package:footrank/match/presentation/widgets/roster_picker.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
@@ -28,7 +30,7 @@ class CreateMatchRequestPage extends StatefulWidget {
 }
 
 class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
-    with ThemeRepaintMixin {
+    with ThemeRepaintMixin, SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _repo = MatchRepository();
   final _teamRepo = TeamRepository();
@@ -48,8 +50,15 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
   final _courtPageController = PageController(viewportFraction: 0.86);
   int _courtPage = 0;
 
+  // Roster tab: who is playing. Starts with the whole team selected.
+  late final TabController _tabs;
+  List<TeamMemberModel> _members = [];
+  Set<String> _roster = {};
+  bool _membersLoading = true;
+
   @override
   void dispose() {
+    _tabs.dispose();
     _courtPageController.dispose();
     super.dispose();
   }
@@ -57,6 +66,11 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
   @override
   void initState() {
     super.initState();
+    _tabs = TabController(length: 2, vsync: this)
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
+    _loadMembers();
     // Sensible defaults so a captain can create a match in a couple of taps.
     final now = DateTime.now();
     final defaultHour = now.hour + 1;
@@ -65,6 +79,20 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
     // tomorrow — otherwise the prefilled scheduledAt would be in the past.
     _date = defaultHour >= 24 ? now.add(const Duration(days: 1)) : now;
     _prefillCity();
+  }
+
+  Future<void> _loadMembers() async {
+    try {
+      final members = await _teamRepo.fetchMembers(widget.teamId);
+      if (!mounted) return;
+      setState(() {
+        _members = members;
+        _roster = members.map((m) => m.userId).toSet();
+        _membersLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _membersLoading = false);
+    }
   }
 
   Future<void> _prefillCity() async {
@@ -129,7 +157,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!(_formKey.currentState?.validate() ?? true)) return;
     if (_city == null) {
       showError(context, 'Please select a city');
       return;
@@ -140,6 +168,12 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
     }
     if (_selectedCourtId == null) {
       showError(context, 'Pick a court');
+      return;
+    }
+    if (_roster.length < kMinRoster) {
+      _tabs.animateTo(1);
+      showError(context,
+          'Pick at least $kMinRoster players for your roster');
       return;
     }
     final scheduledAt = DateTime(
@@ -180,6 +214,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
         matchType: _matchType,
         courtId: _selectedCourtId!,
         format: _format,
+        rosterUserIds: _roster.toList(),
       );
       if (mounted) {
         showSuccess(context, 'Match request created');
@@ -437,7 +472,20 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
       ),
       body: AmbientBackground(
         child: SafeArea(
-          child: SingleChildScrollView(
+          child: Column(
+            children: [
+              TabBar(
+                controller: _tabs,
+                tabs: [
+                  const Tab(text: 'Match'),
+                  Tab(text: 'Roster (${_roster.length})'),
+                ],
+              ),
+              Expanded(
+                child: IndexedStack(
+                  index: _tabs.index,
+                  children: [
+          SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             child: Form(
               key: _formKey,
@@ -624,7 +672,60 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
               ),
             ),
           ),
+                    _buildRosterTab(),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildRosterTab() {
+    final theme = Theme.of(context);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Who is playing?',
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(fontSize: 14, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text(
+            'Pick the players for this match (at least $kMinRoster). '
+            'You and your vice-captain can change the roster any time until kick-off.',
+            style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.muted(context)),
+          ),
+          const SizedBox(height: 12),
+          if (_membersLoading)
+            const LoadingView()
+          else
+            RosterPicker(
+              members: _members,
+              selected: _roster,
+              onChanged: (s) => setState(() => _roster = s),
+            ),
+          const SizedBox(height: 20),
+          FilledButton(
+            onPressed: _loading ? null : _submit,
+            child: _loading
+                ? SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.onAction(context),
+                    ),
+                  )
+                : const Text('Create Match Request'),
+          ),
+        ],
       ),
     );
   }

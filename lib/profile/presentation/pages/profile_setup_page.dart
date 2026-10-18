@@ -100,7 +100,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   /// here, so a user is never pushed straight into create-team before they've
   /// cleared the server-side gate.
   void _routeAfterSetup() {
-    context.go(AppRoutes.pwrAssessment);
+    context.go(AppRoutes.dateOfBirth);
   }
 
   @override

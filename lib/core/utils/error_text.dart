@@ -39,7 +39,13 @@ String friendlyError(Object error) {
     return 'Phone number is required.';
   }
   if (lower.contains('attendance_required')) {
-    return 'Mark at least 5 attended players for your team before submitting a score.';
+    return 'Your team needs a roster of at least 5 players before submitting a score.';
+  }
+  if (lower.contains('roster_min')) {
+    return 'A match roster needs at least 5 players.';
+  }
+  if (lower.contains('roster_locked')) {
+    return 'The match has kicked off, so the roster can no longer be changed.';
   }
   if (lower.contains('rating_gap_too_large')) {
     // Server message looks like "rating_gap_too_large: 2100 vs 1500 (max 200
