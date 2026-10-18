@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/admin/data/admin_repository.dart';
 import 'package:footrank/admin/presentation/widgets/admin_detail_parts.dart';
 import 'package:footrank/admin/presentation/widgets/admin_widgets.dart';
@@ -54,6 +55,13 @@ class _AdminTeamsPageState extends State<AdminTeamsPage> {
   void initState() {
     super.initState();
     _load();
+    appRefresh.addListener(_load);
+  }
+
+  @override
+  void dispose() {
+    appRefresh.removeListener(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {

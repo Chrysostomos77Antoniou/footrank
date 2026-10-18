@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/admin/data/admin_repository.dart';
 import 'package:footrank/admin/models/admin_court_model.dart';
 import 'package:footrank/admin/presentation/pages/admin_shell.dart'
@@ -45,6 +46,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   Future<void> _refresh() async {
     if (_refreshing) return;
+    // Also re-fetch the Players / Teams / Matches / Courts lists.
+    triggerAppRefresh();
     final future = _load();
     setState(() {
       _refreshing = true;
@@ -59,7 +62,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         future.then((_) {}),
         Future<void>.delayed(const Duration(milliseconds: 700)),
       ]);
-      message = 'Dashboard updated';
+      message = 'Everything updated';
     } catch (_) {
       message = 'Could not refresh. Check your connection and try again.';
     }

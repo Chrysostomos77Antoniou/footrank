@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/admin/data/admin_repository.dart';
 import 'package:footrank/admin/presentation/widgets/admin_detail_parts.dart';
 import 'package:footrank/admin/presentation/widgets/admin_widgets.dart';
@@ -75,10 +76,22 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   void initState() {
     super.initState();
     _future = _repo.fetchAllUsers();
+    appRefresh.addListener(_onAppRefresh);
+  }
+
+  // The dashboard's refresh button asks every list to re-fetch.
+  void _onAppRefresh() {
+    if (!mounted) return;
+    setState(() {
+      _future = _searching
+          ? _repo.searchUsers(_searchCtrl.text)
+          : _fetchForFilter();
+    });
   }
 
   @override
   void dispose() {
+    appRefresh.removeListener(_onAppRefresh);
     _searchCtrl.dispose();
     super.dispose();
   }

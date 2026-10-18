@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/admin/data/admin_repository.dart';
 import 'package:footrank/admin/presentation/widgets/admin_widgets.dart';
 import 'package:footrank/core/theme/app_colors.dart';
@@ -40,6 +41,7 @@ class _AdminMatchesPageState extends State<AdminMatchesPage>
     super.initState();
     _tabs.addListener(_onTab);
     _reload();
+    appRefresh.addListener(_reload);
   }
 
   void _onTab() {
@@ -54,6 +56,7 @@ class _AdminMatchesPageState extends State<AdminMatchesPage>
 
   @override
   void dispose() {
+    appRefresh.removeListener(_reload);
     _tabs.removeListener(_onTab);
     _tabs.dispose();
     super.dispose();
