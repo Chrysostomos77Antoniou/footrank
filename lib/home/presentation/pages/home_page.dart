@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:footrank/core/utils/text_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/app_refresh.dart';
@@ -430,7 +431,7 @@ class _HomeAvatar extends StatelessWidget {
       return GradientAvatar(name: name, imageUrl: imageUrl, radius: 22);
     }
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'F';
+    final initial = firstChar(name, fallback: 'F');
     return Container(
       width: 44,
       height: 44,

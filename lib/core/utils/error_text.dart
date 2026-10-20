@@ -1,6 +1,7 @@
 import 'dart:async' show TimeoutException;
 import 'dart:io' show SocketException;
 
+import 'package:footrank/core/utils/text_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Converts an exception into a concise, user-friendly message.
@@ -94,6 +95,6 @@ String friendlyError(Object error) {
   }
 
   // Trim overly long technical messages.
-  if (msg.length > 140) msg = '${msg.substring(0, 137)}...';
+  msg = truncate(msg, 140);
   return msg;
 }
