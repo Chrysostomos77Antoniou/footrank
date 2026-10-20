@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:footrank/core/utils/text_utils.dart';
 
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -238,7 +239,7 @@ class _LogoPicker extends StatelessWidget {
         ),
         alignment: Alignment.center,
         child: Text(
-          name.isNotEmpty ? name[0].toUpperCase() : '?',
+          firstChar(name),
           style: TextStyle(
             fontFamily: AppFonts.display,
             fontSize: 40,

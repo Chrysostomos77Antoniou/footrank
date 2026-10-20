@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:footrank/core/utils/text_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
@@ -222,8 +223,8 @@ class TeamInitialsAvatar extends StatelessWidget {
     final parts =
         name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
     if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
+    if (parts.length == 1) return firstChar(parts.first);
+    return firstChar(parts[0]) + firstChar(parts[1]);
   }
 
   @override

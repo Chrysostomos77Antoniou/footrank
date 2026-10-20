@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:footrank/core/utils/text_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
@@ -88,7 +89,7 @@ class GreenAvatar extends StatelessWidget {
         backgroundImage: CachedNetworkImageProvider(imageUrl!),
       );
     }
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final initial = firstChar(name);
     return Container(
       width: size,
       height: size,
