@@ -48,11 +48,12 @@ class _RankingsPageState extends State<RankingsPage> with ThemeRepaintMixin {
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
-                    if (_tab == 0)
-                      Padding(
+                    Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
-                          'Min. ${RankingRepository.minMatches} matches played to be ranked',
+                          _tab == 0
+                              ? 'Min. ${RankingRepository.minMatches} matches played to be ranked'
+                              : 'Min. ${RankingRepository.minTeamMatches} match played to be ranked',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -190,6 +191,9 @@ class _TeamLeaderboardState extends State<_TeamLeaderboard>
                       title: q.isEmpty
                           ? 'No ranked teams yet'
                           : 'No teams match "$q"',
+                      hint: q.isEmpty
+                          ? 'Teams appear here after playing ${RankingRepository.minTeamMatches}+ match.'
+                          : null,
                     ),
                   ]),
                 );

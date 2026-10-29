@@ -6,6 +6,9 @@ class RankingRepository {
   /// Players must have played at least this many matches to be ranked.
   static const int minMatches = 2;
 
+  /// Teams must have played at least this many matches to be ranked.
+  static const int minTeamMatches = 1;
+
   /// Ranked players (>= [minMatches] matches), ordered by ELO (desc),
   /// optionally filtered by position.
   Future<List<UserModel>> fetchPlayers({String? position}) async {
@@ -22,7 +25,8 @@ class RankingRepository {
         .toList();
   }
 
-  /// Teams ordered by rating (desc), optionally filtered by city.
+  /// Ranked teams (>= [minTeamMatches] matches played), ordered by rating
+  /// (desc), optionally filtered by city.
   Future<List<TeamModel>> fetchTeams({String? city}) async {
     var query =
         SupabaseService.client.from('teams').select().isFilter('disbanded_at', null);
@@ -32,6 +36,7 @@ class RankingRepository {
     final data = await query.order('rating', ascending: false);
     return (data as List)
         .map((e) => TeamModel.fromJson(e as Map<String, dynamic>))
+        .where((t) => t.played >= minTeamMatches)
         .toList();
   }
 }

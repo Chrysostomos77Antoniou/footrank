@@ -1,6 +1,7 @@
 import 'package:footrank/core/widgets/back_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:footrank/core/app_refresh.dart';
+import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -244,6 +245,29 @@ class _AgentCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontSize: 12, color: AppColors.muted(context)),
                     ),
+                    if ((agent.city ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.location_on_outlined,
+                              size: 13, color: AppColors.muted(context)),
+                          const SizedBox(width: 3),
+                          Flexible(
+                            child: Text(
+                              agent.city!.trim(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                      fontSize: 12,
+                                      color: AppColors.muted(context)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -394,6 +418,49 @@ class _FilterBar extends StatelessWidget {
             ],
             onChanged: (v) => onChanged(
               filter.copyWith(position: v, clearPosition: v == null),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'CITY',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.5,
+              color: AppColors.muted(context),
+            ),
+          ),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            value: canonicalCity(filter.city),
+            isExpanded: true,
+            borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
+            icon: Icon(Icons.keyboard_arrow_down_rounded,
+                color: AppColors.muted(context)),
+            style: TextStyle(
+              fontFamily: AppFonts.body,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Any city',
+              fillColor: isDark ? AppColors.darkBg : AppColors.lightCard,
+              constraints: const BoxConstraints(minHeight: 52),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              prefixIcon: Icon(Icons.location_on_outlined,
+                  size: 20, color: AppColors.onChip(context)),
+            ),
+            items: [
+              const DropdownMenuItem<String>(
+                value: null,
+                child: Text('Any city'),
+              ),
+              ...kCities.map((c) => DropdownMenuItem(value: c, child: Text(c))),
+            ],
+            onChanged: (v) => onChanged(
+              filter.copyWith(city: v, clearCity: v == null),
             ),
           ),
           const SizedBox(height: 4),
