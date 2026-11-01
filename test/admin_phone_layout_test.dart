@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:footrank/admin/data/admin_repository.dart';
 import 'package:footrank/admin/models/admin_court_model.dart';
+import 'package:footrank/admin/models/flagged_venue_model.dart';
+import 'package:footrank/admin/presentation/pages/admin_flagged_page.dart';
 import 'package:footrank/admin/presentation/pages/admin_courts_page.dart';
 import 'package:footrank/admin/presentation/pages/admin_dashboard_page.dart';
 import 'package:footrank/admin/presentation/pages/admin_matches_page.dart';
@@ -126,6 +128,10 @@ class FakeRepo extends AdminRepository {
   ];
   @override
   Future<List<MatchCancellationModel>> fetchMatchCancellations() async => [];
+  @override
+  Future<int> fetchFlaggedVenueCount() async => 0;
+  @override
+  Future<List<FlaggedVenueModel>> fetchFlaggedVenues() async => [];
 }
 
 final courts = [
@@ -152,6 +158,42 @@ final courts = [
     hours: '10:00 - 00:00',
   ),
 ];
+
+final flagged = [
+  FlaggedVenueModel(
+    reviewId: 'r1',
+    requestId: 'q1',
+    venueText: 'Some Rather Long Venue Name Football Center Paphos Harbour',
+    reason: 'no_match',
+    city: 'Paphos',
+    scheduledAt: now.add(const Duration(days: 2)),
+    teamName: 'Keravnos FC',
+    captainName: 'Andreas Papadopoulos',
+    requestStatus: 'searching',
+    createdAt: now,
+  ),
+  FlaggedVenueModel(
+    reviewId: 'r2',
+    matchId: 'm1',
+    venueText: 'Wembley',
+    reason: 'reported',
+    city: 'Limassol',
+    scheduledAt: now.add(const Duration(days: 4)),
+    teamName: 'Strovolos United',
+    captainName: 'Nikos',
+    reportCount: 2,
+    suggestedCourtId: '3',
+    suggestedCourtName: 'Wembley',
+    suggestedCourtCity: 'Limassol',
+    matchScore: 0.62,
+    createdAt: now,
+  ),
+];
+
+class FlaggedRepo extends FakeRepo {
+  @override
+  Future<List<FlaggedVenueModel>> fetchFlaggedVenues() async => flagged;
+}
 
 Widget host(Widget child) => MaterialApp(
   debugShowCheckedModeBanner: false,
@@ -209,4 +251,15 @@ void main() {
     'matches',
     (t) => shot(t, 'matches', AdminMatchesPage(repo: FakeRepo())),
   );
+  testWidgets('flagged venues', (t) async {
+    await shot(t, 'flagged', AdminFlaggedPage(repo: FlaggedRepo()));
+    expect(find.text('Flagged venues'), findsOneWidget);
+    expect(find.text('Wembley'), findsOneWidget);
+    expect(find.text('Link to court'), findsNWidgets(2));
+    expect(find.text('Reported by 2 players'), findsOneWidget);
+  });
+  testWidgets('flagged venues empty', (t) async {
+    await shot(t, 'flagged-empty', AdminFlaggedPage(repo: FakeRepo()));
+    expect(find.textContaining('Nothing to review'), findsOneWidget);
+  });
 }

@@ -89,6 +89,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       _repo.fetchAllCourts(),
       _repo.fetchAllMatches(),
       _repo.fetchUserGrowth(),
+      // Never lets a missing/failed venue RPC take the whole dashboard down.
+      _repo.fetchFlaggedVenueCount().catchError((_) => 0),
     ]);
     return _DashboardData(
       openRequests: (results[0] as List).length,
@@ -99,6 +101,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       courts: results[5] as List<AdminCourtModel>,
       matches: results[6] as List<MatchModel>,
       users: results[7] as List<({DateTime createdAt, int matchesPlayed})>,
+      flaggedVenues: results[8] as int,
     );
   }
 
@@ -170,6 +173,7 @@ class _DashboardData {
   final int pendingProposals;
   final int disputedMatches;
   final int flaggedUsers;
+  final int flaggedVenues;
   final List<TeamModel> teams; // already ordered by rating, best first
   final List<AdminCourtModel> courts;
   final List<MatchModel> matches; // newest scheduled first
@@ -180,6 +184,7 @@ class _DashboardData {
     required this.pendingProposals,
     required this.disputedMatches,
     required this.flaggedUsers,
+    required this.flaggedVenues,
     required this.teams,
     required this.courts,
     required this.matches,
@@ -191,7 +196,7 @@ class _DashboardData {
       pendingProposals +
       disputedMatches +
       flaggedUsers +
-      upcomingCourtsToConfirm +
+      flaggedVenues +
       upcomingUnpaid;
 
   // ---- growth ----
@@ -242,9 +247,6 @@ class _DashboardData {
     final limit = DateTime.now().add(const Duration(days: 7));
     return upcoming.where((m) => m.scheduledAt.isBefore(limit)).toList();
   }
-
-  int get upcomingCourtsToConfirm =>
-      upcoming.where((m) => m.courtBookingStatus == 'pending').length;
 
   int get upcomingUnpaid =>
       upcoming.where((m) => m.paymentStatus == 'unpaid').length;
@@ -721,14 +723,14 @@ class _AttentionSection extends StatelessWidget {
           color: AppColors.danger,
           onTap: () => onNavigate(AdminSection.users),
         ),
-      if (data.upcomingCourtsToConfirm > 0)
+      if (data.flaggedVenues > 0)
         (i) => _AttentionTile(
           index: i,
-          icon: Icons.event_available_rounded,
-          label: 'Upcoming, court to confirm',
-          count: data.upcomingCourtsToConfirm,
+          icon: Icons.place_rounded,
+          label: 'Flagged venues',
+          count: data.flaggedVenues,
           color: AppColors.gold,
-          onTap: () => onNavigate(AdminSection.matches),
+          onTap: () => onNavigate(AdminSection.flagged),
         ),
       if (data.upcomingUnpaid > 0)
         (i) => _AttentionTile(
@@ -791,8 +793,8 @@ class _AttentionSection extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'No disputes, flagged players, open requests or pending '
-                      'proposals right now.',
+                      'No disputes, flagged players or venues, open requests or '
+                      'pending proposals right now.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).hintColor,
                       ),

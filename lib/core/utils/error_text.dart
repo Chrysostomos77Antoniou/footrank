@@ -20,7 +20,11 @@ String friendlyError(Object error) {
   }
   if (error is AuthException) return error.message;
 
-  var msg = error.toString();
+  // A PostgrestException's toString() appends ", code: ..., details: ..., hint: ..."
+  // -- technical noise that would otherwise reach players for every server
+  // message that has no specific mapping below. Its .message is the text the
+  // database raised, which is what we want to show.
+  var msg = error is PostgrestException ? error.message : error.toString();
 
   // Strip common Dart/Supabase prefixes.
   msg = msg
@@ -47,6 +51,24 @@ String friendlyError(Object error) {
   }
   if (lower.contains('roster_locked')) {
     return 'The match has kicked off, so the roster can no longer be changed.';
+  }
+  if (lower.contains('bad_venue:length')) {
+    return 'The venue name must be between 2 and 60 characters.';
+  }
+  if (lower.contains('bad_venue:letters')) {
+    return "Please enter the venue's name.";
+  }
+  if (lower.contains('bad_venue:contact')) {
+    return 'Enter just the venue name, with no links, emails or phone numbers.';
+  }
+  if (lower.contains('bad_venue:inappropriate')) {
+    return 'Please keep the venue name appropriate.';
+  }
+  if (lower.contains('rate_limited')) {
+    return "You're doing that too often. Please try again in a little while.";
+  }
+  if (lower.contains('daily_limit')) {
+    return 'You can post up to 3 match requests for the same day.';
   }
   if (lower.contains('rating_gap_too_large')) {
     // Server message looks like "rating_gap_too_large: 2100 vs 1500 (max 200

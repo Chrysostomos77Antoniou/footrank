@@ -104,6 +104,248 @@ void main() {
       expect(body, {'p_proposal_id': 'proposal-2'});
     });
 
+    group('venue suggestions on proposals', () {
+      test('a proposal without a venue sends exactly what it always did', () async {
+        http.Request? captured;
+        handler = (req) async {
+          captured = req;
+          return _jsonResponse(req, 'proposal-1', 200);
+        };
+
+        final id = await MatchRepository()
+            .proposeMatch(requestId: 'req-1', teamId: 'team-1');
+
+        expect(id, 'proposal-1');
+        expect(captured!.url.path, endsWith('/rpc/propose_match'));
+        expect(jsonDecode(captured!.body), {
+          'p_request_id': 'req-1',
+          'p_team_id': 'team-1',
+        });
+      });
+
+      test('a blank venue is not sent at all', () async {
+        http.Request? captured;
+        handler = (req) async {
+          captured = req;
+          return _jsonResponse(req, 'proposal-1', 200);
+        };
+
+        await MatchRepository().proposeMatch(
+          requestId: 'req-1',
+          teamId: 'team-1',
+          venueText: '   ',
+        );
+
+        expect(jsonDecode(captured!.body), {
+          'p_request_id': 'req-1',
+          'p_team_id': 'team-1',
+        });
+      });
+
+      test('a typed venue travels with the plain proposal, trimmed', () async {
+        http.Request? captured;
+        handler = (req) async {
+          captured = req;
+          return _jsonResponse(req, 'proposal-2', 200);
+        };
+
+        await MatchRepository().proposeMatch(
+          requestId: 'req-1',
+          teamId: 'team-1',
+          venueText: '  Seaside Pitch ',
+        );
+
+        expect(captured!.url.path, endsWith('/rpc/propose_match'));
+        expect(jsonDecode(captured!.body), {
+          'p_request_id': 'req-1',
+          'p_team_id': 'team-1',
+          'p_venue_text': 'Seaside Pitch',
+        });
+      });
+
+      test('a typed venue travels with the roster proposal too', () async {
+        http.Request? captured;
+        handler = (req) async {
+          captured = req;
+          return _jsonResponse(req, 'proposal-3', 200);
+        };
+
+        await MatchRepository().proposeMatch(
+          requestId: 'req-1',
+          teamId: 'team-1',
+          rosterUserIds: ['u1', 'u2', 'u3', 'u4', 'u5'],
+          venueText: 'Γήπεδο Κέντρο',
+        );
+
+        expect(captured!.url.path, endsWith('/rpc/propose_match_with_roster'));
+        expect(jsonDecode(captured!.body), {
+          'p_request_id': 'req-1',
+          'p_team_id': 'team-1',
+          'p_roster_user_ids': ['u1', 'u2', 'u3', 'u4', 'u5'],
+          'p_venue_text': 'Γήπεδο Κέντρο',
+        });
+      });
+
+      test('the server refusing a venue reaches the caller', () async {
+        handler = (req) async => _jsonResponse(req, {
+              'message': 'bad_venue:contact',
+              'code': 'P0001',
+            }, 400);
+
+        expect(
+          () => MatchRepository().proposeMatch(
+            requestId: 'req-1',
+            teamId: 'team-1',
+            venueText: 'call 99123456',
+          ),
+          throwsA(isA<Object>()),
+        );
+      });
+
+      test('reporting a suggested venue sends only the proposal id', () async {
+        http.Request? captured;
+        handler = (req) async {
+          captured = req;
+          return _jsonResponse(req, null, 204);
+        };
+
+        await MatchRepository().reportVenue(proposalId: 'prop-1');
+
+        expect(captured!.url.path, endsWith('/rpc/report_venue'));
+        expect(jsonDecode(captured!.body), {
+          'p_request_id': null,
+          'p_match_id': null,
+          'p_proposal_id': 'prop-1',
+        });
+      });
+
+      test('reporting a request or a match keeps the payload it always had', () async {
+        final bodies = <Object?>[];
+        handler = (req) async {
+          bodies.add(jsonDecode(req.body));
+          return _jsonResponse(req, null, 204);
+        };
+
+        await MatchRepository().reportVenue(requestId: 'req-1');
+        await MatchRepository().reportVenue(matchId: 'match-1');
+
+        expect(bodies, [
+          {'p_request_id': 'req-1', 'p_match_id': null},
+          {'p_request_id': null, 'p_match_id': 'match-1'},
+        ]);
+      });
+
+      test('reporting needs exactly one target', () async {
+        handler = (req) async => _jsonResponse(req, null, 204);
+        expect(() => MatchRepository().reportVenue(), throwsA(isA<AssertionError>()));
+        expect(
+          () => MatchRepository()
+              .reportVenue(requestId: 'req-1', proposalId: 'prop-1'),
+          throwsA(isA<AssertionError>()),
+        );
+      });
+
+      test('sent proposals ask for the request venue and parse both venues', () async {
+        http.Request? captured;
+        handler = (req) async {
+          captured = req;
+          return _jsonResponse(req, [
+            {
+              'id': 'prop-1',
+              'request_id': 'req-1',
+              'proposing_team_id': 'team-1',
+              'proposing_user_id': 'user-1',
+              'status': 'pending',
+              'created_at': '2026-10-30T10:00:00Z',
+              'resolved_at': null,
+              'venue_text': 'Seaside Pitch',
+              'match_requests': {
+                'city': 'Larnaca',
+                'scheduled_at': '2026-11-02T16:00:00Z',
+                'match_type': 'casual',
+                'format': '5v5',
+                'venue_text': 'Their Home Ground',
+                'teams': {'name': 'Anorthosis', 'rating': 1500, 'logo_url': null},
+              },
+            },
+            {
+              'id': 'prop-2',
+              'request_id': 'req-2',
+              'proposing_team_id': 'team-1',
+              'proposing_user_id': 'user-1',
+              'status': 'pending',
+              'created_at': '2026-10-30T09:00:00Z',
+              'resolved_at': null,
+              'venue_text': null,
+              'match_requests': {
+                'city': 'Larnaca',
+                'scheduled_at': '2026-11-03T16:00:00Z',
+                'match_type': 'ranked',
+                'format': '5v5',
+                'venue_text': null,
+                'teams': {'name': 'Apollon', 'rating': 1450, 'logo_url': null},
+              },
+            },
+          ], 200);
+        };
+
+        final sent = await MatchRepository().fetchSentProposals('team-1');
+
+        expect(captured!.url.path, endsWith('/match_request_proposals'));
+        expect(captured!.url.queryParameters['select'], contains('venue_text'));
+        expect(sent, hasLength(2));
+        expect(sent[0].venueText, 'Seaside Pitch');
+        expect(sent[0].hasVenueSuggestion, isTrue);
+        expect(sent[0].requestVenueText, 'Their Home Ground');
+        expect(sent[0].targetTeamName, 'Anorthosis');
+        expect(sent[1].venueText, isNull);
+        expect(sent[1].hasVenueSuggestion, isFalse);
+        expect(sent[1].requestVenueText, isNull);
+      });
+
+      test('incoming proposals carry the suggested venue', () async {
+        final seen = <String>[];
+        handler = (req) async {
+          seen.add(req.url.path);
+          if (req.url.path.endsWith('/match_requests')) {
+            return _jsonResponse(req, [
+              {
+                'id': 'req-1',
+                'team_id': 'team-9',
+                'captain_id': 'cap-9',
+                'city': 'Larnaca',
+                'scheduled_at': '2026-11-02T16:00:00Z',
+                'match_type': 'casual',
+                'format': '5v5',
+                'status': 'searching',
+                'created_at': '2026-10-30T10:00:00Z',
+                'venue_text': 'My Ground',
+              },
+            ], 200);
+          }
+          return _jsonResponse(req, [
+            {
+              'id': 'prop-1',
+              'request_id': 'req-1',
+              'proposing_team_id': 'team-1',
+              'proposing_user_id': 'user-1',
+              'status': 'pending',
+              'created_at': '2026-10-30T10:00:00Z',
+              'resolved_at': null,
+              'venue_text': 'Seaside Pitch',
+              'teams': {'name': 'Keravnos', 'rating': 1500, 'logo_url': null},
+            },
+          ], 200);
+        };
+
+        final map = await MatchRepository().fetchProposalsForTeamRequests('team-9');
+
+        expect(map.keys, ['req-1']);
+        expect(map['req-1']!.single.venueText, 'Seaside Pitch');
+        expect(map['req-1']!.single.teamName, 'Keravnos');
+      });
+    });
+
     test('submitScore surfaces a server-side error (e.g. the 5-attended-players floor) rather than swallowing it', () async {
       handler = (req) async => _jsonResponse(req, {
             'message':

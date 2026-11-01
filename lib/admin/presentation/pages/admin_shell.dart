@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:footrank/admin/data/admin_repository.dart';
 import 'package:footrank/admin/presentation/pages/admin_courts_page.dart';
 import 'package:footrank/admin/presentation/pages/admin_dashboard_page.dart';
+import 'package:footrank/admin/presentation/pages/admin_flagged_page.dart';
 import 'package:footrank/admin/presentation/pages/admin_login_page.dart';
 import 'package:footrank/admin/presentation/pages/admin_matches_page.dart';
 import 'package:footrank/admin/presentation/pages/admin_teams_page.dart';
@@ -16,7 +17,7 @@ import 'package:footrank/services/supabase_service.dart';
 /// Public (not file-private) so [AdminDashboardPage]'s shortcut cards can
 /// target a section by name without the shell needing to know anything
 /// about dashboard internals -- it just receives an [AdminSection] back.
-enum AdminSection { dashboard, courts, matches, teams, users }
+enum AdminSection { dashboard, courts, matches, flagged, teams, users }
 
 const _phoneBreakpoint = 700.0;
 
@@ -24,6 +25,7 @@ const _sections = [
   (AdminSection.dashboard, Icons.dashboard_outlined, 'Dashboard'),
   (AdminSection.courts, Icons.place_outlined, 'Courts'),
   (AdminSection.matches, Icons.sports_soccer_outlined, 'Matches'),
+  (AdminSection.flagged, Icons.flag_outlined, 'Flagged'),
   (AdminSection.teams, Icons.shield_outlined, 'Teams'),
   (AdminSection.users, Icons.people_outline, 'Users'),
 ];
@@ -87,6 +89,7 @@ class _AdminShellState extends State<AdminShell> {
       ),
       AdminCourtsPage(repo: widget.repo),
       AdminMatchesPage(repo: widget.repo),
+      AdminFlaggedPage(repo: widget.repo),
       AdminTeamsPage(repo: widget.repo),
       AdminUsersPage(repo: widget.repo),
     ],

@@ -19,12 +19,20 @@ class MatchProposalModel {
   final int? teamRating;
   final String? teamLogo;
 
+  /// The venue the proposing team would rather play at, typed by them, or
+  /// null when they agree to the request's own venue. Accepting the proposal
+  /// makes it the match's venue.
+  final String? venueText;
+
   // Optional joined target-request fields (used when listing OUTGOING
   // proposals your team sent -- what you proposed for, and against whom).
   final String? requestCity;
   final DateTime? requestScheduledAt;
   final String? requestMatchType;
   final String? requestFormat;
+
+  /// The venue the request itself names (OUTGOING proposals only).
+  final String? requestVenueText;
   final String? targetTeamName;
   final int? targetTeamRating;
   final String? targetTeamLogo;
@@ -40,16 +48,21 @@ class MatchProposalModel {
     this.teamName,
     this.teamRating,
     this.teamLogo,
+    this.venueText,
     this.requestCity,
     this.requestScheduledAt,
     this.requestMatchType,
     this.requestFormat,
+    this.requestVenueText,
     this.targetTeamName,
     this.targetTeamRating,
     this.targetTeamLogo,
   });
 
   bool get isPending => status == 'pending';
+
+  /// True when the proposing team suggests a venue of its own.
+  bool get hasVenueSuggestion => venueText != null && venueText!.isNotEmpty;
 
   factory MatchProposalModel.fromJson(Map<String, dynamic> json) {
     final team = json['teams'] as Map<String, dynamic>?;
@@ -68,12 +81,14 @@ class MatchProposalModel {
       teamName: team?['name'] as String?,
       teamRating: team?['rating'] as int?,
       teamLogo: team?['logo_url'] as String?,
+      venueText: json['venue_text'] as String?,
       requestCity: request?['city'] as String?,
       requestScheduledAt: request?['scheduled_at'] != null
           ? DateTime.parse(request!['scheduled_at'] as String)
           : null,
       requestMatchType: request?['match_type'] as String?,
       requestFormat: request?['format'] as String?,
+      requestVenueText: request?['venue_text'] as String?,
       targetTeamName: targetTeam?['name'] as String?,
       targetTeamRating: targetTeam?['rating'] as int?,
       targetTeamLogo: targetTeam?['logo_url'] as String?,

@@ -1,4 +1,3 @@
-import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_player_model.dart';
 import 'package:footrank/models/match_proposal_model.dart';
@@ -12,21 +11,21 @@ class MatchRepository {
   static const _matches = 'matches';
   static const _matchPlayers = 'match_players';
   static const _behavior = 'behavior_reports';
-  final _courtRepo = CourtRepository();
 
   String? get _uid => SupabaseService.client.auth.currentUser?.id;
 
-  /// Creates a match request for the captain's team, with a single chosen
-  /// court in [city]. That court is exactly the one shown to browsing
-  /// captains and the one used as the match's court once a proposal is
-  /// accepted -- no ranked-choice comparison, since there's nothing to
-  /// compare a single pick against.
+  /// Creates a match request for the captain's team. [venueText] is the
+  /// venue name exactly as the captain typed it -- it is shown verbatim to
+  /// browsing captains and copied onto the match once a proposal is accepted.
+  /// The server validates it (length, no links/phone numbers, basic
+  /// profanity) and enforces the daily request limit; see [friendlyError] for
+  /// the messages those rejections map to.
   Future<MatchRequestModel> createMatchRequest({
     required String teamId,
     required String city,
     required DateTime scheduledAt,
     required String matchType,
-    required String courtId,
+    required String venueText,
     String format = '5v5',
     List<String>? rosterUserIds,
   }) async {
@@ -42,14 +41,13 @@ class MatchRepository {
           'scheduled_at': scheduledAt.toUtc().toIso8601String(),
           'match_type': matchType,
           'format': format,
+          'venue_text': venueText.trim(),
           if (rosterUserIds != null) 'roster_user_ids': rosterUserIds,
         })
         .select('*, teams(name)')
         .single();
 
-    final request = MatchRequestModel.fromJson(inserted);
-    await _courtRepo.insertRequestCourtPicks(request.id, [courtId]);
-    return request;
+    return MatchRequestModel.fromJson(inserted);
   }
 
   /// Checks whether [teamId] already has an open request or confirmed match
@@ -132,17 +130,15 @@ class MatchRepository {
 
   /// Browse every open ('searching') request from OTHER teams in [city] --
   /// no requirement that the viewing team has an open request of its own.
-  /// [courtId] narrows to requests that picked that court; [date] narrows to
-  /// requests scheduled on that calendar day; [timeOfDay] (minutes since
-  /// midnight, local) narrows to requests within an hour of that time on any
-  /// day; [matchType] narrows to 'casual' or 'ranked'. All are optional
-  /// except [city]. Each result carries its court pick (see
-  /// [MatchRequestModel.courtPicks]) so captains can see where a match would
-  /// be played before proposing.
+  /// [date] narrows to requests scheduled on that calendar day; [timeOfDay]
+  /// (minutes since midnight, local) narrows to requests within an hour of
+  /// that time on any day; [matchType] narrows to 'casual' or 'ranked'. All
+  /// are optional except [city]. Each result carries the venue text the
+  /// requesting captain typed (see [MatchRequestModel.venueText]) so captains
+  /// can see where a match would be played before proposing.
   Future<List<MatchRequestModel>> fetchCityRequests({
     required String city,
     required String excludeTeamId,
-    String? courtId,
     DateTime? date,
     int? timeOfDayMinutes,
     String? matchType,
@@ -203,19 +199,7 @@ class MatchRepository {
       requests =
           requests.where((r) => !pendingRequestIds.contains(r.id)).toList();
     }
-    if (requests.isEmpty) return requests;
-
-    final picksById = await _courtRepo
-        .fetchPicksWithCourtsForRequests(requests.map((r) => r.id).toList());
-
-    final withPicks =
-        requests.map((r) => r.copyWith(courtPicks: picksById[r.id] ?? const []))
-            .toList();
-
-    if (courtId == null) return withPicks;
-    return withPicks
-        .where((r) => r.courtPicks!.any((c) => c.id == courtId))
-        .toList();
+    return requests;
   }
 
   // ---- Propose / Accept / Reject (browse-and-propose flow) ----
@@ -224,11 +208,21 @@ class MatchRepository {
   /// proposing isn't captain-restricted, only accepting/rejecting is. Does
   /// NOT lock the request -- it stays 'searching' (and other teams can
   /// still propose) until the request's own captain accepts one proposal.
+  ///
+  /// [venueText] is an optional venue the proposing team would rather play
+  /// at; the request's captain sees it and decides when accepting. It is only
+  /// sent when it has text, so a proposal without one behaves exactly as it
+  /// always did.
   Future<String> proposeMatch({
     required String requestId,
     required String teamId,
     List<String>? rosterUserIds,
+    String? venueText,
   }) async {
+    final venue = venueText?.trim();
+    final venueParam = <String, dynamic>{
+      if (venue != null && venue.isNotEmpty) 'p_venue_text': venue,
+    };
     if (rosterUserIds != null) {
       final result = await SupabaseService.client.rpc(
         'propose_match_with_roster',
@@ -236,13 +230,18 @@ class MatchRepository {
           'p_request_id': requestId,
           'p_team_id': teamId,
           'p_roster_user_ids': rosterUserIds,
+          ...venueParam,
         },
       );
       return result as String;
     }
     final result = await SupabaseService.client.rpc(
       'propose_match',
-      params: {'p_request_id': requestId, 'p_team_id': teamId},
+      params: {
+        'p_request_id': requestId,
+        'p_team_id': teamId,
+        ...venueParam,
+      },
     );
     return result as String;
   }
@@ -308,7 +307,7 @@ class MatchRepository {
     final data = await SupabaseService.client
         .from(_requestProposals)
         .select(
-            '*, match_requests(city, scheduled_at, match_type, format, teams(name, rating, logo_url))')
+            '*, match_requests(city, scheduled_at, match_type, format, venue_text, teams(name, rating, logo_url))')
         .eq('proposing_team_id', teamId)
         .eq('status', 'pending')
         .order('created_at', ascending: false);
@@ -321,12 +320,10 @@ class MatchRepository {
   // ---- Accept / Reject (Task 5.3) ----
 
   /// Opponent captain accepts [requestId]; creates a match and confirms the
-  /// request atomically (via DB function). [myRequestId] is the accepting
-  /// captain's own reference request, if they have one — its ranked court
-  /// picks are compared against the accepted request's to resolve a
-  /// suggested court immediately. When null (accepting directly from the
-  /// city browse list, with no request of your own), the suggested court
-  /// falls back to the requesting team's #1 choice. Returns the new match id.
+  /// request atomically (via DB function). The match inherits the venue the
+  /// requesting captain typed. [myRequestId] is the accepting captain's own
+  /// reference request, if they have one (only used by the legacy court-pick
+  /// flow for old requests). Returns the new match id.
   Future<String> acceptMatchRequest({
     required String requestId,
     required String awayTeamId,
@@ -365,6 +362,38 @@ class MatchRepository {
     return (data as List).cast<Map<String, dynamic>>();
   }
 
+  /// The requesting (home) captain corrects where the match is played. The
+  /// opponent captain is notified by the server. Throws on validation
+  /// failures (see [friendlyError]).
+  Future<void> updateMatchVenue({
+    required String matchId,
+    required String venueText,
+  }) async {
+    await SupabaseService.client.rpc('update_match_venue', params: {
+      'p_match_id': matchId,
+      'p_venue_text': venueText.trim(),
+    });
+  }
+
+  /// Flags a user-entered venue name (on a request, on a match, or suggested
+  /// on a proposal) for admin review -- e.g. fake or inappropriate text.
+  /// Exactly one id is passed. A proposal's venue can only be reported by the
+  /// captain who received that proposal.
+  Future<void> reportVenue({
+    String? requestId,
+    String? matchId,
+    String? proposalId,
+  }) async {
+    assert(
+        [requestId, matchId, proposalId].where((e) => e != null).length == 1,
+        'pass exactly one of requestId / matchId / proposalId');
+    await SupabaseService.client.rpc('report_venue', params: {
+      'p_request_id': requestId,
+      'p_match_id': matchId,
+      if (proposalId != null) 'p_proposal_id': proposalId,
+    });
+  }
+
   /// The other captain confirms the fixture. Returns 'pending' or 'confirmed'.
   Future<String> confirmFixture(String matchId) async {
     final result = await SupabaseService.client
@@ -377,7 +406,7 @@ class MatchRepository {
     final data = await SupabaseService.client
         .from(_matches)
         .select(
-            '*, home_team:home_team_id(name, logo_url, rating, wins, losses, draws), away_team:away_team_id(name, logo_url, rating, wins, losses, draws), suggested_court:suggested_court_id(name, address, image_url)')
+            '*, home_team:home_team_id(name, logo_url, rating, wins, losses, draws), away_team:away_team_id(name, logo_url, rating, wins, losses, draws)')
         .eq('id', matchId)
         .single();
     return MatchModel.fromJson(data);
@@ -388,7 +417,7 @@ class MatchRepository {
     final data = await SupabaseService.client
         .from(_matches)
         .select(
-            '*, home_team:home_team_id(name, logo_url, rating, wins, losses, draws), away_team:away_team_id(name, logo_url, rating, wins, losses, draws), suggested_court:suggested_court_id(name, address, image_url)')
+            '*, home_team:home_team_id(name, logo_url, rating, wins, losses, draws), away_team:away_team_id(name, logo_url, rating, wins, losses, draws)')
         .or('home_team_id.eq.$teamId,away_team_id.eq.$teamId')
         .order('scheduled_at', ascending: false);
 

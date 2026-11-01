@@ -4,18 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
-import 'package:footrank/core/utils/motion.dart';
 import 'package:footrank/match/presentation/widgets/match_surfaces.dart';
-import 'package:footrank/core/utils/maps_launcher.dart';
-import 'package:footrank/core/widgets/async_views.dart';
-import 'package:footrank/core/widgets/court_image_preview.dart';
-import 'package:footrank/core/widgets/map_pill_button.dart';
 import 'package:footrank/core/widgets/premium.dart';
-import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
-import 'package:footrank/models/court_model.dart';
 import 'package:footrank/models/team_member_model.dart';
 import 'package:footrank/match/presentation/widgets/roster_picker.dart';
+import 'package:footrank/match/presentation/widgets/venue_widgets.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
@@ -27,8 +21,20 @@ class CreateMatchRequestPage extends StatefulWidget {
   /// Players chosen for the roster in the picker shown right after the team
   /// selection (null = whole team).
   final List<String>? initialRoster;
-  const CreateMatchRequestPage(
-      {super.key, required this.teamId, this.initialRoster});
+
+  /// Test hooks: stand-in repositories. Production uses the real ones.
+  @visibleForTesting
+  final MatchRepository? matchRepository;
+  @visibleForTesting
+  final TeamRepository? teamRepository;
+
+  const CreateMatchRequestPage({
+    super.key,
+    required this.teamId,
+    this.initialRoster,
+    this.matchRepository,
+    this.teamRepository,
+  });
 
   @override
   State<CreateMatchRequestPage> createState() => _CreateMatchRequestPageState();
@@ -37,9 +43,9 @@ class CreateMatchRequestPage extends StatefulWidget {
 class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
     with ThemeRepaintMixin {
   final _formKey = GlobalKey<FormState>();
-  final _repo = MatchRepository();
-  final _teamRepo = TeamRepository();
-  final _courtRepo = CourtRepository();
+  late final MatchRepository _repo = widget.matchRepository ?? MatchRepository();
+  late final TeamRepository _teamRepo = widget.teamRepository ?? TeamRepository();
+  final _venueCtrl = TextEditingController();
 
   String? _city;
   DateTime? _date;
@@ -49,19 +55,13 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
   static const String _format = '5v5';
   bool _loading = false;
 
-  List<CourtModel> _courts = [];
-  bool _courtsLoading = false;
-  String? _selectedCourtId;
-  final _courtPageController = PageController(viewportFraction: 0.86);
-  int _courtPage = 0;
-
   // Roster tab: who is playing. Starts with the whole team selected.
   List<TeamMemberModel> _members = [];
   Set<String> _roster = {};
 
   @override
   void dispose() {
-    _courtPageController.dispose();
+    _venueCtrl.dispose();
     super.dispose();
   }
 
@@ -99,39 +99,8 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
     final team = await _teamRepo.fetchById(widget.teamId);
     if (mounted && _city == null) {
       setState(() => _city = canonicalCity(team.city));
-      _loadCourts();
     }
   }
-
-  Future<void> _loadCourts() async {
-    final city = _city;
-    if (city == null) return;
-    setState(() => _courtsLoading = true);
-    try {
-      final courts = await _courtRepo.fetchCourtsForCity(city);
-      if (!mounted) return;
-      setState(() {
-        _courts = courts;
-        _selectedCourtId = null;
-        _courtsLoading = false;
-        _courtPage = 0;
-      });
-      if (_courtPageController.hasClients) {
-        _courtPageController.jumpToPage(0);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _courtsLoading = false);
-    }
-  }
-
-  void _selectCourt(String courtId) {
-    setState(() {
-      _selectedCourtId = _selectedCourtId == courtId ? null : courtId;
-    });
-  }
-
-  Future<void> _openMaps(CourtModel c) =>
-      openInMaps(name: c.name, address: c.address, city: c.city);
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
@@ -164,10 +133,6 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
     }
     if (_date == null || _time == null) {
       showError(context, 'Please pick a date and time');
-      return;
-    }
-    if (_selectedCourtId == null) {
-      showError(context, 'Pick a court');
       return;
     }
     if (_roster.length < kMinRoster) {
@@ -211,7 +176,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
         city: _city!,
         scheduledAt: scheduledAt,
         matchType: _matchType,
-        courtId: _selectedCourtId!,
+        venueText: cleanVenueInput(_venueCtrl.text),
         format: _format,
         rosterUserIds: _roster.toList(),
       );
@@ -227,233 +192,6 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
       if (mounted) setState(() => _loading = false);
     }
   }
-
-  Widget _buildCourtPicker() {
-    if (_courtsLoading) {
-      return const LoadingView();
-    }
-    if (_courts.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.chip(context),
-          borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
-        ),
-        child: Text(
-          _city == null
-              ? 'Select a city to see courts.'
-              : 'No courts listed yet for $_city.',
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: AppColors.muted(context)),
-        ),
-      );
-    }
-    return Column(
-      children: [
-        SizedBox(
-          height: 330,
-          child: PageView.builder(
-            controller: _courtPageController,
-            onPageChanged: (i) => setState(() => _courtPage = i),
-            itemCount: _courts.length,
-            itemBuilder: (context, i) => _buildCourtCard(_courts[i]),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_courts.length, (i) {
-            final active = i == _courtPage;
-            return AnimatedContainer(
-              duration: reduceMotion(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 200),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: active ? 18 : 6,
-              height: 6,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(3),
-                color: active
-                    ? AppColors.brand(context)
-                    : AppColors.onChip(context).withValues(
-                        alpha: Theme.of(context).brightness == Brightness.dark
-                            ? 0.35
-                            : 0.25),
-              ),
-            );
-          }),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCourtCard(CourtModel c) {
-    final picked = c.id == _selectedCourtId;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final base = isDark ? AppColors.darkCard : AppColors.lightCard;
-    final fill = picked
-        ? Color.alphaBlend(
-            AppColors.action.withValues(alpha: isDark ? 0.08 : 0.2), base)
-        : base;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: fill,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: picked ? AppColors.brand(context) : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Capped square: sized off the card's own width but never taller
-            // than 184 -- a true square that still leaves guaranteed room for
-            // the name/address/button below inside the fixed carousel height.
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final side = constraints.maxWidth < 184
-                      ? constraints.maxWidth
-                      : 184.0;
-                  return Center(
-                    child: SizedBox(
-                      width: side,
-                      height: side,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: InkWell(
-                          onTap: () => showCourtImagePreview(
-                            context,
-                            name: c.name,
-                            imageUrl: c.imageUrl,
-                          ),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              if (c.imageUrl != null)
-                                Image.network(
-                                  c.imageUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _courtImagePlaceholder(),
-                                )
-                              else
-                                _courtImagePlaceholder(),
-                              Positioned(
-                                top: 8,
-                                left: 8,
-                                child: MapPillButton(
-                                    onPressed: () => _openMaps(c)),
-                              ),
-                              if (picked)
-                                Positioned(
-                                  top: 8,
-                                  right: 8,
-                                  child: CircleAvatar(
-                                    radius: 15,
-                                    backgroundColor: AppColors.brand(context),
-                                    child: Icon(Icons.check,
-                                        color: AppColors.onBrand(context),
-                                        size: 18),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    c.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (c.address != null)
-                    Text(
-                      c.address!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.muted(context),
-                          ),
-                    ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: picked
-                        ? OutlinedButton.icon(
-                            onPressed: () => _selectCourt(c.id),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(44),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                    AppSemantic.controlRadius),
-                              ),
-                              side: isDark
-                                  ? BorderSide(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.24))
-                                  : const BorderSide(
-                                      color: AppColors.limeDeep, width: 1.5),
-                              textStyle: const TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.w700),
-                            ),
-                            icon: const Icon(Icons.close, size: 18),
-                            label: const Text('Remove'),
-                          )
-                        : FilledButton.icon(
-                            onPressed: () => _selectCourt(c.id),
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size.fromHeight(44),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                    AppSemantic.controlRadius),
-                              ),
-                              textStyle: const TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.w700),
-                            ),
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Select this court'),
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _courtImagePlaceholder() => Container(
-    color: AppColors.chip(context),
-    child: Icon(
-      Icons.sports_soccer,
-      size: 56,
-      color: AppColors.brand(context).withValues(alpha: 0.6),
-    ),
-  );
 
   Future<void> _editRoster() async {
     if (_members.isEmpty) return;
@@ -567,10 +305,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                       items: kCities
                           .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                           .toList(),
-                      onChanged: (v) {
-                        setState(() => _city = v);
-                        _loadCourts();
-                      },
+                      onChanged: (v) => setState(() => _city = v),
                       validator: (v) => v == null ? 'City is required' : null,
                     ),
                   ),
@@ -581,14 +316,15 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Pick a Court',
+                          'Where will you play?',
                           style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(
                                   fontSize: 14, fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'This is the court captains will see on your open request.',
+                          'Type the venue name. Other captains will see it '
+                          'exactly as you write it.',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                   fontSize: 12,
@@ -600,8 +336,44 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                   ),
                   const SizedBox(height: 8),
                   FadeSlideIn(
-                      delay: const Duration(milliseconds: 160),
-                      child: _buildCourtPicker()),
+                    delay: const Duration(milliseconds: 160),
+                    child: TextFormField(
+                      controller: _venueCtrl,
+                      maxLength: kVenueMaxLength,
+                      textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.done,
+                      decoration: const InputDecoration(
+                        labelText: 'Venue name',
+                        prefixIcon: Icon(Icons.stadium_outlined),
+                      ),
+                      validator: validateVenueInput,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 180),
+                    child: VenuePreviewCard(
+                      venueText: _venueCtrl.text,
+                      whenLabel: [
+                        dateLabel,
+                        timeLabel,
+                        if (_city != null) _city!,
+                      ].join(' · '),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'If the venue turns out to be full, you decide where to '
+                    'play. Change it on the match and give the other captain '
+                    'a call.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                          color: AppColors.muted(context),
+                        ),
+                  ),
                   const SizedBox(height: 20),
                   FadeSlideIn(
                     delay: const Duration(milliseconds: 200),

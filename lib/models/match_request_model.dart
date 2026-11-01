@@ -1,5 +1,3 @@
-import 'package:footrank/models/court_model.dart';
-
 class MatchRequestModel {
   final String id;
   final String teamId;
@@ -16,10 +14,9 @@ class MatchRequestModel {
   final int? teamRating;
   final String? teamLogo;
 
-  // Set by MatchRepository.fetchCityRequests — this request's ranked (1..3)
-  // court picks, so captains can see where a match would be played before
-  // accepting it.
-  final List<CourtModel>? courtPicks;
+  /// Venue name exactly as the opening captain typed it (free text). Shown
+  /// verbatim to other captains; null when none was given.
+  final String? venueText;
 
   const MatchRequestModel({
     required this.id,
@@ -34,29 +31,10 @@ class MatchRequestModel {
     this.teamName,
     this.teamRating,
     this.teamLogo,
-    this.courtPicks,
+    this.venueText,
   });
 
   bool get isRanked => matchType == 'ranked';
-
-  MatchRequestModel copyWith({
-    List<CourtModel>? courtPicks,
-  }) =>
-      MatchRequestModel(
-        id: id,
-        teamId: teamId,
-        captainId: captainId,
-        city: city,
-        scheduledAt: scheduledAt,
-        matchType: matchType,
-        format: format,
-        status: status,
-        createdAt: createdAt,
-        teamName: teamName,
-        teamRating: teamRating,
-        teamLogo: teamLogo,
-        courtPicks: courtPicks ?? this.courtPicks,
-      );
 
   factory MatchRequestModel.fromJson(Map<String, dynamic> json) {
     final team = json['teams'] as Map<String, dynamic>?;
@@ -73,6 +51,7 @@ class MatchRequestModel {
       teamName: team?['name'] as String?,
       teamRating: team?['rating'] as int?,
       teamLogo: team?['logo_url'] as String?,
+      venueText: json['venue_text'] as String?,
     );
   }
 }

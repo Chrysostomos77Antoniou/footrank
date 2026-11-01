@@ -10,10 +10,9 @@ import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/level_badge.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/core/utils/error_text.dart';
-import 'package:footrank/match/data/court_repository.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/match/presentation/widgets/roster_picker.dart';
-import 'package:footrank/models/court_model.dart';
+import 'package:footrank/match/presentation/widgets/venue_widgets.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/payment/data/payment_repository.dart';
 import 'package:footrank/payment/presentation/widgets/pay_fee_button.dart';
@@ -40,7 +39,6 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   final _matchRepo = MatchRepository();
   final _teamRepo = TeamRepository();
   final _paymentRepo = PaymentRepository();
-  final _courtRepo = CourtRepository();
 
   TeamModel? _team; // the currently-selected team (when in several)
   List<TeamModel> _teams = [];
@@ -57,11 +55,9 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   // Available Opponents filters -- city is mandatory (defaults to the acting
   // team's own registered city); everything else is optional narrowing.
   String? _filterCity;
-  String? _filterCourtId;
   DateTime? _filterDate;
   TimeOfDay? _filterTime;
   String? _filterMatchType; // null = any, else 'casual' | 'ranked'
-  List<CourtModel> _filterCourts = [];
   // 0 = any Pitch Power -- the app no longer restricts which opponents are
   // visible; a captain who wants to narrow by strength sets this themselves.
   int _filterPowerRange = 0;
@@ -123,11 +119,9 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       _loadingTeam = false;
       if (sel != null && sel.id != previousTeamId) {
         _filterCity = canonicalCity(sel.city) ?? kCities.first;
-        _filterCourtId = null;
         _filterDate = null;
         _filterTime = null;
         _filterMatchType = null;
-        _filterCourts = [];
         _filterPowerRange = 0;
       }
       _future = sel == null ? null : _matchRepo.fetchMyTeamRequests(sel.id);
@@ -140,7 +134,6 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
           sel == null ? null : _matchRepo.fetchSentProposals(sel.id);
       if (sel == null) _memberCount = null;
     });
-    if (sel != null && sel.id != previousTeamId) _loadFilterCourts();
     if (sel != null) _loadMemberCount(sel.id);
   }
 
@@ -155,11 +148,9 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     setState(() {
       _team = team;
       _filterCity = canonicalCity(team.city) ?? kCities.first;
-      _filterCourtId = null;
       _filterDate = null;
       _filterTime = null;
       _filterMatchType = null;
-      _filterCourts = [];
       _filterPowerRange = 0;
       _future = _matchRepo.fetchMyTeamRequests(team.id);
       _matchesFuture = _matchRepo.fetchTeamMatches(team.id);
@@ -170,7 +161,6 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       _sentProposalsFuture = _matchRepo.fetchSentProposals(team.id);
       _memberCount = null;
     });
-    _loadFilterCourts();
     _loadMemberCount(team.id);
   }
 
@@ -178,7 +168,6 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     final requests = await _matchRepo.fetchCityRequests(
       city: _filterCity ?? kCities.first,
       excludeTeamId: teamId,
-      courtId: _filterCourtId,
       date: _filterDate,
       timeOfDayMinutes:
           _filterTime == null ? null : _filterTime!.hour * 60 + _filterTime!.minute,
@@ -192,29 +181,10 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
         .toList();
   }
 
-  Future<void> _loadFilterCourts() async {
-    final city = _filterCity;
-    if (city == null) return;
-    final courts = await _courtRepo.fetchCourtsForCity(city);
-    if (!mounted || city != _filterCity) return;
-    setState(() => _filterCourts = courts);
-  }
-
   void _setFilterCity(String city) {
     if (city == _filterCity) return;
     setState(() {
       _filterCity = city;
-      _filterCourtId = null; // a court from the old city no longer applies
-      _filterCourts = [];
-      final team = _team;
-      _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
-    });
-    _loadFilterCourts();
-  }
-
-  void _setFilterCourt(String? courtId) {
-    setState(() {
-      _filterCourtId = courtId;
       final team = _team;
       _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
     });
@@ -273,25 +243,15 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   Future<void> _propose(MatchRequestModel opponent) async {
     final team = _team;
     if (team == null) return;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Propose this match?'),
-        content: Text(
-            'Propose a match against ${opponent.teamName ?? 'this team'} in '
-            '${opponent.city}. Their captain reviews proposals and picks '
-            'one — you\'ll be notified either way.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Send Proposal')),
-        ],
-      ),
+    // Besides confirming, the member may type a venue they would rather play
+    // at; their captain can accept it or decline (see the proposal card).
+    final choice = await showProposeDialog(
+      context,
+      opponentName: opponent.teamName ?? 'this team',
+      city: opponent.city,
+      requestVenue: opponent.venueText,
     );
-    if (confirm != true) return;
+    if (choice == null || !mounted) return;
 
     // Matches are 5-a-side -- fail fast with a clear message instead of
     // letting the request hit the server's "at least 5 players" check.
@@ -320,7 +280,10 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
 
     try {
       await _matchRepo.proposeMatch(
-          requestId: opponent.id, teamId: team.id, rosterUserIds: roster);
+          requestId: opponent.id,
+          teamId: team.id,
+          rosterUserIds: roster,
+          venueText: choice.venueText);
       if (!mounted) return;
       showSuccess(context, 'Proposal sent vs ${opponent.teamName}. Waiting for their '
                 'captain to pick.');
@@ -333,23 +296,10 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   }
 
   Future<void> _acceptProposal(MatchProposalModel proposal) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Accept this proposal?'),
-        content: Text(
-            '${proposal.teamName ?? 'This team'} wants to play your match. '
-            'Accepting confirms the match now and declines every other '
-            'pending proposal on this request.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Accept')),
-        ],
-      ),
+    final confirm = await showAcceptProposalDialog(
+      context,
+      teamName: proposal.teamName ?? 'This team',
+      venueText: proposal.venueText,
     );
     if (confirm != true) return;
     try {
@@ -642,14 +592,11 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                   FadeSlideIn(
                     child: _OpponentFilters(
                       city: _filterCity ?? kCities.first,
-                      courtId: _filterCourtId,
                       date: _filterDate,
                       time: _filterTime,
                       matchType: _filterMatchType,
                       powerRange: _filterPowerRange,
-                      courts: _filterCourts,
                       onCityChanged: _setFilterCity,
-                      onCourtChanged: _setFilterCourt,
                       onDateChanged: _setFilterDate,
                       onTimeChanged: _setFilterTime,
                       onMatchTypeChanged: _setFilterMatchType,
@@ -686,7 +633,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                                 ? 'Post a request and let them come to you '
                                     '-- you only need 5 players at match '
                                     'time, not right now.'
-                                : 'Try a different court or date, or post '
+                                : 'Try a different date or time, or post '
                                     'your own request.',
                             action: _team == null
                                 ? null
@@ -699,17 +646,29 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                         );
                       }
                       return Column(
-                        children: opponents
-                            .asMap()
-                            .entries
-                            .map((e) => FadeSlideIn(
-                                  delay: AppMotion.staggerFor(e.key),
-                                  child: _OpponentCard(
-                                    opponent: e.value,
-                                    onPropose: () => _propose(e.value),
-                                  ),
-                                ))
-                            .toList(),
+                        children: [
+                          ...opponents.asMap().entries.map((e) => FadeSlideIn(
+                                delay: AppMotion.staggerFor(e.key),
+                                child: _OpponentCard(
+                                  opponent: e.value,
+                                  onPropose: () => _propose(e.value),
+                                ),
+                              )),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(28, 8, 28, 8),
+                            child: Text(
+                              kVenueDisclaimer,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                      fontSize: 11.5,
+                                      height: 1.35,
+                                      color: AppColors.muted(context)),
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),
@@ -800,7 +759,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                                     .map((e) => FadeSlideIn(
                                           delay:
                                               AppMotion.staggerFor(e.key),
-                                          child: _RequestCard(
+                                          child: RequestCard(
                                             request: e.value,
                                             onCancel: e.value.captainId == uid
                                                 ? () => _cancelRequest(e.value)
@@ -858,7 +817,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
                                 .map((e) => FadeSlideIn(
                                       delay: AppMotion.staggerFor(e.key),
                                       child:
-                                          _SentProposalCard(proposal: e.value),
+                                          SentProposalCard(proposal: e.value),
                                     ))
                                 .toList(),
                           );
@@ -1484,20 +1443,30 @@ class _TeamMini extends StatelessWidget {
   }
 }
 
-class _RequestCard extends StatelessWidget {
+/// A request the acting team posted, with the proposals it received (and the
+/// venue each one suggests). Public only so widget tests can build it.
+@visibleForTesting
+class RequestCard extends StatelessWidget {
   final MatchRequestModel request;
   final VoidCallback? onCancel;
   final VoidCallback? onInvite;
   final List<MatchProposalModel> proposals;
   final ValueChanged<MatchProposalModel>? onAcceptProposal;
   final ValueChanged<MatchProposalModel>? onRejectProposal;
-  const _RequestCard({
+
+  /// Test seam for the "Report venue name" flag on a suggested venue.
+  /// Production leaves it null and the real repository is used.
+  @visibleForTesting
+  final VenueReporter? reportVenue;
+  const RequestCard({
+    super.key,
     required this.request,
     this.onCancel,
     this.onInvite,
     this.proposals = const [],
     this.onAcceptProposal,
     this.onRejectProposal,
+    this.reportVenue,
   });
 
   String get _when {
@@ -1595,6 +1564,28 @@ class _RequestCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (request.venueText != null &&
+                request.venueText!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.place_outlined,
+                      size: 17, color: AppColors.brand(context)),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      request.venueText!,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          height: 1.3,
+                          color: AppColors.brand(context)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (proposals.isNotEmpty) ...[
               const Divider(height: 20),
               Text('PROPOSALS',
@@ -1633,6 +1624,56 @@ class _RequestCard extends StatelessWidget {
                             LevelBadge(value: p.teamRating ?? 0, size: 32),
                           ],
                         ),
+                        if (p.hasVenueSuggestion) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Icon(Icons.place_outlined,
+                                    size: 17, color: AppColors.brand(context)),
+                              ),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(
+                                            text: 'Suggests: ',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color:
+                                                    AppColors.muted(context))),
+                                        TextSpan(
+                                            text: p.venueText!,
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                color:
+                                                    AppColors.brand(context))),
+                                      ],
+                                    ),
+                                    style: const TextStyle(
+                                        fontSize: 13, height: 1.3),
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Report venue name',
+                                icon: Icon(Icons.flag_outlined,
+                                    size: 18, color: AppColors.muted(context)),
+                                visualDensity: VisualDensity.compact,
+                                constraints: const BoxConstraints(
+                                    minWidth: 44, minHeight: 44),
+                                padding: EdgeInsets.zero,
+                                onPressed: () => reportVenueFlow(context,
+                                    proposalId: p.id, report: reportVenue),
+                              ),
+                            ],
+                          ),
+                        ],
                         const SizedBox(height: 10),
                         Row(
                           children: [
@@ -1725,7 +1766,7 @@ class _PendingMatchCard extends StatelessWidget {
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: AppColors.muted(context))),
-            if (match.suggestedCourtName != null) ...[
+            if (match.venueText != null && match.venueText!.isNotEmpty) ...[
               const SizedBox(height: 6),
               Align(
                 alignment: Alignment.centerLeft,
@@ -1744,7 +1785,7 @@ class _PendingMatchCard extends StatelessWidget {
                           size: 18, color: AppColors.brand(context)),
                       const SizedBox(width: 6),
                       Flexible(
-                        child: Text(match.suggestedCourtName!,
+                        child: Text(match.venueText!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -1857,24 +1898,34 @@ class _OpponentCard extends StatelessWidget {
                     fontSize: 12.5,
                     fontWeight: FontWeight.w500,
                     color: AppColors.muted(context))),
-            if (opponent.courtPicks != null &&
-                opponent.courtPicks!.isNotEmpty) ...[
-              const SizedBox(height: 8),
+            if (opponent.venueText != null &&
+                opponent.venueText!.isNotEmpty) ...[
+              const SizedBox(height: 4),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.place_outlined,
                       size: 17, color: AppColors.brand(context)),
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
-                      opponent.courtPicks!.map((c) => c.name).join(' · '),
+                      opponent.venueText!,
                       style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 13,
                           height: 1.3,
                           color: AppColors.brand(context)),
                     ),
+                  ),
+                  IconButton(
+                    tooltip: 'Report venue name',
+                    icon: Icon(Icons.flag_outlined,
+                        size: 18, color: AppColors.muted(context)),
+                    visualDensity: VisualDensity.compact,
+                    constraints:
+                        const BoxConstraints(minWidth: 44, minHeight: 44),
+                    padding: EdgeInsets.zero,
+                    onPressed: () =>
+                        reportVenueFlow(context, requestId: opponent.id),
                   ),
                 ],
               ),
@@ -1904,9 +1955,10 @@ class _OpponentCard extends StatelessWidget {
 /// One proposal the acting team has sent, shown on the "Propose" tab so any
 /// team member can see what's outstanding -- not just the person who sent
 /// it. Read-only: only the target request's own captain can act on it.
-class _SentProposalCard extends StatelessWidget {
+@visibleForTesting
+class SentProposalCard extends StatelessWidget {
   final MatchProposalModel proposal;
-  const _SentProposalCard({required this.proposal});
+  const SentProposalCard({super.key, required this.proposal});
 
   @override
   Widget build(BuildContext context) {
@@ -1919,40 +1971,89 @@ class _SentProposalCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: GlassCard(
         padding: const EdgeInsets.all(14),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            MatchTeamAvatar(
-              name: proposal.targetTeamName ?? '?',
-              imageUrl: proposal.targetTeamLogo,
-              radius: 22,
+            Row(
+              children: [
+                MatchTeamAvatar(
+                  name: proposal.targetTeamName ?? '?',
+                  imageUrl: proposal.targetTeamLogo,
+                  radius: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(proposal.targetTeamName ?? 'Unknown team',
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      Text(
+                        [
+                          if (proposal.requestCity != null)
+                            proposal.requestCity,
+                          if (when != null) when,
+                          if (proposal.requestMatchType != null)
+                            proposal.requestMatchType,
+                        ].join(' · '),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.muted(context)),
+                      ),
+                    ],
+                  ),
+                ),
+                // The rating and the "Pending" chip keep their natural size on
+                // ordinary screens; on a small phone with very large text they
+                // shrink instead of squeezing the team name or overflowing.
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 140),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (proposal.targetTeamRating != null)
+                          LevelBadge(
+                              value: proposal.targetTeamRating!, size: 36),
+                        const SizedBox(width: 8),
+                        _Chip(label: 'Pending', color: AppColors.muted(context)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
+            if (proposal.hasVenueSuggestion) ...[
+              const SizedBox(height: 10),
+              // On its own full-width line: a venue name needs the room.
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(proposal.targetTeamName ?? 'Unknown team',
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text(
-                    [
-                      if (proposal.requestCity != null) proposal.requestCity,
-                      if (when != null) when,
-                      if (proposal.requestMatchType != null)
-                        proposal.requestMatchType,
-                    ].join(' · '),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.muted(context)),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Icon(Icons.place_outlined,
+                        size: 16, color: AppColors.brand(context)),
+                  ),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      'You suggested: ${proposal.venueText}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12.5,
+                          height: 1.3,
+                          color: AppColors.brand(context)),
+                    ),
                   ),
                 ],
               ),
-            ),
-            if (proposal.targetTeamRating != null)
-              LevelBadge(value: proposal.targetTeamRating!, size: 36),
-            const SizedBox(width: 8),
-            _Chip(label: 'Pending', color: AppColors.muted(context)),
+            ],
           ],
         ),
       ),
@@ -1960,25 +2061,22 @@ class _SentProposalCard extends StatelessWidget {
   }
 }
 
-/// City (mandatory) + court/date/time/match-type filters for the Available
+/// City (mandatory) + date/time/match-type filters for the Available
 /// Opponents list.
 /// City defaults to the acting team's own registered city but can be
-/// switched to browse other cities; court and date are optional narrowing —
+/// switched to browse other cities; date and time are optional narrowing —
 /// clearing them is the only way to see "every open request in the city".
 /// Collapsed by default behind a single "Filters" summary row -- expands to
-/// reveal the full city/court/type/date/time grid. Keeps the Available
+/// reveal the full city/type/date/time grid. Keeps the Available
 /// Opponents list from being pushed below the fold by five always-visible
 /// fields when most of the time nobody's actively narrowing the search.
 class _OpponentFilters extends StatefulWidget {
   final String city;
-  final String? courtId;
   final DateTime? date;
   final TimeOfDay? time;
   final String? matchType;
   final int powerRange;
-  final List<CourtModel> courts;
   final ValueChanged<String> onCityChanged;
-  final ValueChanged<String?> onCourtChanged;
   final ValueChanged<DateTime?> onDateChanged;
   final ValueChanged<TimeOfDay?> onTimeChanged;
   final ValueChanged<String?> onMatchTypeChanged;
@@ -1986,14 +2084,11 @@ class _OpponentFilters extends StatefulWidget {
 
   const _OpponentFilters({
     required this.city,
-    required this.courtId,
     required this.date,
     required this.time,
     required this.matchType,
     required this.powerRange,
-    required this.courts,
     required this.onCityChanged,
-    required this.onCourtChanged,
     required this.onDateChanged,
     required this.onTimeChanged,
     required this.onMatchTypeChanged,
@@ -2008,14 +2103,11 @@ class _OpponentFiltersState extends State<_OpponentFilters> {
   bool _expanded = false;
 
   String get city => widget.city;
-  String? get courtId => widget.courtId;
   DateTime? get date => widget.date;
   TimeOfDay? get time => widget.time;
   String? get matchType => widget.matchType;
   int get powerRange => widget.powerRange;
-  List<CourtModel> get courts => widget.courts;
   ValueChanged<String> get onCityChanged => widget.onCityChanged;
-  ValueChanged<String?> get onCourtChanged => widget.onCourtChanged;
   ValueChanged<DateTime?> get onDateChanged => widget.onDateChanged;
   ValueChanged<TimeOfDay?> get onTimeChanged => widget.onTimeChanged;
   ValueChanged<String?> get onMatchTypeChanged => widget.onMatchTypeChanged;
@@ -2044,16 +2136,11 @@ class _OpponentFiltersState extends State<_OpponentFilters> {
   }
 
   String get _summary {
-    final courtName = courtId == null
-        ? 'Any court'
-        : courts.firstWhere((c) => c.id == courtId,
-                orElse: () => const CourtModel(id: '', name: 'Any court', city: ''))
-            .name;
     final typeLabel = matchType == null
         ? 'Any type'
         : (matchType == 'ranked' ? 'Ranked' : 'Casual');
     final dateLabel = date == null ? 'Any date' : _formatDate(date!);
-    return '$city · $courtName · $typeLabel · $dateLabel';
+    return '$city · $typeLabel · $dateLabel';
   }
 
   @override
@@ -2132,48 +2219,21 @@ class _OpponentFiltersState extends State<_OpponentFilters> {
             },
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
+          DropdownButtonFormField<String>(
  icon: Icon(Icons.keyboard_arrow_down, size: 20, color: AppColors.muted(context)),
-                  value: courtId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Court',
-                    isDense: true,
-                    prefixIcon: Icon(Icons.sports_soccer_outlined),
-                  ),
-                  items: [
-                    const DropdownMenuItem<String>(
-                        value: null, child: Text('Any court')),
-                    ...courts.map((c) =>
-                        DropdownMenuItem(value: c.id, child: Text(c.name))),
-                  ],
-                  onChanged: onCourtChanged,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButtonFormField<String>(
- icon: Icon(Icons.keyboard_arrow_down, size: 20, color: AppColors.muted(context)),
-                  value: matchType,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Type',
-                    isDense: true,
-                    prefixIcon: Icon(Icons.emoji_events_outlined),
-                  ),
-                  items: const [
-                    DropdownMenuItem<String>(
-                        value: null, child: Text('Any type')),
-                    DropdownMenuItem(value: 'casual', child: Text('Casual')),
-                    DropdownMenuItem(value: 'ranked', child: Text('Ranked')),
-                  ],
-                  onChanged: onMatchTypeChanged,
-                ),
-              ),
+            value: matchType,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Type',
+              isDense: true,
+              prefixIcon: Icon(Icons.emoji_events_outlined),
+            ),
+            items: const [
+              DropdownMenuItem<String>(value: null, child: Text('Any type')),
+              DropdownMenuItem(value: 'casual', child: Text('Casual')),
+              DropdownMenuItem(value: 'ranked', child: Text('Ranked')),
             ],
+            onChanged: onMatchTypeChanged,
           ),
           const SizedBox(height: 8),
           Row(

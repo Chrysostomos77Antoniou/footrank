@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:footrank/admin/models/admin_court_model.dart';
+import 'package:footrank/admin/models/flagged_venue_model.dart';
 import 'package:footrank/admin/models/match_cancellation_model.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_proposal_model.dart';
@@ -95,6 +96,43 @@ class AdminRepository {
           ),
         );
     return _client.storage.from('court-photos').getPublicUrl(path);
+  }
+
+  // ---- Flagged venues ----
+  //
+  // Captains type venue names as free text. The server quietly compares each
+  // one with the courts list; anything that doesn't clearly match (or that a
+  // player reports) lands here. Players never see the court it was compared
+  // with -- only admins do, through these RPCs.
+
+  Future<int> fetchFlaggedVenueCount() async {
+    final n = await _client.rpc('admin_flagged_venue_count');
+    return (n as num?)?.toInt() ?? 0;
+  }
+
+  Future<List<FlaggedVenueModel>> fetchFlaggedVenues() async {
+    final data = await _client.rpc('admin_list_flagged_venues');
+    return (data as List)
+        .map((e) => FlaggedVenueModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// [action] is `approve` (looks fine), `link` (it is that court; needs
+  /// [courtId]) or `remove` (fake / inappropriate: deletes an open request or
+  /// clears the venue on a match, and tells the captain).
+  Future<void> reviewVenue(
+    String reviewId,
+    String action, {
+    String? courtId,
+  }) async {
+    await _client.rpc(
+      'admin_review_venue',
+      params: {
+        'p_review_id': reviewId,
+        'p_action': action,
+        'p_court_id': courtId,
+      },
+    );
   }
 
   // ---- Matches / requests / proposals ----

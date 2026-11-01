@@ -18,6 +18,7 @@ import 'package:footrank/models/team_model.dart';
 import 'package:footrank/match/presentation/widgets/match_fee_card.dart';
 import 'package:footrank/match/presentation/widgets/match_surfaces.dart';
 import 'package:footrank/match/presentation/widgets/match_team_avatar.dart';
+import 'package:footrank/match/presentation/widgets/venue_widgets.dart';
 import 'package:footrank/payment/data/payment_repository.dart';
 import 'package:footrank/payment/data/promo_repository.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
@@ -944,6 +945,66 @@ class _MatchDetailPageState extends State<MatchDetailPage>
     );
   }
 
+  /// The venue card shows whenever there is a typed venue, and on any
+  /// upcoming match even without one ("Not set yet").
+  bool _showVenueCard(MatchModel match, MatchStatus status) =>
+      (match.venueText ?? '').isNotEmpty || _isUpcoming(match, status);
+
+  bool _isUpcoming(MatchModel match, MatchStatus status) =>
+      status != MatchStatus.completed &&
+      match.status != 'cancelled' &&
+      match.scheduledAt.isAfter(DateTime.now());
+
+  Widget _buildVenueCard(MatchModel match, MatchStatus status) {
+    // Only the captain who opened the request (the home side) can change the
+    // venue; the other captain is notified and can call them.
+    final iAmRequester = _isCaptain && _myTeamId == match.homeTeamId;
+    final hasVenue = (match.venueText ?? '').isNotEmpty;
+
+    Map<String, dynamic>? other;
+    for (final c in _contacts) {
+      if (c['team_id'] == _opponentTeamId) other = c;
+    }
+    final phone = (other?['captain_phone'] as String?)?.trim();
+    final otherName = (other?['captain_name'] as String?)?.trim();
+    final canCall = phone != null && phone.isNotEmpty;
+
+    return VenueCard(
+      venueText: match.venueText,
+      isRequester: iAmRequester,
+      canEdit: iAmRequester && _isUpcoming(match, status),
+      canReport: _myTeamId != null && _myTeamId != match.homeTeamId && hasVenue,
+      onDirections: hasVenue
+          ? () => openInMaps(name: match.venueText!, city: match.city)
+          : null,
+      callLabel: canCall
+          ? 'Call ${otherName == null || otherName.isEmpty ? 'the other captain' : otherName}'
+          : null,
+      onCall: canCall ? () => _call(phone) : null,
+      onEdit: () => _changeVenue(match),
+      onReport: () => reportVenueFlow(context, matchId: match.id),
+    );
+  }
+
+  /// The requesting captain corrects where the match is played (e.g. the
+  /// venue turned out to be full). The other captain is notified server-side.
+  Future<void> _changeVenue(MatchModel match) async {
+    final text = await showEditVenueDialog(context, initial: match.venueText);
+    if (text == null || !mounted) return;
+    if (text == match.venueText) return;
+    try {
+      await _matchRepo.updateMatchVenue(matchId: match.id, venueText: text);
+      if (!mounted) return;
+      triggerAppRefresh();
+      await _load();
+      if (mounted) {
+        showSuccess(context, 'Venue updated. The other captain was notified.');
+      }
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
   Widget _buildInfoTab(MatchModel match, MatchStatus status) {
     final d = match.scheduledAt.toLocal();
     final when =
@@ -986,9 +1047,9 @@ class _MatchDetailPageState extends State<MatchDetailPage>
             ],
           ),
         ),
-        if (match.suggestedCourtId != null) ...[
+        if (_showVenueCard(match, status)) ...[
           const SizedBox(height: AppSpacing.xs),
-          _SuggestedCourtCard(match: match),
+          _buildVenueCard(match, status),
         ],
         if (status != MatchStatus.completed && _myTeamId != null) ...[
           const SizedBox(height: AppSpacing.xs),
@@ -1541,77 +1602,6 @@ class _ScoreDialogState extends State<_ScoreDialog> {
         ),
         FilledButton(onPressed: _submit, child: const Text('Submit')),
       ],
-    );
-  }
-}
-
-/// Both captains rank their 3 courts when creating their match request; once
-/// matched, the backend resolves a suggested court automatically (see
-/// accept_match_request()). Read-only display here — deliberately shows
-/// name/address/photo only, never a phone number; the owner sees that
-/// separately when making the actual booking call.
-class _SuggestedCourtCard extends StatelessWidget {
-  final MatchModel match;
-  const _SuggestedCourtCard({required this.match});
-
-  @override
-  Widget build(BuildContext context) {
-    final name = match.suggestedCourtName ?? 'Court';
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Suggested Court',
-            style: _cardTitleStyle(context),
-          ),
-          const SizedBox(height: 10),
-          if (match.suggestedCourtImageUrl != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                match.suggestedCourtImageUrl!,
-                height: 140,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            ),
-          const SizedBox(height: 10),
-          Text(name,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-          if (match.suggestedCourtAddress != null)
-            Text(
-              match.suggestedCourtAddress!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.muted(context),
-                  ),
-            ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(AppSemantic.minTapTarget),
-                shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppSemantic.controlRadius),
-                ),
-              ),
-              onPressed: () => openInMaps(
-                name: name,
-                address: match.suggestedCourtAddress,
-                city: match.city,
-              ),
-              icon: Icon(Icons.near_me_outlined,
-                  size: 18, color: AppColors.brand(context)),
-              label: const Text('Get Directions'),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
