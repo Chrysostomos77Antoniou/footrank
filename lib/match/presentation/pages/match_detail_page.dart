@@ -1055,6 +1055,10 @@ class _MatchDetailPageState extends State<MatchDetailPage>
           const SizedBox(height: AppSpacing.xs),
           PitchPowerPreview(
             teamId: _myTeamId!,
+            // The real move depends on the rating gap, so name the opponent.
+            opponentTeamId: _myTeamId == match.homeTeamId
+                ? match.awayTeamId
+                : match.homeTeamId,
             matchType: match.matchType,
           ),
         ],

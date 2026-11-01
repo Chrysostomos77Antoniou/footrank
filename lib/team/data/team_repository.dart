@@ -64,18 +64,39 @@ class TeamRepository {
 
   /// Projected Pitch Power (team rating) change for [teamId] if its next
   /// [matchType] match is a win/draw/loss -- computed server-side with the
-  /// same catch-up-aware formula the completion trigger applies, so the
-  /// hidden roster-power number behind the catch-up bonus is never sent to
-  /// the client, only the resulting deltas.
+  /// same formulas the completion trigger applies, so the hidden roster-power
+  /// number behind the catch-up bonus is never sent to the client, only the
+  /// resulting deltas.
+  ///
+  /// With [opponentTeamId] the server also weighs the two teams' rating
+  /// difference (`preview_match_rating_delta`): beating a stronger team pays
+  /// more, losing to a weaker one costs more. Without one it is the
+  /// opponent-blind `preview_team_rating_delta` (the base +-K plus the roster
+  /// catch-up), which is what older builds show.
+  ///
+  /// Throws when the server has nothing to show (for example an unknown team),
+  /// so callers hide the preview instead of displaying invented numbers.
   Future<({int win, int draw, int loss})> previewRatingDelta({
     required String teamId,
     required String matchType,
+    String? opponentTeamId,
   }) async {
-    final data = await SupabaseService.client.rpc(
-      'preview_team_rating_delta',
-      params: {'p_team_id': teamId, 'p_match_type': matchType},
-    );
-    final row = (data as List).cast<Map<String, dynamic>>().first;
+    final data = opponentTeamId == null
+        ? await SupabaseService.client.rpc(
+            'preview_team_rating_delta',
+            params: {'p_team_id': teamId, 'p_match_type': matchType},
+          )
+        : await SupabaseService.client.rpc(
+            'preview_match_rating_delta',
+            params: {
+              'p_team_id': teamId,
+              'p_opponent_team_id': opponentTeamId,
+              'p_match_type': matchType,
+            },
+          );
+    final rows = (data as List).cast<Map<String, dynamic>>();
+    if (rows.isEmpty) throw StateError('No Pitch Power preview available');
+    final row = rows.first;
     return (
       win: row['win_delta'] as int,
       draw: row['draw_delta'] as int,

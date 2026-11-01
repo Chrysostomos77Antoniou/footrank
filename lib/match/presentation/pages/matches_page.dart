@@ -3,54 +3,109 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/constants/cities.dart';
 import 'package:footrank/core/theme/app_colors.dart';
-import 'package:footrank/core/utils/motion.dart';
-import 'package:footrank/match/presentation/widgets/match_team_avatar.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
-import 'package:footrank/core/widgets/async_views.dart';
-import 'package:footrank/core/widgets/level_badge.dart';
-import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/core/utils/error_text.dart';
+import 'package:footrank/core/utils/reloadable.dart';
+import 'package:footrank/core/widgets/app_button.dart';
+import 'package:footrank/core/widgets/async_views.dart';
+import 'package:footrank/core/widgets/feedback.dart';
+import 'package:footrank/core/widgets/pitch_power_preview.dart';
+import 'package:footrank/core/widgets/premium.dart';
+import 'package:footrank/core/widgets/segmented_tabs.dart';
 import 'package:footrank/match/data/match_repository.dart';
+import 'package:footrank/match/presentation/widgets/match_cards.dart';
+import 'package:footrank/match/presentation/widgets/opponent_filters.dart';
 import 'package:footrank/match/presentation/widgets/roster_picker.dart';
+import 'package:footrank/match/presentation/widgets/team_switcher.dart';
 import 'package:footrank/match/presentation/widgets/venue_widgets.dart';
 import 'package:footrank/models/match_model.dart';
-import 'package:footrank/payment/data/payment_repository.dart';
-import 'package:footrank/payment/presentation/widgets/pay_fee_button.dart';
 import 'package:footrank/models/match_proposal_model.dart';
 import 'package:footrank/models/match_request_model.dart';
 import 'package:footrank/models/match_status.dart';
 import 'package:footrank/models/team_model.dart';
+import 'package:footrank/payment/data/payment_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/services/supabase_service.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/team/presentation/widgets/team_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:footrank/core/widgets/feedback.dart';
-import 'package:footrank/core/theme/app_tokens.dart';
 
+// The cards used to be defined in this file. Other code (and the tests) still
+// reach them through it, so it keeps handing them out.
+export 'package:footrank/match/presentation/widgets/match_cards.dart'
+    show RequestCard, SentProposalCard;
+
+/// The Matches screen.
+///
+/// Three tabs, one question each:
+///  * Opponents -- who can we play? (other teams' open requests, with filters)
+///  * Activity  -- what is in motion? (our requests and the proposals on them,
+///                 proposals we sent, matches waiting for both captains)
+///  * Matches   -- what is booked and what is done? (upcoming / history)
+///
+/// This class fetches and acts; how things look is in the widgets it uses.
 class MatchesPage extends StatefulWidget {
-  const MatchesPage({super.key});
+  const MatchesPage({
+    super.key,
+    this.matchRepository,
+    this.teamRepository,
+    this.paymentRepository,
+    this.currentUserId,
+    this.pitchPowerLoader,
+  });
+
+  /// Test seams. Production leaves all five null and gets the real
+  /// repositories, the signed-in user and the server's Pitch Power preview.
+  @visibleForTesting
+  final MatchRepository? matchRepository;
+  @visibleForTesting
+  final TeamRepository? teamRepository;
+  @visibleForTesting
+  final PaymentRepository? paymentRepository;
+  @visibleForTesting
+  final String? currentUserId;
+  @visibleForTesting
+  final PitchPowerLoader? pitchPowerLoader;
 
   @override
   State<MatchesPage> createState() => _MatchesPageState();
 }
 
 class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
-  final _matchRepo = MatchRepository();
-  final _teamRepo = TeamRepository();
-  final _paymentRepo = PaymentRepository();
+  late final MatchRepository _matchRepo =
+      widget.matchRepository ?? MatchRepository();
+  late final TeamRepository _teamRepo =
+      widget.teamRepository ?? TeamRepository();
+  late final PaymentRepository _paymentRepo =
+      widget.paymentRepository ?? PaymentRepository();
+
+  String? get _userId =>
+      widget.currentUserId ?? SupabaseService.client.auth.currentUser?.id;
+
+  // ---- who we are acting as ------------------------------------------------
 
   TeamModel? _team; // the currently-selected team (when in several)
   List<TeamModel> _teams = [];
   bool _loadingTeam = true;
-  Future<List<MatchRequestModel>>? _future;
-  Future<List<MatchModel>>? _matchesFuture;
-  Future<List<MatchRequestModel>>? _opponentsFuture;
-  Future<Map<String, List<MatchProposalModel>>>? _proposalsFuture;
-  Future<List<MatchProposalModel>>? _sentProposalsFuture;
+  Object? _teamsError;
+
   // Member count of the selected team, used to steer under-staffed captains
   // toward posting a request instead of proposing (see _loadMemberCount).
   int? _memberCount;
+
+  // ---- what the tabs show --------------------------------------------------
+  // Each list keeps its last answer while a newer one loads (see Reloadable),
+  // so refreshing never blanks the screen and switching tabs never reloads.
+
+  final _requests = Reloadable<List<MatchRequestModel>>();
+  final _matches = Reloadable<List<MatchModel>>();
+  final _opponents = Reloadable<List<MatchRequestModel>>();
+  final _incoming = Reloadable<Map<String, List<MatchProposalModel>>>();
+  final _sent = Reloadable<List<MatchProposalModel>>();
+
+  List<Reloadable<Object>> get _loads =>
+      [_requests, _matches, _opponents, _incoming, _sent];
 
   // Available Opponents filters -- city is mandatory (defaults to the acting
   // team's own registered city); everything else is optional narrowing.
@@ -68,16 +123,35 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   /// makes the button safe to show: if there is an entry, this user can pay it.
   Map<String, PendingFee> _pendingFees = const {};
 
-  bool get _isCaptain =>
-      _team != null &&
-      _team!.captainId == SupabaseService.client.auth.currentUser?.id;
+  // ---- which view of it ----------------------------------------------------
 
-  // Upcoming Matches / Match History.
-  int _matchesTab = 0;
-  // Opponents / My Activity.
-  int _mainTab = 0;
-  // Open / Sent / Pending, inside My Activity.
-  int _activityTab = 0;
+  int _mainTab = 0; // Opponents / Activity / Matches
+  int _activityTab = 0; // Requests / Sent / To confirm
+  int _matchesTab = 0; // Upcoming / History
+
+  // One controller per tab: the three lists sit side by side in an
+  // IndexedStack and must not share the primary scroll controller.
+  final _opponentsScroll = ScrollController();
+  final _activityScroll = ScrollController();
+  final _matchesScroll = ScrollController();
+
+  bool get _isCaptain {
+    final uid = _userId;
+    return uid != null && _team?.captainId == uid;
+  }
+
+  String get _defaultCity => canonicalCity(_team?.city) ?? kCities.first;
+
+  bool get _filtersActive =>
+      (_filterCity ?? _defaultCity) != _defaultCity ||
+      _filterDate != null ||
+      _filterTime != null ||
+      _filterMatchType != null ||
+      _filterPowerRange != 0;
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
@@ -92,6 +166,9 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
   void dispose() {
     appRefresh.removeListener(_load);
     appRefresh.removeListener(_loadPendingFees);
+    _opponentsScroll.dispose();
+    _activityScroll.dispose();
+    _matchesScroll.dispose();
     super.dispose();
   }
 
@@ -101,140 +178,167 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     setState(() => _pendingFees = {for (final f in fees) f.matchId: f});
   }
 
+  /// Loads the user's teams, then everything for the selected one. Completes
+  /// when all of it has landed, so pull-to-refresh can wait for it.
   Future<void> _load() async {
-    final teams = await _teamRepo.fetchMyTeams();
+    final List<TeamModel> teams;
+    try {
+      teams = await _teamRepo.fetchMyTeams();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingTeam = false;
+        _teamsError = e;
+      });
+      return;
+    }
     if (!mounted) return;
     // Keep the current selection if it still exists, else default to the first.
     final previousTeamId = _team?.id;
     TeamModel? selected;
     if (_team != null) {
-      final existing = teams.where((t) => t.id == _team!.id).toList();
-      if (existing.isNotEmpty) selected = existing.first;
+      selected = teams.where((t) => t.id == _team!.id).firstOrNull;
     }
     selected ??= teams.isEmpty ? null : teams.first;
-    final sel = selected;
+    final teamChanged = selected?.id != previousTeamId;
     setState(() {
       _teams = teams;
-      _team = sel;
+      _team = selected;
       _loadingTeam = false;
-      if (sel != null && sel.id != previousTeamId) {
-        _filterCity = canonicalCity(sel.city) ?? kCities.first;
-        _filterDate = null;
-        _filterTime = null;
-        _filterMatchType = null;
-        _filterPowerRange = 0;
+      _teamsError = null;
+      if (teamChanged) {
+        _resetFilterValues(selected);
+        _memberCount = null;
       }
-      _future = sel == null ? null : _matchRepo.fetchMyTeamRequests(sel.id);
-      _matchesFuture = sel == null ? null : _matchRepo.fetchTeamMatches(sel.id);
-      _opponentsFuture = sel == null ? null : _fetchOpponents(sel.id);
-      _proposalsFuture = sel == null || !_isCaptain
-          ? null
-          : _matchRepo.fetchProposalsForTeamRequests(sel.id);
-      _sentProposalsFuture =
-          sel == null ? null : _matchRepo.fetchSentProposals(sel.id);
-      if (sel == null) _memberCount = null;
     });
-    if (sel != null) _loadMemberCount(sel.id);
+    if (teamChanged) {
+      for (final l in _loads) {
+        l.clear();
+      }
+    }
+    final team = selected;
+    if (team == null) return;
+    await Future.wait([_reloadAll(), _loadMemberCount(team.id)]);
   }
 
   Future<void> _loadMemberCount(String teamId) async {
-    final members = await _teamRepo.fetchMembers(teamId);
-    if (!mounted || teamId != _team?.id) return;
-    setState(() => _memberCount = members.length);
+    try {
+      final members = await _teamRepo.fetchMembers(teamId);
+      if (!mounted || teamId != _team?.id) return;
+      setState(() => _memberCount = members.length);
+    } catch (_) {
+      // Only steers the wording of an empty state; the default copy is fine.
+    }
   }
 
   void _selectTeam(TeamModel team) {
     if (team.id == _team?.id) return;
     setState(() {
       _team = team;
-      _filterCity = canonicalCity(team.city) ?? kCities.first;
-      _filterDate = null;
-      _filterTime = null;
-      _filterMatchType = null;
-      _filterPowerRange = 0;
-      _future = _matchRepo.fetchMyTeamRequests(team.id);
-      _matchesFuture = _matchRepo.fetchTeamMatches(team.id);
-      _opponentsFuture = _fetchOpponents(team.id);
-      _proposalsFuture = _isCaptain
-          ? _matchRepo.fetchProposalsForTeamRequests(team.id)
-          : null;
-      _sentProposalsFuture = _matchRepo.fetchSentProposals(team.id);
+      _resetFilterValues(team);
       _memberCount = null;
     });
+    for (final l in _loads) {
+      l.clear();
+    }
+    _reloadAll();
     _loadMemberCount(team.id);
   }
 
-  Future<List<MatchRequestModel>> _fetchOpponents(String teamId) async {
-    final requests = await _matchRepo.fetchCityRequests(
-      city: _filterCity ?? kCities.first,
+  /// Everything a tab shows, fetched again. Whatever is on screen stays until
+  /// the new answer replaces it.
+  Future<void> _reloadAll() {
+    final team = _team;
+    if (team == null) return Future.value();
+    return Future.wait([
+      _requests.reload(
+          () => _matchRepo.fetchMyTeamRequests(team.id), _changed),
+      _matches.reload(() => _matchRepo.fetchTeamMatches(team.id), _changed),
+      _opponents.reload(() => _fetchOpponents(team.id), _changed),
+      _incoming.reload(
+        () => _isCaptain
+            ? _matchRepo.fetchProposalsForTeamRequests(team.id)
+            : Future.value(const <String, List<MatchProposalModel>>{}),
+        _changed,
+      ),
+      _sent.reload(() => _matchRepo.fetchSentProposals(team.id), _changed),
+    ]);
+  }
+
+  /// Pull-to-refresh: the spinner stays until everything has really reloaded,
+  /// and a failure is said out loud instead of leaving stale data in silence.
+  Future<void> _refresh() async {
+    Object? failure;
+    try {
+      await Future.wait([_load(), _loadPendingFees()]);
+    } catch (e) {
+      failure = e;
+    }
+    failure ??= _teamsError ??
+        _loads.map((l) => l.error).whereType<Object>().firstOrNull;
+    if (failure != null && mounted) showError(context, failure);
+  }
+
+  Future<List<MatchRequestModel>> _fetchOpponents(String teamId) {
+    final time = _filterTime;
+    return _matchRepo.fetchCityRequests(
+      city: _filterCity ?? _defaultCity,
       excludeTeamId: teamId,
       date: _filterDate,
-      timeOfDayMinutes:
-          _filterTime == null ? null : _filterTime!.hour * 60 + _filterTime!.minute,
+      timeOfDayMinutes: time == null ? null : time.hour * 60 + time.minute,
       matchType: _filterMatchType,
     );
-    final range = _filterPowerRange;
-    if (range <= 0) return requests;
-    final myRating = _team?.rating ?? 1500;
-    return requests
-        .where((r) => ((r.teamRating ?? 1500) - myRating).abs() <= range)
-        .toList();
+  }
+
+  Future<void> _reloadOpponents() {
+    final team = _team;
+    if (team == null) return Future.value();
+    // A different set of teams, not a newer version of the same one: drop the
+    // old list so it is never shown under the new filter.
+    _opponents.clear();
+    return _opponents.reload(() => _fetchOpponents(team.id), _changed);
+  }
+
+  void _resetFilterValues(TeamModel? team) {
+    _filterCity = canonicalCity(team?.city) ?? kCities.first;
+    _filterDate = null;
+    _filterTime = null;
+    _filterMatchType = null;
+    _filterPowerRange = 0;
   }
 
   void _setFilterCity(String city) {
     if (city == _filterCity) return;
-    setState(() {
-      _filterCity = city;
-      final team = _team;
-      _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
-    });
+    setState(() => _filterCity = city);
+    _reloadOpponents();
   }
 
   void _setFilterDate(DateTime? date) {
-    setState(() {
-      _filterDate = date;
-      final team = _team;
-      _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
-    });
+    setState(() => _filterDate = date);
+    _reloadOpponents();
   }
 
   void _setFilterTime(TimeOfDay? time) {
-    setState(() {
-      _filterTime = time;
-      final team = _team;
-      _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
-    });
-  }
-
-  void _setFilterPowerRange(int range) {
-    setState(() {
-      _filterPowerRange = range;
-      final team = _team;
-      _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
-    });
+    setState(() => _filterTime = time);
+    _reloadOpponents();
   }
 
   void _setFilterMatchType(String? matchType) {
-    setState(() {
-      _filterMatchType = matchType;
-      final team = _team;
-      _opponentsFuture = team == null ? null : _fetchOpponents(team.id);
-    });
+    setState(() => _filterMatchType = matchType);
+    _reloadOpponents();
   }
 
-  void _reloadRequests() {
-    final team = _team;
-    if (team == null) return;
-    setState(() {
-      _future = _matchRepo.fetchMyTeamRequests(team.id);
-      _matchesFuture = _matchRepo.fetchTeamMatches(team.id);
-      _opponentsFuture = _fetchOpponents(team.id);
-      _proposalsFuture = _isCaptain
-          ? _matchRepo.fetchProposalsForTeamRequests(team.id)
-          : null;
-      _sentProposalsFuture = _matchRepo.fetchSentProposals(team.id);
-    });
+  /// Narrows the list already on screen; there is nothing to fetch.
+  void _setFilterPowerRange(int range) {
+    setState(() => _filterPowerRange = range);
   }
+
+  void _resetFilters() {
+    setState(() => _resetFilterValues(_team));
+    _reloadOpponents();
+  }
+
+  // ---- actions ---------------------------------------------------------------
 
   /// Any team member can propose the acting team against an open request
   /// (only accepting/rejecting is captain-only). Does not lock that request
@@ -244,12 +348,20 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     final team = _team;
     if (team == null) return;
     // Besides confirming, the member may type a venue they would rather play
-    // at; their captain can accept it or decline (see the proposal card).
+    // at; their captain can accept it or decline (see the proposal card). The
+    // dialog also says what the match is worth against THIS opponent.
     final choice = await showProposeDialog(
       context,
       opponentName: opponent.teamName ?? 'this team',
       city: opponent.city,
       requestVenue: opponent.venueText,
+      stakes: PitchPowerPreview(
+        teamId: team.id,
+        opponentTeamId: opponent.teamId,
+        matchType: opponent.matchType,
+        compact: true,
+        loader: widget.pitchPowerLoader,
+      ),
     );
     if (choice == null || !mounted) return;
 
@@ -258,14 +370,17 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     final members = await _teamRepo.fetchMembers(team.id);
     if (!mounted) return;
     if (members.length < 5) {
-      showError(context, '${team.name} needs at least 5 players before you can propose a '
-            'match (currently ${members.length}).',);
+      showError(
+        context,
+        '${team.name} needs at least 5 players before you can propose a '
+        'match (currently ${members.length}).',
+      );
       return;
     }
 
     // Captain / vice-captain choose who is playing. Other members propose
     // with the whole team on the roster (they can edit it afterwards).
-    final uid = SupabaseService.client.auth.currentUser?.id;
+    final uid = _userId;
     final me = members.where((m) => m.userId == uid).firstOrNull;
     List<String>? roster;
     if (me != null && (me.isCaptain || me.isViceCaptain)) {
@@ -280,37 +395,48 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
 
     try {
       await _matchRepo.proposeMatch(
-          requestId: opponent.id,
-          teamId: team.id,
-          rosterUserIds: roster,
-          venueText: choice.venueText);
+        requestId: opponent.id,
+        teamId: team.id,
+        rosterUserIds: roster,
+        venueText: choice.venueText,
+      );
       if (!mounted) return;
-      showSuccess(context, 'Proposal sent vs ${opponent.teamName}. Waiting for their '
-                'captain to pick.');
-      _reloadRequests();
+      showSuccess(
+        context,
+        'Proposal sent vs ${opponent.teamName}. Waiting for their captain to '
+        'pick.',
+      );
+      _reloadAll();
     } catch (e) {
-      if (mounted) {
-        showError(context, e);
-      }
+      if (mounted) showError(context, e);
     }
   }
 
-  Future<void> _acceptProposal(MatchProposalModel proposal) async {
+  Future<void> _acceptProposal(
+    MatchProposalModel proposal,
+    MatchRequestModel request,
+  ) async {
     final confirm = await showAcceptProposalDialog(
       context,
       teamName: proposal.teamName ?? 'This team',
       venueText: proposal.venueText,
+      stakes: PitchPowerPreview(
+        teamId: request.teamId,
+        opponentTeamId: proposal.proposingTeamId,
+        matchType: request.matchType,
+        compact: true,
+        loader: widget.pitchPowerLoader,
+      ),
     );
     if (confirm != true) return;
     try {
       await _matchRepo.acceptProposal(proposal.id);
       if (!mounted) return;
-      showSuccess(context, 'Match confirmed vs ${proposal.teamName ?? 'them'}!');
-      _reloadRequests();
+      showSuccess(
+          context, 'Match confirmed vs ${proposal.teamName ?? 'them'}!');
+      _reloadAll();
     } catch (e) {
-      if (mounted) {
-        showError(context, e);
-      }
+      if (mounted) showError(context, e);
     }
   }
 
@@ -319,11 +445,9 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       await _matchRepo.rejectProposal(proposal.id);
       if (!mounted) return;
       showSuccess(context, 'Proposal declined');
-      _reloadRequests();
+      _reloadAll();
     } catch (e) {
-      if (mounted) {
-        showError(context, e);
-      }
+      if (mounted) showError(context, e);
     }
   }
 
@@ -331,14 +455,15 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     try {
       final status = await _matchRepo.confirmFixture(m.id);
       if (!mounted) return;
-      showSuccess(context, status == 'confirmed'
-                ? 'Match confirmed!'
-                : 'Confirmed on your side. Waiting for the opponent.');
-      _reloadRequests();
+      showSuccess(
+        context,
+        status == 'confirmed'
+            ? 'Match confirmed!'
+            : 'Confirmed on your side. Waiting for the opponent.',
+      );
+      _reloadAll();
     } catch (e) {
-      if (mounted) {
-        showError(context, e);
-      }
+      if (mounted) showError(context, e);
     }
   }
 
@@ -369,18 +494,16 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       await _matchRepo.cancelMatch(m.id);
       if (!mounted) return;
       showSuccess(context, 'Match rejected');
-      _reloadRequests();
+      _reloadAll();
     } catch (e) {
-      if (mounted) {
-        showError(context, e);
-      }
+      if (mounted) showError(context, e);
     }
   }
 
   Future<void> _openCreate() async {
     // Ask which team to create the match for (only when in several).
-    final team = await chooseTeam(context, _teams,
-        title: 'Create a match for…');
+    final team =
+        await chooseTeam(context, _teams, title: 'Create a match for…');
     if (!mounted || team == null) return;
     // Keep the Matches view in sync with the team just chosen.
     _selectTeam(team);
@@ -388,9 +511,11 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
     final members = await _teamRepo.fetchMembers(team.id);
     if (!mounted) return;
     if (members.length < 5) {
-      showError(context,
-          '${team.name} needs at least 5 players before you can create a '
-          'match (currently ${members.length}).');
+      showError(
+        context,
+        '${team.name} needs at least 5 players before you can create a '
+        'match (currently ${members.length}).',
+      );
       return;
     }
     final roster = await showRosterSheet(
@@ -405,7 +530,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       extra: CreateMatchArgs(team.id, roster),
     );
     if (created != null) {
-      _reloadRequests();
+      _reloadAll();
       if (!mounted) return;
       final invite = await showDialog<bool>(
         context: context,
@@ -435,8 +560,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cancel match request?'),
-        content: Text(
-            'This will remove your open request for ${r.city}. '
+        content: Text('This will remove your open request for ${r.city}. '
             'You can create a new one anytime.'),
         actions: [
           TextButton(
@@ -455,11 +579,9 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
       await _matchRepo.deleteRequest(r.id);
       if (!mounted) return;
       showSuccess(context, 'Match request cancelled');
-      _reloadRequests();
+      _reloadAll();
     } catch (e) {
-      if (mounted) {
-        showError(context, e);
-      }
+      if (mounted) showError(context, e);
     }
   }
 
@@ -475,11 +597,15 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
         "Got a team? Let's set one up on FootRank!";
     final uri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(msg)}');
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        showError(context, 'Could not open WhatsApp');
-      }
+      if (mounted) showError(context, 'Could not open WhatsApp');
     }
   }
+
+  // ---- build -----------------------------------------------------------------
+
+  /// Room at the bottom of every list so the last card is never hidden behind
+  /// the Create Match button.
+  static const double _fabClearance = AppSpacing.xxxl * 2;
 
   @override
   Widget build(BuildContext context) {
@@ -490,1855 +616,502 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
           style: TextStyle(fontSize: 26, letterSpacing: -0.26),
         ),
       ),
-      floatingActionButton: _teams.isNotEmpty
-          ? DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppSemantic.buttonRadius),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.black.withValues(alpha: 0.45)
-                        : AppColors.ink.withValues(alpha: 0.22),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: FloatingActionButton.extended(
-                onPressed: _openCreate,
-                elevation: 0,
-                focusElevation: 0,
-                hoverElevation: 0,
-                highlightElevation: 0,
-                backgroundColor: AppColors.action,
-                foregroundColor: AppColors.onAction(context),
-                extendedTextStyle: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w700),
-                shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppSemantic.buttonRadius),
-                ),
-                icon: const Icon(Icons.add),
-                label: const Text('Create Match'),
-              ),
-            )
-          : null,
+      floatingActionButton:
+          _teams.isEmpty ? null : _CreateMatchButton(onPressed: _openCreate),
       body: AmbientBackground(child: SafeArea(child: _buildBody())),
     );
   }
 
   Widget _buildBody() {
-    if (_loadingTeam) {
-      return const LoadingView();
-    }
-    if (_team == null) {
+    if (_loadingTeam) return const LoadingView();
+    final team = _team;
+    if (team == null) {
+      if (_teamsError != null) {
+        return ErrorView(message: friendlyError(_teamsError!), onRetry: _load);
+      }
       return const EmptyView(
         icon: Icons.groups_outlined,
         title: 'No team yet',
         hint: 'Join or create a team to organise matches.',
       );
     }
-    return RefreshIndicator(
-      onRefresh: () async => _reloadRequests(),
-      child: ListView(
-        padding: const EdgeInsets.only(bottom: 88),
-        children: [
-          if (_teams.length > 1 && _team != null)
-            FadeSlideIn(
-              child: _TeamSelector(
-                teams: _teams,
-                selectedId: _team!.id,
-                onSelect: _selectTeam,
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: FadeSlideIn(
-              child: FutureBuilder<Map<String, List<MatchProposalModel>>>(
-                future: _proposalsFuture,
-                builder: (context, incomingSnap) {
-                  final incomingCount = (incomingSnap.data ?? const {})
-                      .values
-                      .fold<int>(0, (sum, list) => sum + list.length);
-                  return FutureBuilder<List<MatchModel>>(
-                    future: _matchesFuture,
-                    builder: (context, matchesSnap) {
-                      final pendingCount = (matchesSnap.data ?? const [])
-                          .where((m) => m.status == 'pending')
-                          .length;
-                      return _SectionTabs(
-                        index: _mainTab,
-                        items: [
-                          const _TabItem(
-                              Icons.person_search_outlined, 'Opponents'),
-                          _TabItem(Icons.list_alt_outlined, 'My Activity',
-                              badgeCount: incomingCount + pendingCount),
-                        ],
-                        onChanged: (i) => setState(() => _mainTab = i),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
+
+    final Map<String, List<MatchProposalModel>> proposalsByRequest =
+        _incoming.data ?? const {};
+    final incoming =
+        proposalsByRequest.values.fold<int>(0, (sum, list) => sum + list.length);
+    final matches = _matches.data ?? const <MatchModel>[];
+    // Only a captain can act on a match waiting for confirmation, so only a
+    // captain is nudged about it.
+    final toConfirm =
+        _isCaptain ? matches.where((m) => m.status == 'pending').length : 0;
+    final feesDue = matches
+        .where((m) => m.status == 'confirmed' && _pendingFees.containsKey(m.id))
+        .length;
+
+    final tabs = [
+      _buildOpponentsTab(team),
+      _buildActivityTab(team, incoming: incoming, toConfirm: toConfirm),
+      _buildMatchesTab(team),
+    ];
+    return Column(
+      children: [
+        if (_teams.length > 1)
+          TeamSwitcher(
+            teams: _teams,
+            selectedId: team.id,
+            onSelect: _selectTeam,
           ),
-          IndexedStack(
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSemantic.screenPadding,
+            vertical: AppSpacing.xs,
+          ),
+          child: SegmentedTabs(
             index: _mainTab,
-            alignment: Alignment.topCenter,
+            items: [
+              const SegmentedTabItem('Opponents'),
+              SegmentedTabItem('Activity', badgeCount: incoming + toConfirm),
+              SegmentedTabItem('Matches', badgeCount: feesDue),
+            ],
+            onChanged: (i) => setState(() => _mainTab = i),
+          ),
+        ),
+        // All three tabs stay built, so each keeps its scroll position, its
+        // filters and its data while you look at another one. The ones out of
+        // sight do not tick (no shimmer running behind your back).
+        Expanded(
+          child: IndexedStack(
+            index: _mainTab,
+            sizing: StackFit.expand,
             children: [
-              // ---- Opponents: browse open requests from other teams ----
-              Column(
-                children: [
-                  FadeSlideIn(
-                    child: _OpponentFilters(
-                      city: _filterCity ?? kCities.first,
-                      date: _filterDate,
-                      time: _filterTime,
-                      matchType: _filterMatchType,
-                      powerRange: _filterPowerRange,
-                      onCityChanged: _setFilterCity,
-                      onDateChanged: _setFilterDate,
-                      onTimeChanged: _setFilterTime,
-                      onMatchTypeChanged: _setFilterMatchType,
-                      onPowerRangeChanged: _setFilterPowerRange,
-                    ),
-                  ),
-                  FutureBuilder<List<MatchRequestModel>>(
-                    future: _opponentsFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState ==
-                          ConnectionState.waiting) {
-                        return const SkeletonList(count: 2);
-                      }
-                      if (snapshot.hasError) {
-                        return Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: ErrorView(
-                            message: friendlyError(snapshot.error!),
-                            onRetry: _reloadRequests,
-                          ),
-                        );
-                      }
-                      final opponents = snapshot.data ?? [];
-                      if (opponents.isEmpty) {
-                        final underStaffed = (_memberCount ?? 5) < 5;
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: EmptyView(
-                            icon: Icons.person_search_outlined,
-                            title: underStaffed
-                                ? 'No teams are searching right now'
-                                : 'No open requests match your filters',
-                            hint: underStaffed
-                                ? 'Post a request and let them come to you '
-                                    '-- you only need 5 players at match '
-                                    'time, not right now.'
-                                : 'Try a different date or time, or post '
-                                    'your own request.',
-                            action: _team == null
-                                ? null
-                                : FilledButton.icon(
-                                    onPressed: _openCreate,
-                                    icon: const Icon(Icons.add),
-                                    label: const Text('Post a Request'),
-                                  ),
-                          ),
-                        );
-                      }
-                      return Column(
-                        children: [
-                          ...opponents.asMap().entries.map((e) => FadeSlideIn(
-                                delay: AppMotion.staggerFor(e.key),
-                                child: _OpponentCard(
-                                  opponent: e.value,
-                                  onPropose: () => _propose(e.value),
-                                ),
-                              )),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(28, 8, 28, 8),
-                            child: Text(
-                              kVenueDisclaimer,
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                      fontSize: 11.5,
-                                      height: 1.35,
-                                      color: AppColors.muted(context)),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-              // ---- My Activity: everything about the acting team's own
-              // requests and proposals, split Open / Sent / Awaiting Confirm
-              // instead of separate top-level tabs ----
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                    child: FutureBuilder<Map<String, List<MatchProposalModel>>>(
-                      future: _proposalsFuture,
-                      builder: (context, incomingSnap) {
-                        final incomingCount = (incomingSnap.data ?? const {})
-                            .values
-                            .fold<int>(0, (sum, list) => sum + list.length);
-                        return FutureBuilder<List<MatchModel>>(
-                          future: _matchesFuture,
-                          builder: (context, matchesSnap) {
-                            final pendingCount = (matchesSnap.data ?? const [])
-                                .where((m) => m.status == 'pending')
-                                .length;
-                            return _PillSubTabs(
-                              index: _activityTab,
-                              items: [
-                                _PillItem('Open', badgeCount: incomingCount),
-                                const _PillItem('Sent'),
-                                _PillItem('Awaiting confirm',
-                                    badgeCount: pendingCount),
-                              ],
-                              onChanged: (i) =>
-                                  setState(() => _activityTab = i),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                  IndexedStack(
-                    index: _activityTab,
-                    alignment: Alignment.topCenter,
-                    children: [
-                      FutureBuilder<List<MatchRequestModel>>(
-                        future: _future,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const SkeletonList(count: 2);
-                          }
-                          if (snapshot.hasError) {
-                            return Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: ErrorView(
-                                message: friendlyError(snapshot.error!),
-                                onRetry: _reloadRequests,
-                              ),
-                            );
-                          }
-                          final requests = snapshot.data
-                                  ?.where((r) =>
-                                      MatchStatus.fromString(r.status).isOpen)
-                                  .toList() ??
-                              [];
-                          if (requests.isEmpty) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8),
-                              child: EmptyView(
-                                icon: Icons.sports_soccer_outlined,
-                                title: 'No matches scheduled yet',
-                                hint: 'Tap "Create Match" to start.',
-                              ),
-                            );
-                          }
-                          final uid = SupabaseService.client.auth.currentUser?.id;
-                          return FutureBuilder<Map<String, List<MatchProposalModel>>>(
-                            future: _proposalsFuture ??
-                                Future.value(
-                                    const <String, List<MatchProposalModel>>{}),
-                            builder: (context, proposalsSnapshot) {
-                              final proposalsByRequest =
-                                  proposalsSnapshot.data ?? {};
-                              return Column(
-                                children: requests
-                                    .asMap()
-                                    .entries
-                                    .map((e) => FadeSlideIn(
-                                          delay:
-                                              AppMotion.staggerFor(e.key),
-                                          child: RequestCard(
-                                            request: e.value,
-                                            onCancel: e.value.captainId == uid
-                                                ? () => _cancelRequest(e.value)
-                                                : null,
-                                            onInvite: () =>
-                                                _inviteRival(e.value),
-                                            proposals: _isCaptain
-                                                ? proposalsByRequest[
-                                                        e.value.id] ??
-                                                    const []
-                                                : const [],
-                                            onAcceptProposal: _acceptProposal,
-                                            onRejectProposal: _rejectProposal,
-                                          ),
-                                        ))
-                                    .toList(),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                      FutureBuilder<List<MatchProposalModel>>(
-                        future: _sentProposalsFuture,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const SkeletonList(count: 2);
-                          }
-                          if (snapshot.hasError) {
-                            return Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: ErrorView(
-                                message: friendlyError(snapshot.error!),
-                                onRetry: _reloadRequests,
-                              ),
-                            );
-                          }
-                          final sent = snapshot.data ?? [];
-                          if (sent.isEmpty) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8),
-                              child: EmptyView(
-                                icon: Icons.outgoing_mail,
-                                title: 'No open proposals',
-                                hint:
-                                    'Proposals your team sends to other teams\' '
-                                    'requests show up here while they\'re pending.',
-                              ),
-                            );
-                          }
-                          return Column(
-                            children: sent
-                                .asMap()
-                                .entries
-                                .map((e) => FadeSlideIn(
-                                      delay: AppMotion.staggerFor(e.key),
-                                      child:
-                                          SentProposalCard(proposal: e.value),
-                                    ))
-                                .toList(),
-                          );
-                        },
-                      ),
-                      FutureBuilder<List<MatchModel>>(
-                        future: _matchesFuture,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const SkeletonList(count: 2);
-                          }
-                          final myTeamId = _team?.id;
-                          final pending = (snapshot.data ?? [])
-                              .where((m) => m.status == 'pending')
-                              .toList();
-                          if (pending.isEmpty) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8),
-                              child: EmptyView(
-                                icon: Icons.pending_actions_outlined,
-                                title: 'Nothing waiting on confirmation',
-                              ),
-                            );
-                          }
-                          return Column(
-                            children: pending.asMap().entries.map((e) {
-                              final m = e.value;
-                              final iAmHome = m.homeTeamId == myTeamId;
-                              final iConfirmed =
-                                  iAmHome ? m.homeOk : m.awayOk;
-                              return FadeSlideIn(
-                                delay: AppMotion.staggerFor(e.key),
-                                child: _PendingMatchCard(
-                                  match: m,
-                                  iConfirmed: iConfirmed,
-                                  canAct: _isCaptain,
-                                  onConfirm: () => _confirmFixture(m),
-                                  onReject: () => _rejectMatch(m),
-                                ),
-                              );
-                            }).toList(),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              for (var i = 0; i < tabs.length; i++)
+                TickerMode(enabled: i == _mainTab, child: tabs[i]),
             ],
           ),
-          FutureBuilder<List<MatchModel>>(
-            future: _matchesFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SkeletonList(count: 2);
-              }
-              final all = snapshot.data ?? [];
-              final myTeamId = _team?.id;
-              final upcoming =
-                  all.where((m) => m.status == 'confirmed').toList();
-              final history =
-                  all.where((m) => m.status == 'completed').toList();
-              return Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                    child: _SectionTabs(
-                      index: _matchesTab,
-                      items: [
-                        _TabItem(Icons.event_available_outlined, 'Upcoming',
-                            badgeCount: upcoming.length),
-                        const _TabItem(Icons.history, 'History'),
-                      ],
-                      onChanged: (i) => setState(() => _matchesTab = i),
-                    ),
-                  ),
-                  IndexedStack(
-                    index: _matchesTab,
-                    alignment: Alignment.topCenter,
-                    children: [
-                      if (upcoming.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: EmptyView(
-                            icon: Icons.event_available_outlined,
-                            title: 'No upcoming matches',
-                          ),
-                        )
-                      else
-                        Column(
-                          children: upcoming
-                              .asMap()
-                              .entries
-                              .map((e) => FadeSlideIn(
-                                    delay: AppMotion.staggerFor(e.key),
-                                    child: _MatchCard(
-                                      match: e.value,
-                                      myTeamId: myTeamId,
-                                      pendingFee: _pendingFees[e.value.id],
-                                      onPaid: _loadPendingFees,
-                                    ),
-                                  ))
-                              .toList(),
-                        ),
-                      if (history.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: EmptyView(
-                            icon: Icons.history,
-                            title: 'No past matches yet',
-                          ),
-                        )
-                      else
-                        Column(
-                          children: history
-                              .asMap()
-                              .entries
-                              .map((e) => FadeSlideIn(
-                                    delay: AppMotion.staggerFor(e.key),
-                                    child: _MatchCard(
-                                        match: e.value, myTeamId: myTeamId),
-                                  ))
-                              .toList(),
-                        ),
-                    ],
-                  ),
-                ],
-              );
-            },
+        ),
+      ],
+    );
+  }
+
+  /// One tab: a list you can pull down to refresh, with its own scroll
+  /// position.
+  Widget _tab({
+    required ScrollController controller,
+    required List<Widget> children,
+  }) {
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView(
+        controller: controller,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(
+          top: AppSpacing.xxs,
+          bottom: _fabClearance,
+        ),
+        children: children,
+      ),
+    );
+  }
+
+  /// The list items for [load]: its content once there is some, a skeleton the
+  /// first time, and the error with a retry when it failed. The items go
+  /// straight into the ListView (not a Column) so long lists stay lazy.
+  List<Widget> _itemsFor<T>(
+    Reloadable<T> load,
+    List<Widget> Function(T data) builder,
+  ) {
+    final data = load.data;
+    if (data != null) return builder(data);
+    if (load.hasFailed) {
+      return [
+        Padding(
+          padding: const EdgeInsets.all(AppSemantic.screenPadding),
+          child: ErrorView(
+            message: friendlyError(load.error!),
+            onRetry: _reloadAll,
           ),
-        ],
+        ),
+      ];
+    }
+    return const [MatchListSkeleton()];
+  }
+
+  // ---- Opponents -----------------------------------------------------------
+
+  Widget _buildOpponentsTab(TeamModel team) {
+    return _tab(
+      controller: _opponentsScroll,
+      children: [
+        OpponentFilters(
+          city: _filterCity ?? _defaultCity,
+          date: _filterDate,
+          time: _filterTime,
+          matchType: _filterMatchType,
+          powerRange: _filterPowerRange,
+          isFiltered: _filtersActive,
+          onCityChanged: _setFilterCity,
+          onDateChanged: _setFilterDate,
+          onTimeChanged: _setFilterTime,
+          onMatchTypeChanged: _setFilterMatchType,
+          onPowerRangeChanged: _setFilterPowerRange,
+          onReset: _resetFilters,
+        ),
+        ..._itemsFor<List<MatchRequestModel>>(_opponents, (all) {
+          final range = _filterPowerRange;
+          final visible = range <= 0
+              ? all
+              : all
+                  .where((r) =>
+                      ((r.teamRating ?? 1500) - team.rating).abs() <= range)
+                  .toList();
+          if (visible.isEmpty) {
+            return [_opponentsEmpty(hiddenByRange: all.isNotEmpty)];
+          }
+          return [
+            _ListCaption(
+              '${visible.length} open '
+              '${visible.length == 1 ? 'request' : 'requests'}',
+            ),
+            for (final (i, o) in visible.indexed)
+              FadeSlideIn.listItem(
+                key: ValueKey('opponent-${o.id}'),
+                index: i,
+                id: 'opponent-${o.id}',
+                child: OpponentCard(
+                  opponent: o,
+                  myRating: team.rating,
+                  onPropose: () => _propose(o),
+                ),
+              ),
+            const _VenueDisclaimer(),
+          ];
+        }),
+      ],
+    );
+  }
+
+  Widget _opponentsEmpty({required bool hiddenByRange}) {
+    final underStaffed = (_memberCount ?? 5) < 5;
+    final String title;
+    final String hint;
+    if (hiddenByRange) {
+      title = 'No teams in that power range';
+      hint = 'Widen the range, or reset the filters to see every open '
+          'request.';
+    } else if (underStaffed) {
+      title = 'No teams are searching right now';
+      hint = 'Tap Create Match and let them come to you. You only need 5 '
+          'players at match time, not right now.';
+    } else if (_filtersActive) {
+      title = 'No open requests match your filters';
+      hint = 'Try a different date or time, or tap Create Match to post your '
+          'own request.';
+    } else {
+      title = 'No open requests right now';
+      hint = 'Tap Create Match to post your own request, and teams in your '
+          'city can propose a match.';
+    }
+    return EmptyView(
+      icon: Icons.person_search_outlined,
+      title: title,
+      hint: hint,
+      // Creating a request is the floating button's job, always in reach;
+      // the only action worth offering here is undoing the filters.
+      action: _filtersActive
+          ? AppButton(
+              label: 'Reset filters',
+              variant: AppButtonVariant.secondary,
+              fullWidth: false,
+              onPressed: _resetFilters,
+            )
+          : null,
+    );
+  }
+
+  // ---- Activity ------------------------------------------------------------
+
+  Widget _buildActivityTab(
+    TeamModel team, {
+    required int incoming,
+    required int toConfirm,
+  }) {
+    return _tab(
+      controller: _activityScroll,
+      children: [
+        FilterPills(
+          index: _activityTab,
+          items: [
+            FilterPillItem('Requests', badgeCount: incoming),
+            const FilterPillItem('Sent'),
+            FilterPillItem('To confirm', badgeCount: toConfirm),
+          ],
+          onChanged: (i) => setState(() => _activityTab = i),
+        ),
+        ...switch (_activityTab) {
+          0 => _requestItems(),
+          1 => _sentItems(team),
+          _ => _pendingItems(team),
+        },
+      ],
+    );
+  }
+
+  List<Widget> _requestItems() {
+    return _itemsFor<List<MatchRequestModel>>(_requests, (all) {
+      final open =
+          all.where((r) => MatchStatus.fromString(r.status).isOpen).toList();
+      if (open.isEmpty) {
+        return const [
+          EmptyView(
+            icon: Icons.sports_soccer_outlined,
+            title: 'No open requests',
+            hint: 'Tap Create Match to post a request, and teams in your city '
+                'can propose a match.',
+          ),
+        ];
+      }
+      final Map<String, List<MatchProposalModel>> proposals =
+          _isCaptain ? (_incoming.data ?? const {}) : const {};
+      final uid = _userId;
+      return [
+        for (final (i, r) in open.indexed)
+          FadeSlideIn.listItem(
+            key: ValueKey('request-${r.id}'),
+            index: i,
+            id: 'request-${r.id}',
+            child: RequestCard(
+              request: r,
+              onCancel: r.captainId == uid ? () => _cancelRequest(r) : null,
+              onInvite: () => _inviteRival(r),
+              proposals: proposals[r.id] ?? const [],
+              onAcceptProposal: (p) => _acceptProposal(p, r),
+              onRejectProposal: _rejectProposal,
+            ),
+          ),
+      ];
+    });
+  }
+
+  List<Widget> _sentItems(TeamModel team) {
+    return _itemsFor<List<MatchProposalModel>>(_sent, (sent) {
+      if (sent.isEmpty) {
+        return const [
+          EmptyView(
+            icon: Icons.outgoing_mail,
+            title: 'No pending proposals',
+            hint: "Proposals your team sends to other teams' requests show up "
+                'here while they are pending.',
+          ),
+        ];
+      }
+      return [
+        for (final (i, p) in sent.indexed)
+          FadeSlideIn.listItem(
+            key: ValueKey('sent-${p.id}'),
+            index: i,
+            id: 'sent-${p.id}',
+            child: SentProposalCard(proposal: p, myRating: team.rating),
+          ),
+      ];
+    });
+  }
+
+  List<Widget> _pendingItems(TeamModel team) {
+    return _itemsFor<List<MatchModel>>(_matches, (all) {
+      final pending = all.where((m) => m.status == 'pending').toList();
+      if (pending.isEmpty) {
+        return const [
+          EmptyView(
+            icon: Icons.pending_actions_outlined,
+            title: 'Nothing to confirm',
+            hint: 'Matches that both captains still have to confirm appear '
+                'here.',
+          ),
+        ];
+      }
+      return [
+        for (final (i, m) in pending.indexed)
+          FadeSlideIn.listItem(
+            key: ValueKey('pending-${m.id}'),
+            index: i,
+            id: 'pending-${m.id}',
+            child: PendingMatchCard(
+              match: m,
+              iConfirmed: m.homeTeamId == team.id ? m.homeOk : m.awayOk,
+              canAct: _isCaptain,
+              onConfirm: () => _confirmFixture(m),
+              onReject: () => _rejectMatch(m),
+            ),
+          ),
+      ];
+    });
+  }
+
+  // ---- Matches -------------------------------------------------------------
+
+  Widget _buildMatchesTab(TeamModel team) {
+    final upcoming = _matchesTab == 0;
+    return _tab(
+      controller: _matchesScroll,
+      children: [
+        FilterPills(
+          index: _matchesTab,
+          items: const [FilterPillItem('Upcoming'), FilterPillItem('History')],
+          onChanged: (i) => setState(() => _matchesTab = i),
+        ),
+        ..._itemsFor<List<MatchModel>>(_matches, (all) {
+          // Soonest first for what is coming, latest first for what is done.
+          final shown = all
+              .where((m) => m.status == (upcoming ? 'confirmed' : 'completed'))
+              .toList()
+            ..sort((a, b) => upcoming
+                ? a.scheduledAt.compareTo(b.scheduledAt)
+                : b.scheduledAt.compareTo(a.scheduledAt));
+          if (shown.isEmpty) {
+            return [
+              EmptyView(
+                icon:
+                    upcoming ? Icons.event_available_outlined : Icons.history,
+                title: upcoming ? 'No upcoming matches' : 'No past matches yet',
+                hint: upcoming
+                    ? 'Matches you have confirmed show up here.'
+                    : 'Finished matches and their results are listed here.',
+              ),
+            ];
+          }
+          return [
+            for (final (i, m) in shown.indexed)
+              FadeSlideIn.listItem(
+                key: ValueKey('match-${m.id}'),
+                index: i,
+                id: 'match-${m.id}',
+                child: MatchCard(
+                  match: m,
+                  myTeamId: team.id,
+                  pendingFee: upcoming ? _pendingFees[m.id] : null,
+                  onPaid: upcoming ? _loadPendingFees : null,
+                ),
+              ),
+          ];
+        }),
+      ],
+    );
+  }
+}
+
+/// A small line of text above a list ("3 open requests").
+class _ListCaption extends StatelessWidget {
+  final String text;
+  const _ListCaption(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSemantic.screenPadding,
+        AppSpacing.xs,
+        AppSemantic.screenPadding,
+        AppSpacing.xxs,
+      ),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: AppColors.muted(context),
+              fontWeight: FontWeight.w600,
+            ),
       ),
     );
   }
 }
 
-class _TabItem {
-  final IconData icon;
-  final String label;
-  final int badgeCount;
-  const _TabItem(this.icon, this.label, {this.badgeCount = 0});
-}
-
-/// Icon + short-label tab bar for this page's two tab groups -- a plain
-/// text GlassTabs row got unreadably cramped once "Open Requests" grew to
-/// four segments, so each segment is now an icon over a one-word label
-/// (scanned at a glance) with an optional badge for counts worth noticing
-/// (incoming proposals on your requests, what you've sent, what's waiting
-/// on a confirm).
-class _SectionTabs extends StatelessWidget {
-  final int index;
-  final List<_TabItem> items;
-  final ValueChanged<int> onChanged;
-
-  const _SectionTabs({
-    required this.index,
-    required this.items,
-    required this.onChanged,
-  });
+/// The reminder that venue names are typed by captains, under the list of
+/// opponents (where those names are shown).
+class _VenueDisclaimer extends StatelessWidget {
+  const _VenueDisclaimer();
 
   @override
   Widget build(BuildContext context) {
-    final muted = AppColors.muted(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xl,
+        vertical: AppSpacing.sm,
+      ),
+      child: Text(
+        kVenueDisclaimer,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              height: 1.35,
+              color: AppColors.muted(context),
+            ),
+      ),
+    );
+  }
+}
+
+/// The one solid-lime action on the screen. It presses in like every other
+/// button (scale, haptic) and floats on a soft shadow.
+class _CreateMatchButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _CreateMatchButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final shadow = isDark
+        ? Colors.black.withValues(alpha: 0.45)
+        : AppColors.ink.withValues(alpha: 0.16);
     final onAction = AppColors.onAction(context);
-    final duration = reduceMotion(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 160);
-    return GlassCard(
-      padding: const EdgeInsets.all(4),
-      radius: AppSemantic.buttonRadius,
-      child: SizedBox(
-        height: 40,
-        child: Row(
-          children: [
-            for (var i = 0; i < items.length; i++)
-              Expanded(
-                child: PressableScale(
-                  onTap: () => onChanged(i),
-                  child: AnimatedContainer(
-                    duration: duration,
-                    curve: Curves.easeOut,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: index == i ? AppColors.action : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+    return PressableScale(
+      onTap: onPressed,
+      semanticLabel: 'Create match',
+      child: ExcludeSemantics(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.action,
+            borderRadius: BorderRadius.circular(AppSemantic.buttonRadius),
+            boxShadow: [
+              BoxShadow(
+                color: shadow,
+                blurRadius: AppSpacing.md,
+                offset: const Offset(0, AppSpacing.xxs),
+              ),
+            ],
+          ),
+          child: ConstrainedBox(
+            constraints:
+                const BoxConstraints(minHeight: AppSemantic.buttonHeight),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add_rounded, color: onAction),
+                  const SizedBox(width: AppSemantic.iconGap),
+                  // The button floats over the list, so it must never outgrow
+                  // the screen: under the largest text sizes the label shrinks
+                  // to fit instead of overflowing.
+                  Flexible(
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(items[i].icon,
-                              size: 18,
-                              color: index == i ? onAction : muted),
-                          const SizedBox(width: 7),
-                          Text(
-                            items[i].label,
-                            maxLines: 1,
-                            softWrap: false,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: index == i
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
-                              color: index == i ? onAction : muted,
-                            ),
-                          ),
-                          if (items[i].badgeCount > 0) ...[
-                            const SizedBox(width: 7),
-                            _CountBadge(
-                                count: items[i].badgeCount,
-                                onLime: index == i),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Small count pill. On a lime (selected) segment it flips to ink-on-lime so
-/// it stays legible; elsewhere it uses the accent fill.
-class _CountBadge extends StatelessWidget {
-  final int count;
-  final bool onLime;
-  const _CountBadge({required this.count, required this.onLime});
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = onLime ? AppColors.onAction(context) : AppColors.brand(context);
-    final fg = onLime ? AppColors.action : AppColors.onBrand(context);
-    return Container(
-      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        '$count',
-        style: TextStyle(
-          color: fg,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          height: 1.1,
-        ),
-      ),
-    );
-  }
-}
-
-class _PillItem {
-  final String label;
-  final int badgeCount;
-  const _PillItem(this.label, {this.badgeCount = 0});
-}
-
-/// Lightweight sub-tab row (Open / Sent / Awaiting Confirm) nested inside
-/// the My Activity tab -- plain pills, no icons, so they read as a step
-/// below the primary Opponents/My Activity tab bar rather than competing
-/// with it.
-class _PillSubTabs extends StatelessWidget {
-  final int index;
-  final List<_PillItem> items;
-  final ValueChanged<int> onChanged;
-
-  const _PillSubTabs({
-    required this.index,
-    required this.items,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = AppColors.muted(context);
-    final onAction = AppColors.onAction(context);
-    return Row(
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          if (i > 0) const SizedBox(width: 8),
-          Expanded(
-            child: PressableScale(
-              onTap: () => onChanged(i),
-              child: Container(
-                constraints: const BoxConstraints(
-                    minHeight: AppSemantic.minTapTarget - 4),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: index == i ? AppColors.action : null,
-                  border: index == i
-                      ? null
-                      : Border.all(color: AppColors.inputBorder(context)),
-                  borderRadius: BorderRadius.circular(AppSemantic.pill),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
                       child: Text(
-                        items[i].label,
-                        textAlign: TextAlign.center,
+                        'Create Match',
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontFamily: AppFonts.display,
+                          fontSize: AppTypeScale.button,
                           fontWeight: FontWeight.w700,
-                          color: index == i ? onAction : muted,
+                          letterSpacing: AppTypeScale.trackButton,
+                          color: onAction,
                         ),
                       ),
                     ),
-                    if (items[i].badgeCount > 0) ...[
-                      const SizedBox(width: 6),
-                      _CountBadge(
-                          count: items[i].badgeCount, onLime: index == i),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-/// Lets a multi-team user pick which team the Matches tab is acting as. The
-/// selected team drives every section + Create Match, so the active team is
-/// always explicit and nothing is created for the wrong team by accident.
-class _TeamSelector extends StatelessWidget {
-  final List<TeamModel> teams;
-  final String selectedId;
-  final ValueChanged<TeamModel> onSelect;
-  const _TeamSelector(
-      {required this.teams, required this.selectedId, required this.onSelect});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
-          child: Text('ACTING AS',
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                  color: AppColors.muted(context))),
-        ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
-          child: Row(
-            children: teams
-                .map((t) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(t.name),
-                        selected: t.id == selectedId,
-                        onSelected: (_) => onSelect(t),
-                        showCheckmark: false,
-                        selectedColor: AppColors.action,
-                        backgroundColor: Theme.of(context).brightness ==
-                                Brightness.dark
-                            ? AppColors.darkCard
-                            : AppColors.lightCard,
-                        side: BorderSide(
-                          color: t.id == selectedId
-                              ? Colors.transparent
-                              : AppColors.inputBorder(context),
-                        ),
-                        labelStyle: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: t.id == selectedId
-                              ? AppColors.onAction(context)
-                              : AppColors.muted(context),
-                        ),
-                      ),
-                    ))
-                .toList(),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MatchCard extends StatelessWidget {
-  final MatchModel match;
-  final String? myTeamId;
-  /// Set only when the signed-in captain owes this match's fee -- its presence
-  /// is what authorises the Pay button, so no separate captain check is needed.
-  final PendingFee? pendingFee;
-  final VoidCallback? onPaid;
-
-  const _MatchCard({
-    required this.match,
-    this.myTeamId,
-    this.pendingFee,
-    this.onPaid,
-  });
-
-  /// 'win' | 'loss' | 'draw' for my team, or null if not a finished match.
-  String? get _result {
-    if (match.status != 'completed' ||
-        match.homeScore == null ||
-        match.awayScore == null ||
-        myTeamId == null) {
-      return null;
-    }
-    final iAmHome = match.homeTeamId == myTeamId;
-    final mine = iAmHome ? match.homeScore! : match.awayScore!;
-    final theirs = iAmHome ? match.awayScore! : match.homeScore!;
-    if (mine > theirs) return 'win';
-    if (mine < theirs) return 'loss';
-    return 'draw';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final d = match.scheduledAt.toLocal();
-    final when =
-        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
-        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-    final center = (match.homeScore != null && match.awayScore != null)
-        ? '${match.homeScore} - ${match.awayScore}'
-        : 'vs';
-    final result = _result;
-    final (Color? accent, String? label) = switch (result) {
-      'win' => (AppColors.success, 'WON'),
-      'loss' => (AppColors.danger, 'LOST'),
-      'draw' => (AppColors.silver, 'DRAW'),
-      _ => (null, null),
-    };
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: GlassCard(
-        padding: const EdgeInsets.all(12),
-        tint: accent,
-        onTap: () => context.push(AppRoutes.matchDetail, extra: match.id),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _TeamMini(
-                    name: match.homeTeamName ?? 'Home',
-                    logo: match.homeTeamLogo,
-                    rating: match.homeTeamRating,
-                    record: match.homeTeamRecord,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(center,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w800)),
-                ),
-                Expanded(
-                  child: _TeamMini(
-                    name: match.awayTeamName ?? 'Away',
-                    logo: match.awayTeamLogo,
-                    rating: match.awayTeamRating,
-                    record: match.awayTeamRecord,
-                    alignEnd: true,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text('${match.city} · $when · ${match.matchType}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.muted(context))),
-                ),
-                if (label != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: accent!.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(
-                          AppSemantic.statusPillRadius),
-                    ),
-                    child: Text(label,
-                        style: TextStyle(
-                            color: accent,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 12)),
-                  )
-                else
-                  Text(
-                      matchStatusLabel(
-                        MatchStatus.fromString(match.status),
-                        paymentStatus: match.paymentStatus,
-                        paymentsEnabled: PaymentRepository.isEnabled,
-                      ),
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.brand(context))),
-              ],
-            ),
-            // The fee, payable right here. Previously this was only reachable
-            // by opening the match and scrolling, which meant captains did not
-            // know a fee was owed at all.
-            if (pendingFee != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Icon(Icons.receipt_long_rounded,
-                      size: AppIconSize.sm, color: AppColors.brand(context)),
-                  const SizedBox(width: AppSpacing.xxs),
-                  Expanded(
-                    child: Text(
-                      pendingFee!.previouslyFailed
-                          ? 'Payment failed — your team is not covered'
-                          : 'Your team\'s fee is due',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.brand(context),
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ),
-                  PayFeeButton(
-                    fee: pendingFee!,
-                    compact: true,
-                    onPaid: onPaid,
                   ),
                 ],
               ),
-            ] else if (match.status == 'confirmed' &&
-                PaymentRepository.isEnabled &&
-                match.paymentStatus != 'paid') ...[
-              // Nothing owed by me, but the match isn't settled: the other
-              // team (or my captain) still has to pay.
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Icon(Icons.hourglass_top_rounded,
-                      size: AppIconSize.sm,
-                      color: AppColors.muted(context)),
-                  const SizedBox(width: AppSpacing.xxs),
-                  Expanded(
-                    child: Text(
-                      'Match is secured once both teams have paid',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.muted(context),
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Compact team identity: logo + name + ELO chip. Used in match cards.
-class _TeamMini extends StatelessWidget {
-  final String name;
-  final String? logo;
-  final int? rating;
-  final String? record;
-  final bool alignEnd;
-  const _TeamMini({
-    required this.name,
-    this.logo,
-    this.rating,
-    this.record,
-    this.alignEnd = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final avatar = MatchTeamAvatar(name: name, imageUrl: logo, radius: 16);
-    final texts = Column(
-      crossAxisAlignment:
-          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      children: [
-        Text(name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w700, height: 1.2)),
-        const SizedBox(height: 4),
-        LevelBadge(value: rating ?? 0, size: 28),
-        if (record != null) ...[
-          const SizedBox(height: 3),
-          Text(record!,
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  height: 1.2,
-                  color: AppColors.muted(context))),
-        ],
-      ],
-    );
-    final children = alignEnd
-        ? [Expanded(child: texts), const SizedBox(width: 8), avatar]
-        : [avatar, const SizedBox(width: 8), Expanded(child: texts)];
-    return Row(children: children);
-  }
-}
-
-/// A request the acting team posted, with the proposals it received (and the
-/// venue each one suggests). Public only so widget tests can build it.
-@visibleForTesting
-class RequestCard extends StatelessWidget {
-  final MatchRequestModel request;
-  final VoidCallback? onCancel;
-  final VoidCallback? onInvite;
-  final List<MatchProposalModel> proposals;
-  final ValueChanged<MatchProposalModel>? onAcceptProposal;
-  final ValueChanged<MatchProposalModel>? onRejectProposal;
-
-  /// Test seam for the "Report venue name" flag on a suggested venue.
-  /// Production leaves it null and the real repository is used.
-  @visibleForTesting
-  final VenueReporter? reportVenue;
-  const RequestCard({
-    super.key,
-    required this.request,
-    this.onCancel,
-    this.onInvite,
-    this.proposals = const [],
-    this.onAcceptProposal,
-    this.onRejectProposal,
-    this.reportVenue,
-  });
-
-  String get _when {
-    final d = request.scheduledAt.toLocal();
-    final date =
-        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-    final time =
-        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-    return '$date · $time';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: GlassCard(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top row: format + team rating, title/date, then actions.
-            // Keeping the chips off this row gives the title the full width,
-            // so the city, format and date no longer wrap letter by letter.
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppColors.chip(context),
-                  foregroundColor: AppColors.brand(context),
-                  child: Text(request.format.split('v').first,
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
-                ),
-                const SizedBox(width: 8),
-                LevelBadge(value: request.teamRating ?? 0, size: 30),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${request.city} · ${request.format}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 2),
-                      Text(_when,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.muted(context))),
-                    ],
-                  ),
-                ),
-                if (onInvite != null)
-                  IconButton(
-                    tooltip: 'Invite a rival team',
-                    icon: const Icon(Icons.share_outlined),
-                    color: AppColors.brand(context),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: onInvite,
-                  ),
-                if (onCancel != null)
-                  IconButton(
-                    tooltip: 'Cancel request',
-                    icon: const Icon(Icons.delete_outline),
-                    color: AppColors.dangerText(context),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: onCancel,
-                  ),
-              ],
             ),
-            const SizedBox(height: 10),
-            // Second row: match type + status, on one line.
-            Row(
-              children: [
-                _Chip(
-                  label: request.matchType,
-                  color: request.isRanked
-                      ? AppColors.brand(context)
-                      : AppColors.muted(context),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    MatchStatus.fromString(request.status).label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: AppColors.muted(context)),
-                  ),
-                ),
-              ],
-            ),
-            if (request.venueText != null &&
-                request.venueText!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.place_outlined,
-                      size: 17, color: AppColors.brand(context)),
-                  const SizedBox(width: 5),
-                  Expanded(
-                    child: Text(
-                      request.venueText!,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                          height: 1.3,
-                          color: AppColors.brand(context)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            if (proposals.isNotEmpty) ...[
-              const Divider(height: 20),
-              Text('PROPOSALS',
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5,
-                      color: AppColors.muted(context))),
-              const SizedBox(height: 8),
-              ...proposals.map((p) => Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.inputBorder(context)),
-                      borderRadius:
-                          BorderRadius.circular(AppSemantic.controlRadius),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            MatchTeamAvatar(
-                                name: p.teamName ?? '?',
-                                imageUrl: p.teamLogo,
-                                radius: 18),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(p.teamName ?? 'Unknown team',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 15)),
-                            ),
-                            LevelBadge(value: p.teamRating ?? 0, size: 32),
-                          ],
-                        ),
-                        if (p.hasVenueSuggestion) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Icon(Icons.place_outlined,
-                                    size: 17, color: AppColors.brand(context)),
-                              ),
-                              const SizedBox(width: 5),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Text.rich(
-                                    TextSpan(
-                                      children: [
-                                        TextSpan(
-                                            text: 'Suggests: ',
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                color:
-                                                    AppColors.muted(context))),
-                                        TextSpan(
-                                            text: p.venueText!,
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.w800,
-                                                color:
-                                                    AppColors.brand(context))),
-                                      ],
-                                    ),
-                                    style: const TextStyle(
-                                        fontSize: 13, height: 1.3),
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'Report venue name',
-                                icon: Icon(Icons.flag_outlined,
-                                    size: 18, color: AppColors.muted(context)),
-                                visualDensity: VisualDensity.compact,
-                                constraints: const BoxConstraints(
-                                    minWidth: 44, minHeight: 44),
-                                padding: EdgeInsets.zero,
-                                onPressed: () => reportVenueFlow(context,
-                                    proposalId: p.id, report: reportVenue),
-                              ),
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: onRejectProposal == null
-                                    ? null
-                                    : () => onRejectProposal!(p),
-                                child: const Text('Reject'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: FilledButton(
-                                onPressed: onAcceptProposal == null
-                                    ? null
-                                    : () => onAcceptProposal!(p),
-                                child: const Text('Accept'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  )),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PendingMatchCard extends StatelessWidget {
-  final MatchModel match;
-  final bool iConfirmed;
-  final bool canAct;
-  final VoidCallback onConfirm;
-  final VoidCallback onReject;
-  const _PendingMatchCard({
-    required this.match,
-    required this.iConfirmed,
-    required this.canAct,
-    required this.onConfirm,
-    required this.onReject,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final d = match.scheduledAt.toLocal();
-    final when =
-        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
-        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: GlassCard(
-        padding: const EdgeInsets.all(12),
-        onTap: () => context.push(AppRoutes.matchDetail, extra: match.id),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _TeamMini(
-                    name: match.homeTeamName ?? 'Home',
-                    logo: match.homeTeamLogo,
-                    rating: match.homeTeamRating,
-                    record: match.homeTeamRecord,
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('vs',
-                      style: TextStyle(fontWeight: FontWeight.w900)),
-                ),
-                Expanded(
-                  child: _TeamMini(
-                    name: match.awayTeamName ?? 'Away',
-                    logo: match.awayTeamLogo,
-                    rating: match.awayTeamRating,
-                    record: match.awayTeamRecord,
-                    alignEnd: true,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text('${match.city} · $when · ${match.matchType}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.muted(context))),
-            if (match.venueText != null && match.venueText!.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.brand(context).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(
-                        AppSemantic.statusPillRadius),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.place_outlined,
-                          size: 18, color: AppColors.brand(context)),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(match.venueText!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 13,
-                                color: AppColors.brand(context))),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (!canAct)
-                  Expanded(
-                    child: Text('Only your captain can confirm or reject',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.muted(context))),
-                  )
-                else if (iConfirmed)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Text('Waiting…',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.muted(context))),
-                  ),
-                SizedBox(
-                  height: 44,
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 44),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      foregroundColor: AppColors.dangerText(context),
-                      side: BorderSide(color: AppColors.dangerText(context)),
-                    ),
-                    onPressed: canAct ? onReject : null,
-                    child: const Text('Reject'),
-                  ),
-                ),
-                if (!iConfirmed) ...[
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    height: 44,
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 44),
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                      ),
-                      onPressed: canAct ? onConfirm : null,
-                      child: const Text('Confirm'),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _OpponentCard extends StatelessWidget {
-  final MatchRequestModel opponent;
-  final VoidCallback onPropose;
-  const _OpponentCard({
-    required this.opponent,
-    required this.onPropose,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final d = opponent.scheduledAt.toLocal();
-    final when =
-        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
-        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: GlassCard(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                MatchTeamAvatar(
-                  name: opponent.teamName ?? '?',
-                  imageUrl: opponent.teamLogo,
-                  radius: 22,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(opponent.teamName ?? 'Unknown team',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.16)),
-                ),
-                LevelBadge(value: opponent.teamRating ?? 0, size: 36),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text('${opponent.city} · $when · ${opponent.matchType}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.muted(context))),
-            if (opponent.venueText != null &&
-                opponent.venueText!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(Icons.place_outlined,
-                      size: 17, color: AppColors.brand(context)),
-                  const SizedBox(width: 5),
-                  Expanded(
-                    child: Text(
-                      opponent.venueText!,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                          height: 1.3,
-                          color: AppColors.brand(context)),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Report venue name',
-                    icon: Icon(Icons.flag_outlined,
-                        size: 18, color: AppColors.muted(context)),
-                    visualDensity: VisualDensity.compact,
-                    constraints:
-                        const BoxConstraints(minWidth: 44, minHeight: 44),
-                    padding: EdgeInsets.zero,
-                    onPressed: () =>
-                        reportVenueFlow(context, requestId: opponent.id),
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: onPropose,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppSemantic.controlRadius),
-                  ),
-                ),
-                child: const Text('Propose Match'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// One proposal the acting team has sent, shown on the "Propose" tab so any
-/// team member can see what's outstanding -- not just the person who sent
-/// it. Read-only: only the target request's own captain can act on it.
-@visibleForTesting
-class SentProposalCard extends StatelessWidget {
-  final MatchProposalModel proposal;
-  const SentProposalCard({super.key, required this.proposal});
-
-  @override
-  Widget build(BuildContext context) {
-    final d = proposal.requestScheduledAt?.toLocal();
-    final when = d == null
-        ? null
-        : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} · '
-            '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: GlassCard(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                MatchTeamAvatar(
-                  name: proposal.targetTeamName ?? '?',
-                  imageUrl: proposal.targetTeamLogo,
-                  radius: 22,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(proposal.targetTeamName ?? 'Unknown team',
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 2),
-                      Text(
-                        [
-                          if (proposal.requestCity != null)
-                            proposal.requestCity,
-                          if (when != null) when,
-                          if (proposal.requestMatchType != null)
-                            proposal.requestMatchType,
-                        ].join(' · '),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.muted(context)),
-                      ),
-                    ],
-                  ),
-                ),
-                // The rating and the "Pending" chip keep their natural size on
-                // ordinary screens; on a small phone with very large text they
-                // shrink instead of squeezing the team name or overflowing.
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 140),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (proposal.targetTeamRating != null)
-                          LevelBadge(
-                              value: proposal.targetTeamRating!, size: 36),
-                        const SizedBox(width: 8),
-                        _Chip(label: 'Pending', color: AppColors.muted(context)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (proposal.hasVenueSuggestion) ...[
-              const SizedBox(height: 10),
-              // On its own full-width line: a venue name needs the room.
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 1),
-                    child: Icon(Icons.place_outlined,
-                        size: 16, color: AppColors.brand(context)),
-                  ),
-                  const SizedBox(width: 5),
-                  Expanded(
-                    child: Text(
-                      'You suggested: ${proposal.venueText}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12.5,
-                          height: 1.3,
-                          color: AppColors.brand(context)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// City (mandatory) + date/time/match-type filters for the Available
-/// Opponents list.
-/// City defaults to the acting team's own registered city but can be
-/// switched to browse other cities; date and time are optional narrowing —
-/// clearing them is the only way to see "every open request in the city".
-/// Collapsed by default behind a single "Filters" summary row -- expands to
-/// reveal the full city/type/date/time grid. Keeps the Available
-/// Opponents list from being pushed below the fold by five always-visible
-/// fields when most of the time nobody's actively narrowing the search.
-class _OpponentFilters extends StatefulWidget {
-  final String city;
-  final DateTime? date;
-  final TimeOfDay? time;
-  final String? matchType;
-  final int powerRange;
-  final ValueChanged<String> onCityChanged;
-  final ValueChanged<DateTime?> onDateChanged;
-  final ValueChanged<TimeOfDay?> onTimeChanged;
-  final ValueChanged<String?> onMatchTypeChanged;
-  final ValueChanged<int> onPowerRangeChanged;
-
-  const _OpponentFilters({
-    required this.city,
-    required this.date,
-    required this.time,
-    required this.matchType,
-    required this.powerRange,
-    required this.onCityChanged,
-    required this.onDateChanged,
-    required this.onTimeChanged,
-    required this.onMatchTypeChanged,
-    required this.onPowerRangeChanged,
-  });
-
-  @override
-  State<_OpponentFilters> createState() => _OpponentFiltersState();
-}
-
-class _OpponentFiltersState extends State<_OpponentFilters> {
-  bool _expanded = false;
-
-  String get city => widget.city;
-  DateTime? get date => widget.date;
-  TimeOfDay? get time => widget.time;
-  String? get matchType => widget.matchType;
-  int get powerRange => widget.powerRange;
-  ValueChanged<String> get onCityChanged => widget.onCityChanged;
-  ValueChanged<DateTime?> get onDateChanged => widget.onDateChanged;
-  ValueChanged<TimeOfDay?> get onTimeChanged => widget.onTimeChanged;
-  ValueChanged<String?> get onMatchTypeChanged => widget.onMatchTypeChanged;
-  ValueChanged<int> get onPowerRangeChanged => widget.onPowerRangeChanged;
-
-  String _formatDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
-  Future<void> _pickDate(BuildContext context) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: date ?? now,
-      firstDate: now.subtract(const Duration(days: 1)),
-      lastDate: now.add(const Duration(days: 365)),
-    );
-    if (picked != null) onDateChanged(picked);
-  }
-
-  Future<void> _pickTime(BuildContext context) async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: time ?? TimeOfDay.now(),
-    );
-    if (picked != null) onTimeChanged(picked);
-  }
-
-  String get _summary {
-    final typeLabel = matchType == null
-        ? 'Any type'
-        : (matchType == 'ranked' ? 'Ranked' : 'Casual');
-    final dateLabel = date == null ? 'Any date' : _formatDate(date!);
-    return '$city · $typeLabel · $dateLabel';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-      child: GlassCard(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
-              onTap: () => setState(() => _expanded = !_expanded),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 40),
-                child: Row(
-                  children: [
-                    Icon(Icons.tune, size: 18, color: AppColors.brand(context)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _expanded ? 'Filters' : _summary,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    AnimatedRotation(
-                      turns: _expanded ? 0.5 : 0,
-                      duration: reduceMotion(context)
-                          ? Duration.zero
-                          : const Duration(milliseconds: 200),
-                      child: Icon(Icons.keyboard_arrow_down,
-                          size: 20, color: AppColors.muted(context)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            AnimatedCrossFade(
-              duration: const Duration(milliseconds: 200),
-              crossFadeState: _expanded
-                  ? CrossFadeState.showFirst
-                  : CrossFadeState.showSecond,
-              firstChild: _buildFields(context),
-              secondChild: const SizedBox(width: double.infinity),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFields(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 10, 0, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DropdownButtonFormField<String>(
- icon: Icon(Icons.keyboard_arrow_down, size: 20, color: AppColors.muted(context)),
-            value: city,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'City',
-              isDense: true,
-              prefixIcon: Icon(Icons.location_city_outlined),
-            ),
-            items: kCities
-                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                .toList(),
-            onChanged: (c) {
-              if (c != null) onCityChanged(c);
-            },
           ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
- icon: Icon(Icons.keyboard_arrow_down, size: 20, color: AppColors.muted(context)),
-            value: matchType,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Type',
-              isDense: true,
-              prefixIcon: Icon(Icons.emoji_events_outlined),
-            ),
-            items: const [
-              DropdownMenuItem<String>(value: null, child: Text('Any type')),
-              DropdownMenuItem(value: 'casual', child: Text('Casual')),
-              DropdownMenuItem(value: 'ranked', child: Text('Ranked')),
-            ],
-            onChanged: onMatchTypeChanged,
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
-                  onTap: () => _pickDate(context),
-                  child: InputDecorator(
-                    decoration: InputDecoration(
-                      labelText: 'Date',
-                      isDense: true,
-                      prefixIcon: const Icon(Icons.event_outlined),
-                      suffixIcon: date == null
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () => onDateChanged(null),
-                            ),
-                    ),
-                    child: Text(
-                      date == null ? 'Any date' : _formatDate(date!),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
-                  onTap: () => _pickTime(context),
-                  child: InputDecorator(
-                    decoration: InputDecoration(
-                      labelText: 'Time',
-                      isDense: true,
-                      prefixIcon: const Icon(Icons.access_time),
-                      suffixIcon: time == null
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () => onTimeChanged(null),
-                            ),
-                    ),
-                    child: Text(
-                      time == null ? 'Any time' : time!.format(context),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const SizedBox(
-                width: 84,
-                child: Text('Power range',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              ),
-              Expanded(
-                child: Slider(
-                  value: powerRange.toDouble(),
-                  min: 0,
-                  max: 500,
-                  divisions: 20,
-                  label: powerRange == 0 ? 'Any' : '±$powerRange',
-                  activeColor: AppColors.brand(context),
-                  onChanged: (v) => onPowerRangeChanged(v.round()),
-                ),
-              ),
-              SizedBox(
-                width: 48,
-                child: Text(
-                  powerRange == 0 ? 'Any' : '±$powerRange',
-                  textAlign: TextAlign.end,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _Chip({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(AppSemantic.statusPillRadius),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-            color: color, fontWeight: FontWeight.w700, fontSize: 12),
+        ),
       ),
     );
   }

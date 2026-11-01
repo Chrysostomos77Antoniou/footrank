@@ -103,11 +103,16 @@ class ProposeChoice {
 /// Confirms a proposal and lets the proposing member optionally type another
 /// venue. Resolves to null when cancelled. [requestVenue] is the venue the
 /// request already names (null for older requests that have none).
+///
+/// [stakes] is an optional panel shown under the explanation -- the Pitch Power
+/// the proposing team would win or lose against this opponent -- so the decision
+/// is made with the real numbers in front of the user.
 Future<ProposeChoice?> showProposeDialog(
   BuildContext context, {
   required String opponentName,
   required String city,
   String? requestVenue,
+  Widget? stakes,
 }) {
   return showDialog<ProposeChoice>(
     context: context,
@@ -115,6 +120,7 @@ Future<ProposeChoice?> showProposeDialog(
       opponentName: opponentName,
       city: city,
       requestVenue: requestVenue,
+      stakes: stakes,
     ),
   );
 }
@@ -123,10 +129,12 @@ class _ProposeDialog extends StatefulWidget {
   final String opponentName;
   final String city;
   final String? requestVenue;
+  final Widget? stakes;
   const _ProposeDialog({
     required this.opponentName,
     required this.city,
     this.requestVenue,
+    this.stakes,
   });
 
   @override
@@ -174,6 +182,10 @@ class _ProposeDialogState extends State<_ProposeDialog> {
               '${widget.city}. Their captain reviews proposals and picks '
               "one — you'll be notified either way.",
             ),
+            if (widget.stakes != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              widget.stakes!,
+            ],
             if (hasTheirVenue) ...[
               const SizedBox(height: 12),
               Row(
@@ -244,6 +256,7 @@ Future<bool?> showAcceptProposalDialog(
   BuildContext context, {
   required String teamName,
   String? venueText,
+  Widget? stakes,
 }) {
   final venue = cleanVenueInput(venueText ?? '');
   return showDialog<bool>(
@@ -258,6 +271,10 @@ Future<bool?> showAcceptProposalDialog(
           Text('$teamName wants to play your match. Accepting confirms the '
               'match now and declines every other pending proposal on this '
               'request.'),
+          if (stakes != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            stakes,
+          ],
           if (venue.isNotEmpty) ...[
             const SizedBox(height: 12),
             Row(

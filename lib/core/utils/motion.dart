@@ -87,3 +87,36 @@ class AsyncSwitcher extends StatelessWidget {
     );
   }
 }
+
+/// Animates a change of its child's size (a panel opening, a list that grows),
+/// unless the user asked for reduced motion -- then the size just changes.
+///
+/// This is not `AnimatedSize(duration: Duration.zero)`: with no duration it
+/// restarts its own animation from inside layout, which asserts in debug
+/// builds ("mutated in its own performLayout") the first time the size changes.
+/// Under reduced motion the child is returned as it is.
+class MotionSize extends StatelessWidget {
+  final Widget child;
+  final Duration duration;
+  final Curve curve;
+  final AlignmentGeometry alignment;
+
+  const MotionSize({
+    super.key,
+    required this.child,
+    this.duration = AppMotion.quick,
+    this.curve = AppMotion.standard,
+    this.alignment = Alignment.topCenter,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (reduceMotion(context)) return child;
+    return AnimatedSize(
+      duration: duration,
+      curve: curve,
+      alignment: alignment,
+      child: child,
+    );
+  }
+}
