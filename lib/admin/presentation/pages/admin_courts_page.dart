@@ -968,7 +968,7 @@ class _CourtEditorDialogState extends State<_CourtEditorDialog> {
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         DropdownButtonFormField<String>(
-                          initialValue: _city,
+                          value: _city,
                           decoration: const InputDecoration(
                             labelText: 'City',
                             prefixIcon: Icon(Icons.location_city, size: 20),

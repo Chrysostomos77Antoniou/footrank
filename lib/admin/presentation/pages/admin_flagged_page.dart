@@ -425,7 +425,7 @@ class _LinkCourtDialogState extends State<_LinkCourtDialog> {
             Text('Players typed: "${widget.venue.venueText}"'),
             const SizedBox(height: AppSpacing.md),
             DropdownButtonFormField<String>(
-              initialValue: _courtId,
+              value: _courtId,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Court'),
               items: [
