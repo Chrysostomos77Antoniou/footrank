@@ -167,7 +167,7 @@ void main() {
         (t) async {
       await show(t);
       expect(window, findsOneWidget);
-      expect(find.text('Update available'), findsOneWidget);
+      expect(find.text('A better'), findsOneWidget);
       expect(find.text('Update now'), findsOneWidget);
     });
 

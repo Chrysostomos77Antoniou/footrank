@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
+import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/update/update_prompt.dart';
 import 'package:footrank/core/utils/motion.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -121,70 +122,175 @@ class _UpdatePromptGateState extends State<UpdatePromptGate>
   }
 }
 
-// Apple-style sheet in light blue and white. Motion follows one rule: things
-// arrive fast and settle softly (strong ease-out, under 300ms), and the button
-// answers the finger at once (a 3% press-in).
-const Color _skyTop = Color(0xFFE2F5EA);
-const Color _skyBottom = Color(0xFFFFFFFF);
-const Color _skyAccent = Color(
-  0xFF1B7BE6,
-); // the "Update now" button stays blue
-const Color _greenDeep = Color(0xFF0E7A47);
-const Color _green = Color(0xFF22A563);
-const Color _greenLight = Color(0xFF7ED6A4);
-const Color _skyInk = Color(0xFF0B1B2E);
-const Color _skyMuted = Color(0xFF5B6B7F);
+// Full-bleed, dark and quiet, the way an Apple launch screen is: one icon, one
+// sentence, one button. Everything arrives in a short staggered sequence
+// (strong ease-out, each piece under 300ms) and the button answers the finger
+// at once with a 3% press-in. With reduced motion, everything is simply there.
 const Curve _strongOut = Cubic(0.23, 1, 0.32, 1);
+const Color _ink = Color(0xFF070A0E);
 
-class _UpdateWindow extends StatelessWidget {
+class _UpdateWindow extends StatefulWidget {
   final VoidCallback onUpdate;
   final String version;
   const _UpdateWindow({required this.onUpdate, required this.version});
 
   @override
+  State<_UpdateWindow> createState() => _UpdateWindowState();
+}
+
+class _UpdateWindowState extends State<_UpdateWindow>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  );
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (reduceMotion(context)) {
+      _c.value = 1;
+    } else {
+      _c.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  /// A piece of the sequence: fades in and rises 18px between [a] and [b].
+  Widget _step(double a, double b, Widget child, {double rise = 18}) {
+    final curve = CurvedAnimation(
+      parent: _c,
+      curve: Interval(a, b, curve: _strongOut),
+    );
+    return AnimatedBuilder(
+      animation: curve,
+      child: child,
+      builder: (context, child) => Opacity(
+        opacity: curve.value.clamp(0.0, 1.0),
+        child: Transform.translate(
+          offset: Offset(0, rise * (1 - curve.value)),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final still = reduceMotion(context);
     return Material(
       type: MaterialType.transparency,
       child: Stack(
         key: const Key('update-prompt'),
         fit: StackFit.expand,
         children: [
-          // A full-screen banner replaces the app behind the window. It fades in
-          // first; the card follows a beat later so the eye reads banner, then
-          // message. The barrier on top swallows every touch and is not
-          // dismissible.
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: still ? Duration.zero : const Duration(milliseconds: 320),
-            curve: _strongOut,
-            builder: (context, t, child) => Opacity(opacity: t, child: child),
-            child: const _UpdateBanner(),
+          // The scene fills the whole screen, edge to edge.
+          FadeTransition(
+            opacity: CurvedAnimation(
+              parent: _c,
+              curve: const Interval(0, 0.4, curve: _strongOut),
+            ),
+            child: const _Scene(),
           ),
+          // Swallows every touch, and is not dismissible.
           const ModalBarrier(dismissible: false, color: Colors.transparent),
           SafeArea(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSemantic.screenPadding),
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0, end: 1),
-                  duration: still
-                      ? Duration.zero
-                      : const Duration(milliseconds: 360),
-                  curve: const Interval(0.22, 1, curve: _strongOut),
-                  builder: (context, t, child) => Opacity(
-                    opacity: t,
-                    child: Transform.translate(
-                      offset: Offset(0, 14 * (1 - t)),
-                      child: Transform.scale(
-                        scale: 0.95 + 0.05 * t,
-                        child: child,
+            child: LayoutBuilder(
+              builder: (context, box) => SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: box.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(28, 0, 28, 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Spacer(flex: 3),
+                          _step(0.04, 0.4, const _HeroIcon(), rise: 10),
+                          const SizedBox(height: 36),
+                          if (widget.version.isNotEmpty)
+                            _step(
+                              0.16,
+                              0.5,
+                              _VersionTag(version: widget.version),
+                            ),
+                          if (widget.version.isNotEmpty)
+                            const SizedBox(height: 16),
+                          _step(
+                            0.22,
+                            0.58,
+                            const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'A better',
+                                textAlign: TextAlign.center,
+                                style: _headline,
+                              ),
+                            ),
+                            rise: 24,
+                          ),
+                          _step(
+                            0.30,
+                            0.66,
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'FootRank.',
+                                textAlign: TextAlign.center,
+                                style: _headline.copyWith(
+                                  color: AppColors.lime,
+                                ),
+                              ),
+                            ),
+                            rise: 24,
+                          ),
+                          const SizedBox(height: 18),
+                          _step(
+                            0.42,
+                            0.76,
+                            const Text(
+                              'A new version is ready.\n'
+                              'Update to keep playing.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                height: 1.45,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF9BA7B3),
+                              ),
+                            ),
+                          ),
+                          const Spacer(flex: 4),
+                          _step(
+                            0.55,
+                            0.92,
+                            _UpdateButton(onPressed: widget.onUpdate),
+                            rise: 22,
+                          ),
+                          const SizedBox(height: 14),
+                          _step(
+                            0.66,
+                            1,
+                            const Text(
+                              'Your teams and matches stay safe.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: Color(0xFF6D7A87),
+                              ),
+                            ),
+                            rise: 8,
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 340),
-                    child: _sheet(context),
                   ),
                 ),
               ),
@@ -194,125 +300,96 @@ class _UpdateWindow extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _sheet(BuildContext context) {
-    return DecoratedBox(
+const TextStyle _headline = TextStyle(
+  fontFamily: AppFonts.display,
+  fontSize: 42,
+  height: 1.08,
+  fontWeight: FontWeight.w800,
+  letterSpacing: -1.6,
+  color: Colors.white,
+);
+
+/// The app icon, lit from below by a green glow, inside a hairline ring.
+class _HeroIcon extends StatelessWidget {
+  const _HeroIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 112,
+      height: 112,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [_skyTop, _skyBottom],
-        ),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
         boxShadow: [
           BoxShadow(
-            color: _greenDeep.withValues(alpha: 0.20),
-            blurRadius: 48,
-            offset: const Offset(0, 24),
+            color: AppColors.lime.withValues(alpha: 0.28),
+            blurRadius: 60,
+            spreadRadius: 2,
+            offset: const Offset(0, 18),
           ),
           BoxShadow(
-            color: _skyInk.withValues(alpha: 0.10),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [_greenLight, _green],
-                    ),
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _green.withValues(alpha: 0.38),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.arrow_downward_rounded,
-                    size: 38,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              if (version.isNotEmpty)
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _green.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    child: Text(
-                      'NEW VERSION  $version',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                        color: _greenDeep,
-                      ),
-                    ),
-                  ),
-                ),
-              if (version.isNotEmpty) const SizedBox(height: 12),
-              const Text(
-                'Update available',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: AppFonts.display,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.4,
-                  color: _skyInk,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'A new version of FootRank is ready. '
-                'Please update to keep playing.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, height: 1.4, color: _skyMuted),
-              ),
-              const SizedBox(height: 26),
-              _UpdateButton(onPressed: onUpdate),
-              const SizedBox(height: 16),
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.verified_user_rounded, size: 15, color: _green),
-                  SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      'Your teams and matches stay safe.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12.5, color: _skyMuted),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(27),
+        child: Image.asset(
+          'assets/branding/app_icon_512.png',
+          fit: BoxFit.cover,
+          excludeFromSemantics: true,
         ),
+      ),
+    );
+  }
+}
+
+/// "VERSION 1.1.9" -- a hairline capsule, small capitals, one accent dot.
+class _VersionTag extends StatelessWidget {
+  final String version;
+  const _VersionTag({required this.version});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(
+              color: AppColors.lime,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'VERSION  $version',
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.6,
+                  color: Color(0xFFD5DCE3),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -347,31 +424,32 @@ class _UpdateButtonState extends State<_UpdateButton> {
           scale: _down && !still ? 0.97 : 1,
           duration: const Duration(milliseconds: 120),
           curve: _strongOut,
-          child: Container(
-            height: 54,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF3A92F0), _skyAccent],
+          child: AnimatedOpacity(
+            opacity: _down ? 0.88 : 1,
+            duration: const Duration(milliseconds: 120),
+            child: Container(
+              height: 58,
+              width: double.infinity,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.lime,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.lime.withValues(alpha: 0.30),
+                    blurRadius: 28,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: _skyAccent.withValues(alpha: 0.30),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
+              child: const Text(
+                'Update now',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                  color: AppColors.ink,
                 ),
-              ],
-            ),
-            child: const Text(
-              'Update now',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.2,
-                color: Colors.white,
               ),
             ),
           ),
@@ -381,133 +459,71 @@ class _UpdateButtonState extends State<_UpdateButton> {
   }
 }
 
-/// The full-screen backdrop: a sky-to-white wash, two soft glows and faint
-/// pitch markings, with the FootRank wordmark above the window.
-class _UpdateBanner extends StatelessWidget {
-  const _UpdateBanner();
+/// The backdrop: near-black with a green aurora rising from the bottom, a
+/// soft halo behind the icon and faint sonar rings, so the screen has depth
+/// without a single hard edge.
+class _Scene extends StatelessWidget {
+  const _Scene();
 
   @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFC4EBD3), Color(0xFFE6F6EC), Color(0xFFFFFFFF)],
-              stops: [0, 0.55, 1],
-            ),
-          ),
-        ),
-        const CustomPaint(painter: _BannerPainter()),
-        SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 36),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // The real app icon, as a squircle with a soft shadow.
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _greenDeep.withValues(alpha: 0.28),
-                          blurRadius: 22,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: Image.asset(
-                        'assets/branding/app_icon_512.png',
-                        fit: BoxFit.cover,
-                        excludeFromSemantics: true,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'FootRank',
-                    style: TextStyle(
-                      fontFamily: AppFonts.display,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.4,
-                      color: _skyInk,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  const Text(
-                    '5-a-Side Ranking',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.2,
-                      color: _greenDeep,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) =>
+      const SizedBox.expand(child: CustomPaint(painter: _ScenePainter()));
 }
 
-class _BannerPainter extends CustomPainter {
-  const _BannerPainter();
+class _ScenePainter extends CustomPainter {
+  const _ScenePainter();
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_ink, Color(0xFF0A1410), Color(0xFF0C2A1B)],
+          stops: [0, 0.55, 1],
+        ).createShader(Offset.zero & size),
+    );
 
-    // Two soft glows, one cool and one near-white, for depth.
     void glow(Offset c, double r, Color color) {
-      final rect = Rect.fromCircle(center: c, radius: r);
       canvas.drawCircle(
         c,
         r,
         Paint()
           ..shader = RadialGradient(
             colors: [color, color.withValues(alpha: 0)],
-          ).createShader(rect),
+          ).createShader(Rect.fromCircle(center: c, radius: r)),
       );
     }
 
     glow(
-      Offset(w * 0.15, h * 0.18),
-      w * 0.9,
-      _greenLight.withValues(alpha: 0.50),
+      Offset(w / 2, h * 1.02),
+      w * 1.15,
+      AppColors.heroDarkA.withValues(alpha: 0.85),
     );
-    glow(Offset(w * 0.95, h * 0.78), w * 0.85, _green.withValues(alpha: 0.20));
+    glow(
+      Offset(w / 2, h * 0.272),
+      w * 0.75,
+      AppColors.limeDeep.withValues(alpha: 0.55),
+    );
+    glow(
+      Offset(w / 2, h * 0.272),
+      w * 0.32,
+      AppColors.lime.withValues(alpha: 0.10),
+    );
 
-    // Faint pitch markings: halfway line, centre circle, two boxes.
-    final line = Paint()
+    // Sonar rings around the icon.
+    final ring = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..color = Colors.white.withValues(alpha: 0.75);
-    final cy = h * 0.52;
-    canvas.drawLine(Offset(0, cy), Offset(w, cy), line);
-    canvas.drawCircle(Offset(w / 2, cy), w * 0.30, line);
-    canvas.drawCircle(Offset(w / 2, cy), 4, line..style = PaintingStyle.fill);
-    line.style = PaintingStyle.stroke;
-    final boxW = w * 0.56;
-    canvas.drawRect(Rect.fromLTWH((w - boxW) / 2, -2, boxW, h * 0.13), line);
-    canvas.drawRect(
-      Rect.fromLTWH((w - boxW) / 2, h - h * 0.13 + 2, boxW, h * 0.13),
-      line,
-    );
+      ..strokeWidth = 1;
+    final c = Offset(w / 2, h * 0.272);
+    for (var i = 0; i < 4; i++) {
+      ring.color = Colors.white.withValues(alpha: 0.075 - i * 0.015);
+      canvas.drawCircle(c, 92 + i * 62.0, ring);
+    }
   }
 
   @override
