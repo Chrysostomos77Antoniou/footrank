@@ -45,7 +45,7 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // flutter_secure_storage (pulled in transitively by flutter_facebook_auth's
         // desktop variant) requires API 23+ for its Android Keystore-backed storage.
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         // Google Play requires targeting Android 16 (API 36) from Aug 2026.
         // Flutter 3.32's default (flutter.targetSdkVersion) is still API 35,
         // so pin it explicitly. compileSdk is already 36 (set above).
