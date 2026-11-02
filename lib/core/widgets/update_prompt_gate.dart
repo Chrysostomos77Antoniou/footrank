@@ -138,49 +138,52 @@ class _UpdateWindow extends StatelessWidget {
   Widget build(BuildContext context) {
     final still = reduceMotion(context);
     final enter = still ? Duration.zero : const Duration(milliseconds: 260);
-    return Stack(
-      key: const Key('update-prompt'),
-      fit: StackFit.expand,
-      children: [
-        // A full-screen banner replaces the app behind the window. It fades in
-        // first; the card follows a beat later so the eye reads banner, then
-        // message. The barrier on top swallows every touch and is not
-        // dismissible.
-        TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: 1),
-          duration: still ? Duration.zero : const Duration(milliseconds: 320),
-          curve: _strongOut,
-          builder: (context, t, child) => Opacity(opacity: t, child: child),
-          child: const _UpdateBanner(),
-        ),
-        const ModalBarrier(dismissible: false, color: Colors.transparent),
-        SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSemantic.screenPadding),
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: enter,
-                curve: _strongOut,
-                builder: (context, t, child) => Opacity(
-                  opacity: t,
-                  child: Transform.translate(
-                    offset: Offset(0, 14 * (1 - t)),
-                    child: Transform.scale(
-                      scale: 0.95 + 0.05 * t,
-                      child: child,
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        key: const Key('update-prompt'),
+        fit: StackFit.expand,
+        children: [
+          // A full-screen banner replaces the app behind the window. It fades in
+          // first; the card follows a beat later so the eye reads banner, then
+          // message. The barrier on top swallows every touch and is not
+          // dismissible.
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: still ? Duration.zero : const Duration(milliseconds: 320),
+            curve: _strongOut,
+            builder: (context, t, child) => Opacity(opacity: t, child: child),
+            child: const _UpdateBanner(),
+          ),
+          const ModalBarrier(dismissible: false, color: Colors.transparent),
+          SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSemantic.screenPadding),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: enter,
+                  curve: _strongOut,
+                  builder: (context, t, child) => Opacity(
+                    opacity: t,
+                    child: Transform.translate(
+                      offset: Offset(0, 14 * (1 - t)),
+                      child: Transform.scale(
+                        scale: 0.95 + 0.05 * t,
+                        child: child,
+                      ),
                     ),
                   ),
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 340),
-                  child: _sheet(context),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 340),
+                    child: _sheet(context),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
