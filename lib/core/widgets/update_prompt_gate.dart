@@ -58,7 +58,6 @@ class UpdatePromptGate extends StatefulWidget {
 class _UpdatePromptGateState extends State<UpdatePromptGate>
     with WidgetsBindingObserver {
   List<Uri> _targets = const [];
-  String _latest = '';
   int _check = 0;
 
   bool get _blocking => _targets.isNotEmpty;
@@ -95,7 +94,6 @@ class _UpdatePromptGateState extends State<UpdatePromptGate>
       if (!isOlderVersion(installed, config.latestVersion)) {
         return _show(mine, const []);
       }
-      _latest = config.latestVersion;
       _show(mine, storeUrisFor(config, platform));
     } catch (_) {
       // Could not find out: leave things as they are.
@@ -118,7 +116,7 @@ class _UpdatePromptGateState extends State<UpdatePromptGate>
   @override
   Widget build(BuildContext context) {
     if (!_blocking) return const SizedBox.shrink();
-    return _UpdateWindow(onUpdate: _update, version: _latest);
+    return _UpdateWindow(onUpdate: _update);
   }
 }
 
@@ -131,8 +129,7 @@ const Color _ink = Color(0xFF070A0E);
 
 class _UpdateWindow extends StatefulWidget {
   final VoidCallback onUpdate;
-  final String version;
-  const _UpdateWindow({required this.onUpdate, required this.version});
+  const _UpdateWindow({required this.onUpdate});
 
   @override
   State<_UpdateWindow> createState() => _UpdateWindowState();
@@ -214,15 +211,7 @@ class _UpdateWindowState extends State<_UpdateWindow>
                         children: [
                           const Spacer(flex: 3),
                           _step(0.04, 0.4, const _HeroIcon(), rise: 10),
-                          const SizedBox(height: 36),
-                          if (widget.version.isNotEmpty)
-                            _step(
-                              0.16,
-                              0.5,
-                              _VersionTag(version: widget.version),
-                            ),
-                          if (widget.version.isNotEmpty)
-                            const SizedBox(height: 16),
+                          const SizedBox(height: 40),
                           _step(
                             0.22,
                             0.58,
@@ -267,7 +256,10 @@ class _UpdateWindowState extends State<_UpdateWindow>
                               ),
                             ),
                           ),
-                          const Spacer(flex: 4),
+                          const SizedBox(height: 36),
+                          _step(0.5, 0.86, const _FeatureStrip(), rise: 20),
+                          const Spacer(flex: 3),
+
                           _step(
                             0.55,
                             0.92,
@@ -344,52 +336,6 @@ class _HeroIcon extends StatelessWidget {
           fit: BoxFit.cover,
           excludeFromSemantics: true,
         ),
-      ),
-    );
-  }
-}
-
-/// "VERSION 1.1.9" -- a hairline capsule, small capitals, one accent dot.
-class _VersionTag extends StatelessWidget {
-  final String version;
-  const _VersionTag({required this.version});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: const BoxDecoration(
-              color: AppColors.lime,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                'VERSION  $version',
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.6,
-                  color: Color(0xFFD5DCE3),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -528,4 +474,56 @@ class _ScenePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Three quiet glass tiles -- what stays right where you left it. They fill the
+/// gap between the message and the button with something true of the app,
+/// instead of empty space.
+class _FeatureStrip extends StatelessWidget {
+  const _FeatureStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    const items = [
+      (Icons.groups_rounded, 'Teams'),
+      (Icons.sports_soccer_rounded, 'Matches'),
+      (Icons.leaderboard_rounded, 'Rankings'),
+    ];
+    return Row(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(items[i].$1, size: 26, color: AppColors.lime),
+                  const SizedBox(height: 8),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      items[i].$2,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                        color: Color(0xFFD5DCE3),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
