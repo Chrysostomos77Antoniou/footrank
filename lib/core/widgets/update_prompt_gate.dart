@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -143,20 +142,18 @@ class _UpdateWindow extends StatelessWidget {
       key: const Key('update-prompt'),
       fit: StackFit.expand,
       children: [
-        // Swallows every touch, and is not dismissible. The app behind
-        // frosts over like an iOS sheet.
+        // A full-screen banner replaces the app behind the window. It fades in
+        // first; the card follows a beat later so the eye reads banner, then
+        // message. The barrier on top swallows every touch and is not
+        // dismissible.
         TweenAnimationBuilder<double>(
           tween: Tween(begin: 0, end: 1),
-          duration: enter,
+          duration: still ? Duration.zero : const Duration(milliseconds: 320),
           curve: _strongOut,
-          builder: (context, t, child) => BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 14 * t, sigmaY: 14 * t),
-            child: ModalBarrier(
-              dismissible: false,
-              color: _skyInk.withValues(alpha: 0.38 * t),
-            ),
-          ),
+          builder: (context, t, child) => Opacity(opacity: t, child: child),
+          child: const _UpdateBanner(),
         ),
+        const ModalBarrier(dismissible: false, color: Colors.transparent),
         SafeArea(
           child: Center(
             child: Padding(
@@ -333,4 +330,125 @@ class _UpdateButtonState extends State<_UpdateButton> {
       ),
     );
   }
+}
+
+/// The full-screen backdrop: a sky-to-white wash, two soft glows and faint
+/// pitch markings, with the FootRank wordmark above the window.
+class _UpdateBanner extends StatelessWidget {
+  const _UpdateBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFCFE6FF), Color(0xFFEAF4FF), Color(0xFFFFFFFF)],
+              stops: [0, 0.55, 1],
+            ),
+          ),
+        ),
+        const CustomPaint(painter: _BannerPainter()),
+        SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 28),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [_skyAccentLight, _skyAccent],
+                      ),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(
+                      Icons.sports_soccer_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'FootRank',
+                    style: TextStyle(
+                      fontFamily: AppFonts.display,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.4,
+                      color: _skyInk,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BannerPainter extends CustomPainter {
+  const _BannerPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Two soft glows, one cool and one near-white, for depth.
+    void glow(Offset c, double r, Color color) {
+      final rect = Rect.fromCircle(center: c, radius: r);
+      canvas.drawCircle(
+        c,
+        r,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [color, color.withValues(alpha: 0)],
+          ).createShader(rect),
+      );
+    }
+
+    glow(
+      Offset(w * 0.15, h * 0.18),
+      w * 0.9,
+      _skyAccentLight.withValues(alpha: 0.45),
+    );
+    glow(
+      Offset(w * 0.95, h * 0.78),
+      w * 0.85,
+      _skyAccent.withValues(alpha: 0.18),
+    );
+
+    // Faint pitch markings: halfway line, centre circle, two boxes.
+    final line = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..color = Colors.white.withValues(alpha: 0.75);
+    final cy = h * 0.52;
+    canvas.drawLine(Offset(0, cy), Offset(w, cy), line);
+    canvas.drawCircle(Offset(w / 2, cy), w * 0.30, line);
+    canvas.drawCircle(Offset(w / 2, cy), 4, line..style = PaintingStyle.fill);
+    line.style = PaintingStyle.stroke;
+    final boxW = w * 0.56;
+    canvas.drawRect(Rect.fromLTWH((w - boxW) / 2, -2, boxW, h * 0.13), line);
+    canvas.drawRect(
+      Rect.fromLTWH((w - boxW) / 2, h - h * 0.13 + 2, boxW, h * 0.13),
+      line,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
