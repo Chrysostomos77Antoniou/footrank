@@ -1,8 +1,8 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/update/update_prompt.dart';
 import 'package:footrank/core/utils/motion.dart';
@@ -87,8 +87,8 @@ class _UpdatePromptGateState extends State<UpdatePromptGate>
         widget.platform ?? defaultTargetPlatform,
       );
       if (platform == null) return _show(mine, const []);
-      final config = await (widget.configLoader ??
-          UpdatePromptRepository().fetch)();
+      final config =
+          await (widget.configLoader ?? UpdatePromptRepository().fetch)();
       if (config == null || !config.enabled) return _show(mine, const []);
       final installed = await (widget.versionLoader ?? _installedVersion)();
       if (!isOlderVersion(installed, config.latestVersion)) {
@@ -120,22 +120,42 @@ class _UpdatePromptGateState extends State<UpdatePromptGate>
   }
 }
 
+// Apple-style sheet in light blue and white. Motion follows one rule: things
+// arrive fast and settle softly (strong ease-out, under 300ms), and the button
+// answers the finger at once (a 3% press-in).
+const Color _skyTop = Color(0xFFE3F1FF);
+const Color _skyBottom = Color(0xFFFFFFFF);
+const Color _skyAccent = Color(0xFF1B7BE6);
+const Color _skyAccentLight = Color(0xFF5AB0FF);
+const Color _skyInk = Color(0xFF0B1B2E);
+const Color _skyMuted = Color(0xFF5B6B7F);
+const Curve _strongOut = Cubic(0.23, 1, 0.32, 1);
+
 class _UpdateWindow extends StatelessWidget {
   final VoidCallback onUpdate;
   const _UpdateWindow({required this.onUpdate});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final still = reduceMotion(context);
+    final enter = still ? Duration.zero : const Duration(milliseconds: 260);
     return Stack(
       key: const Key('update-prompt'),
       fit: StackFit.expand,
       children: [
-        // Swallows every touch, and is not dismissible.
-        ModalBarrier(
-          dismissible: false,
-          color: theme.colorScheme.scrim.withValues(alpha: AppOpacity.scrim),
+        // Swallows every touch, and is not dismissible. The app behind
+        // frosts over like an iOS sheet.
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: enter,
+          curve: _strongOut,
+          builder: (context, t, child) => BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 14 * t, sigmaY: 14 * t),
+            child: ModalBarrier(
+              dismissible: false,
+              color: _skyInk.withValues(alpha: 0.38 * t),
+            ),
+          ),
         ),
         SafeArea(
           child: Center(
@@ -143,65 +163,174 @@ class _UpdateWindow extends StatelessWidget {
               padding: const EdgeInsets.all(AppSemantic.screenPadding),
               child: TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: 1),
-                duration: still ? Duration.zero : AppMotion.enter,
-                curve: AppMotion.easeOut,
+                duration: enter,
+                curve: _strongOut,
                 builder: (context, t, child) => Opacity(
                   opacity: t,
-                  child: Transform.scale(scale: 0.96 + 0.04 * t, child: child),
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 360),
-                  child: Material(
-                    color: theme.colorScheme.surface,
-                    elevation: AppElevation.flat,
-                    borderRadius: BorderRadius.circular(AppSemantic.cardRadius),
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Icon(
-                            Icons.system_update_alt_rounded,
-                            size: AppIconSize.lg,
-                            color: AppColors.brand(context),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            'Update available',
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(
-                            'A new version of FootRank is ready. '
-                            'Please update to keep playing.',
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: AppColors.muted(context),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          FilledButton(
-                            onPressed: onUpdate,
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size.fromHeight(
-                                AppSemantic.buttonHeight,
-                              ),
-                            ),
-                            child: const Text('Update now'),
-                          ),
-                        ],
-                      ),
+                  child: Transform.translate(
+                    offset: Offset(0, 14 * (1 - t)),
+                    child: Transform.scale(
+                      scale: 0.95 + 0.05 * t,
+                      child: child,
                     ),
                   ),
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 340),
+                  child: _sheet(context),
                 ),
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _sheet(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_skyTop, _skyBottom],
+        ),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+        boxShadow: [
+          BoxShadow(
+            color: _skyAccent.withValues(alpha: 0.22),
+            blurRadius: 48,
+            offset: const Offset(0, 24),
+          ),
+          BoxShadow(
+            color: _skyInk.withValues(alpha: 0.10),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [_skyAccentLight, _skyAccent],
+                    ),
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _skyAccent.withValues(alpha: 0.35),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.arrow_downward_rounded,
+                    size: 38,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 22),
+              const Text(
+                'Update available',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppFonts.display,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.4,
+                  color: _skyInk,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'A new version of FootRank is ready. '
+                'Please update to keep playing.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 15, height: 1.4, color: _skyMuted),
+              ),
+              const SizedBox(height: 26),
+              _UpdateButton(onPressed: onUpdate),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A pill that sinks to 97% under the finger, like any iOS control.
+class _UpdateButton extends StatefulWidget {
+  final VoidCallback onPressed;
+  const _UpdateButton({required this.onPressed});
+
+  @override
+  State<_UpdateButton> createState() => _UpdateButtonState();
+}
+
+class _UpdateButtonState extends State<_UpdateButton> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final still = reduceMotion(context);
+    return Semantics(
+      button: true,
+      label: 'Update now',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _down = true),
+        onTapCancel: () => setState(() => _down = false),
+        onTapUp: (_) => setState(() => _down = false),
+        onTap: widget.onPressed,
+        child: AnimatedScale(
+          scale: _down && !still ? 0.97 : 1,
+          duration: const Duration(milliseconds: 120),
+          curve: _strongOut,
+          child: Container(
+            height: 54,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF3A92F0), _skyAccent],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: _skyAccent.withValues(alpha: 0.30),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: const Text(
+              'Update now',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
