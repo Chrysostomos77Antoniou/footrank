@@ -1,3 +1,6 @@
+// ignore_for_file: unused_import, undefined_shown_name
+// Flutter 3.32 (CI) exports this from material.dart; newer Flutter needs the
+// explicit cupertino import. The ignores keep both analyzers quiet.
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
