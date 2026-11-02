@@ -237,6 +237,74 @@ class _VenueText extends StatelessWidget {
   }
 }
 
+/// The venue as the card's focal point: a tinted panel with a large pin and the
+/// name in a bigger, heavier type, so the captain sees WHERE before anything
+/// else. [trailing] (the report flag) sits at the end.
+class _VenuePanel extends StatelessWidget {
+  final String venue;
+  final Widget? trailing;
+
+  const _VenuePanel({required this.venue, this.trailing});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final brand = AppColors.brand(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: brand.withValues(alpha: 0.10),
+        border: Border.all(color: brand.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(AppSemantic.controlRadius),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: brand.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.stadium_outlined, size: 24, color: brand),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'VENUE',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppColors.muted(context),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: AppSemantic.labelGap),
+                Text(
+                  venue,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}
+
 /// A hairline that sets a footer line (a fee, a status) apart from the match
 /// above it, with the card's rhythm on both sides.
 class _FooterRule extends StatelessWidget {
@@ -446,20 +514,18 @@ class OpponentCard extends StatelessWidget {
             icon: Icons.event_outlined,
             child: Text(
               '${formatMatchWhen(opponent.scheduledAt)} · ${opponent.format}',
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800, fontFamily: AppFonts.display),
             ),
           ),
           if (venue != null && venue.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.xxs),
-            _MetaRow(
-              icon: Icons.place_outlined,
-              iconColor: AppColors.brand(context),
+            const SizedBox(height: AppSpacing.sm),
+            _VenuePanel(
+              venue: venue,
               trailing: _FlagButton(
                 onPressed: () =>
                     reportVenueFlow(context, requestId: opponent.id),
               ),
-              child: _VenueText(venue),
             ),
           ],
           const SizedBox(height: AppSpacing.md),
@@ -523,8 +589,10 @@ class RequestCard extends StatelessWidget {
                       formatMatchWhen(request.scheduledAt),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        fontFamily: AppFonts.display,
+                      ),
                     ),
                     const SizedBox(height: AppSemantic.labelGap),
                     Text(
@@ -566,12 +634,8 @@ class RequestCard extends StatelessWidget {
             ],
           ),
           if (venue != null && venue.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.sm),
-            _MetaRow(
-              icon: Icons.place_outlined,
-              iconColor: AppColors.brand(context),
-              child: _VenueText(venue),
-            ),
+            const SizedBox(height: AppSpacing.md),
+            _VenuePanel(venue: venue),
           ],
           // Proposals ease in when they arrive after the card is already on
           // screen, instead of shoving everything below down in one frame.
