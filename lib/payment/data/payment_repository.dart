@@ -1,8 +1,4 @@
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:footrank/core/constants/app_constants.dart';
 import 'package:footrank/models/match_payment_model.dart';
 import 'package:footrank/payment/data/promo_repository.dart';
 import 'package:footrank/services/analytics_service.dart';
@@ -74,25 +70,10 @@ class PaymentRepository {
   /// Whether payments are configured in this build at all. False in local/dev
   /// builds with no --dart-define, which is what keeps the "Pay" UI hidden
   /// instead of showing a button that can only fail.
-  static bool get isEnabled => AppConstants.stripePublishableKey.isNotEmpty;
+  static bool get isEnabled => false;
 
-  /// Wires up the Stripe SDK. Safe to call when unconfigured (it no-ops), and
-  /// safe to call before the first payment — but it must have completed before
-  /// any PaymentSheet is presented, so main() awaits it.
-  static Future<void> initialize() async {
-    if (!isEnabled) return;
-    Stripe.publishableKey = AppConstants.stripePublishableKey;
-    // Required by the native SDK whenever the PaymentSheet requests Apple
-    // Pay (see payMatchFee's `applePay:` param below) -- separate from just
-    // passing applePay per-sheet, and separate from the entitlement in
-    // Runner.entitlements. Without this, presenting the sheet throws
-    // "`merchantIdentifier` is required, but none was found" before it ever
-    // opens, on iOS specifically; harmless to set on Android, where it's
-    // simply unused. Must match the merchant ID registered in Apple
-    // Developer and in Runner.entitlements exactly.
-    Stripe.merchantIdentifier = 'merchant.com.footballcy.footrank';
-    await Stripe.instance.applySettings();
-  }
+  /// Kept as a no-op: FootRank is free, there is no payment SDK to set up.
+  static Future<void> initialize() async {}
 
   /// This team's fee row for [matchId], or null if no charge was ever started.
   Future<MatchPaymentModel?> fetchMyPayment({
@@ -257,94 +238,10 @@ class PaymentRepository {
   /// — dismissing the sheet is a normal thing to do, not an error worth a red
   /// toast.
   Future<PaymentResult> payMatchFee(String matchId) async {
-    if (!isEnabled) {
-      return const PaymentResult(
-        PaymentOutcome.failed,
-        'Payments are not configured in this build.',
-      );
-    }
-    if (_uid == null) {
-      return const PaymentResult(PaymentOutcome.failed, 'You are signed out.');
-    }
-
-    final Map<String, dynamic> body;
-    try {
-      final res = await SupabaseService.client.functions.invoke(
-        _createFn,
-        body: {'match_id': matchId},
-      );
-      body = (res.data as Map?)?.cast<String, dynamic>() ?? const {};
-    } catch (e) {
-      debugPrint('create-match-payment failed: $e');
-      return PaymentResult(PaymentOutcome.failed, _createErrorMessage(e));
-    }
-
-    if (body['already_paid'] == true) {
-      return const PaymentResult(PaymentOutcome.alreadyPaid);
-    }
-
-    // A promo code covered the fee: the server recorded it as waived and no
-    // card is involved, so there is no PaymentSheet to show.
-    if (body['waived'] == true) {
-      return body['credit'] == true
-          ? const PaymentResult(PaymentOutcome.credited)
-          : const PaymentResult(PaymentOutcome.waived);
-    }
-
-    final clientSecret = body['client_secret'] as String?;
-    if (clientSecret == null || clientSecret.isEmpty) {
-      return const PaymentResult(
-        PaymentOutcome.failed,
-        'Could not start the payment. Please try again.',
-      );
-    }
-
-    try {
-      await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: SetupPaymentSheetParameters(
-          paymentIntentClientSecret: clientSecret,
-          merchantDisplayName: AppConstants.appName,
-          // Stripe's sheet follows the device, which is right: it's a system
-          // payment surface, not part of our themed UI.
-          style: ThemeMode.system,
-          // Offers Apple Pay / Google Pay inside the same sheet when the
-          // platform and the device both support it -- Stripe silently
-          // omits the option otherwise (e.g. a device with no card added to
-          // Wallet), so this is safe to pass unconditionally per-platform.
-          // Guarded with kIsWeb/defaultTargetPlatform rather than
-          // dart:io's Platform, since this repository is also compiled into
-          // the web build, where dart:io is unavailable.
-          applePay: (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
-              ? const PaymentSheetApplePay(merchantCountryCode: 'CY')
-              : null,
-          googlePay:
-              (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
-                  ? const PaymentSheetGooglePay(
-                      merchantCountryCode: 'CY',
-                      currencyCode: 'EUR',
-                      testEnv: false,
-                    )
-                  : null,
-        ),
-      );
-      await Stripe.instance.presentPaymentSheet();
-      AppAnalytics.log('fee_paid');
-      return const PaymentResult(PaymentOutcome.succeeded);
-    } on StripeException catch (e) {
-      if (e.error.code == FailureCode.Canceled) {
-        return const PaymentResult(PaymentOutcome.cancelled);
-      }
-      return PaymentResult(
-        PaymentOutcome.failed,
-        e.error.localizedMessage ?? e.error.message ?? 'Your card was declined.',
-      );
-    } catch (e) {
-      debugPrint('presentPaymentSheet failed: $e');
-      return const PaymentResult(
-        PaymentOutcome.failed,
-        'Payment could not be completed. Please try again.',
-      );
-    }
+    return const PaymentResult(
+      PaymentOutcome.failed,
+      'FootRank is free — there is nothing to pay.',
+    );
   }
 
   /// Both sides' fee status for [matchId] -- the opponent's included, via the

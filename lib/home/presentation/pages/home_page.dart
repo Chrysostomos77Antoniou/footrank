@@ -18,7 +18,6 @@ import 'package:footrank/match/presentation/widgets/roster_picker.dart';
 import 'package:footrank/models/user_model.dart';
 import 'package:footrank/notifications/data/notification_repository.dart';
 import 'package:footrank/payment/presentation/widgets/pending_fee_banner.dart';
-import 'package:footrank/payment/presentation/widgets/promo_code_field.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/team/data/team_repository.dart';
@@ -232,9 +231,6 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
                 ),
                 const SizedBox(height: AppSpacing.sm),
               ],
-              // "Add your promo code" -- only while the promo is open; collapses
-              // to a one-line note once a code is active.
-              const PromoCodeField(),
               const SizedBox(height: AppSpacing.xxs),
               // ---- Secondary actions ----
               const FadeSlideIn(
