@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -303,42 +304,126 @@ const TextStyle _headline = TextStyle(
   color: Colors.white,
 );
 
-/// The app icon, lit from below by a green glow, inside a hairline ring.
-class _HeroIcon extends StatelessWidget {
+/// The app icon, lit from below by a green glow, inside a hairline ring. Every
+/// few seconds a band of light sweeps across it from top left to bottom right,
+/// and the icon drifts a few pixels and tilts a hair, like a thing resting on
+/// water. Both stop under reduced motion.
+class _HeroIcon extends StatefulWidget {
   const _HeroIcon();
 
   @override
+  State<_HeroIcon> createState() => _HeroIconState();
+}
+
+class _HeroIconState extends State<_HeroIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _loop = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 5200),
+  );
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (!reduceMotion(context)) _loop.repeat();
+  }
+
+  @override
+  void dispose() {
+    _loop.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 112,
-      height: 112,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.lime.withValues(alpha: 0.28),
-            blurRadius: 60,
-            spreadRadius: 2,
-            offset: const Offset(0, 18),
+    return AnimatedBuilder(
+      animation: _loop,
+      builder: (context, _) {
+        final t = _loop.value;
+        final wave = math.sin(t * 2 * math.pi);
+        // The shine runs in the first 38% of each cycle, then rests.
+        const run = 0.38;
+        final sweeping = t < run && _loop.isAnimating;
+        final u = sweeping ? Curves.easeInOutCubic.transform(t / run) : 0.0;
+        return Transform.translate(
+          offset: Offset(0, -3.5 * wave),
+          child: Transform.rotate(
+            angle: 0.014 * math.cos(t * 2 * math.pi),
+            child: Container(
+              width: 112,
+              height: 112,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.lime.withValues(alpha: 0.28),
+                    blurRadius: 60,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 18),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(27),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      'assets/branding/app_icon_512.png',
+                      fit: BoxFit.cover,
+                      excludeFromSemantics: true,
+                    ),
+                    if (sweeping)
+                      IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white.withValues(alpha: 0),
+                                Colors.white.withValues(alpha: 0.55),
+                                Colors.white.withValues(alpha: 0),
+                              ],
+                              stops: const [0.38, 0.5, 0.62],
+                              transform: _Slide(-1.3 + 2.6 * u),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(27),
-        child: Image.asset(
-          'assets/branding/app_icon_512.png',
-          fit: BoxFit.cover,
-          excludeFromSemantics: true,
-        ),
-      ),
+        );
+      },
     );
   }
+}
+
+/// Slides a gradient along the icon's diagonal: -1 is fully before the top
+/// left corner, +1 fully past the bottom right.
+class _Slide extends GradientTransform {
+  final double progress;
+  const _Slide(this.progress);
+
+  @override
+  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) =>
+      Matrix4.translationValues(
+        bounds.width * progress,
+        bounds.height * progress,
+        0,
+      );
 }
 
 /// A pill that sinks to 97% under the finger, like any iOS control.
