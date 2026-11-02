@@ -6,6 +6,7 @@ import 'package:footrank/admin/presentation/pages/admin_flagged_page.dart';
 import 'package:footrank/admin/presentation/pages/admin_login_page.dart';
 import 'package:footrank/admin/presentation/pages/admin_matches_page.dart';
 import 'package:footrank/admin/presentation/pages/admin_teams_page.dart';
+import 'package:footrank/admin/presentation/pages/admin_update_page.dart';
 import 'package:footrank/admin/presentation/pages/admin_users_page.dart';
 import 'package:footrank/admin/presentation/widgets/admin_widgets.dart';
 import 'package:footrank/core/theme/app_colors.dart';
@@ -17,7 +18,7 @@ import 'package:footrank/services/supabase_service.dart';
 /// Public (not file-private) so [AdminDashboardPage]'s shortcut cards can
 /// target a section by name without the shell needing to know anything
 /// about dashboard internals -- it just receives an [AdminSection] back.
-enum AdminSection { dashboard, courts, matches, flagged, teams, users }
+enum AdminSection { dashboard, courts, matches, flagged, teams, users, update }
 
 const _phoneBreakpoint = 700.0;
 
@@ -28,6 +29,7 @@ const _sections = [
   (AdminSection.flagged, Icons.flag_outlined, 'Flagged'),
   (AdminSection.teams, Icons.shield_outlined, 'Teams'),
   (AdminSection.users, Icons.people_outline, 'Users'),
+  (AdminSection.update, Icons.system_update_alt_rounded, 'App update'),
 ];
 
 class AdminShell extends StatefulWidget {
@@ -92,6 +94,7 @@ class _AdminShellState extends State<AdminShell> {
       AdminFlaggedPage(repo: widget.repo),
       AdminTeamsPage(repo: widget.repo),
       AdminUsersPage(repo: widget.repo),
+      AdminUpdatePage(repo: widget.repo),
     ],
   );
 

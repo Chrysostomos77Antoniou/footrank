@@ -259,6 +259,10 @@ class AppOpacity {
 
   /// A page being covered by an incoming route recedes to this opacity.
   static const double coveredPage = 0.88;
+
+  /// The dimmed layer behind a window that must be answered (the update
+  /// window): dark enough that the app below reads as out of reach.
+  static const double scrim = 0.8;
 }
 
 /// Icon sizes. Three steps only — a fourth would be a design decision, not a

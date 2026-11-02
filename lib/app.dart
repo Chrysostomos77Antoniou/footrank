@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_theme.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
+import 'package:footrank/core/widgets/update_prompt_gate.dart';
 import 'package:footrank/core/widgets/video_splash_overlay.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/services/notification_router.dart';
@@ -97,6 +98,9 @@ class _FootRankAppState extends State<FootRankApp> with WidgetsBindingObserver {
                 fit: StackFit.expand,
                 children: [
                   child ?? const SizedBox.shrink(),
+                  // Above the app, below the splash: the "new version" window.
+                  // Shows nothing unless the owner has switched it on.
+                  const UpdatePromptGate(),
                   if (!_splashDone)
                     VideoSplashOverlay(
                       onFinished: () => setState(() => _splashDone = true),

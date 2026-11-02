@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:footrank/admin/models/admin_court_model.dart';
 import 'package:footrank/admin/models/flagged_venue_model.dart';
 import 'package:footrank/admin/models/match_cancellation_model.dart';
+import 'package:footrank/core/update/update_prompt.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_proposal_model.dart';
 import 'package:footrank/models/match_request_model.dart';
@@ -37,6 +38,26 @@ class AdminRepository {
         .maybeSingle();
     return (row?['is_admin'] as bool?) ?? false;
   }
+
+  // ---- "New version" window ----
+
+  /// The switch row that decides whether users on an older build see the
+  /// update window. Null if the row is missing.
+  Future<UpdatePromptConfig?> fetchUpdatePrompt() async {
+    final row = await _client.from('app_update_prompt').select().maybeSingle();
+    return row == null ? null : UpdatePromptConfig.fromJson(row);
+  }
+
+  /// Switches the window on or off. Admin-only on the server; enabling needs a
+  /// valid [latestVersion] such as 1.1.8.
+  Future<void> setUpdatePrompt({
+    required bool enabled,
+    required String latestVersion,
+  }) =>
+      _client.rpc('admin_set_app_update_prompt', params: {
+        'p_enabled': enabled,
+        'p_latest_version': latestVersion.trim(),
+      });
 
   // ---- Courts ----
 
