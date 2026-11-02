@@ -57,6 +57,7 @@ class UpdatePromptGate extends StatefulWidget {
 class _UpdatePromptGateState extends State<UpdatePromptGate>
     with WidgetsBindingObserver {
   List<Uri> _targets = const [];
+  String _latest = '';
   int _check = 0;
 
   bool get _blocking => _targets.isNotEmpty;
@@ -93,6 +94,7 @@ class _UpdatePromptGateState extends State<UpdatePromptGate>
       if (!isOlderVersion(installed, config.latestVersion)) {
         return _show(mine, const []);
       }
+      _latest = config.latestVersion;
       _show(mine, storeUrisFor(config, platform));
     } catch (_) {
       // Could not find out: leave things as they are.
@@ -115,29 +117,33 @@ class _UpdatePromptGateState extends State<UpdatePromptGate>
   @override
   Widget build(BuildContext context) {
     if (!_blocking) return const SizedBox.shrink();
-    return _UpdateWindow(onUpdate: _update);
+    return _UpdateWindow(onUpdate: _update, version: _latest);
   }
 }
 
 // Apple-style sheet in light blue and white. Motion follows one rule: things
 // arrive fast and settle softly (strong ease-out, under 300ms), and the button
 // answers the finger at once (a 3% press-in).
-const Color _skyTop = Color(0xFFE3F1FF);
+const Color _skyTop = Color(0xFFE2F5EA);
 const Color _skyBottom = Color(0xFFFFFFFF);
-const Color _skyAccent = Color(0xFF1B7BE6);
-const Color _skyAccentLight = Color(0xFF5AB0FF);
+const Color _skyAccent = Color(
+  0xFF1B7BE6,
+); // the "Update now" button stays blue
+const Color _greenDeep = Color(0xFF0E7A47);
+const Color _green = Color(0xFF22A563);
+const Color _greenLight = Color(0xFF7ED6A4);
 const Color _skyInk = Color(0xFF0B1B2E);
 const Color _skyMuted = Color(0xFF5B6B7F);
 const Curve _strongOut = Cubic(0.23, 1, 0.32, 1);
 
 class _UpdateWindow extends StatelessWidget {
   final VoidCallback onUpdate;
-  const _UpdateWindow({required this.onUpdate});
+  final String version;
+  const _UpdateWindow({required this.onUpdate, required this.version});
 
   @override
   Widget build(BuildContext context) {
     final still = reduceMotion(context);
-    final enter = still ? Duration.zero : const Duration(milliseconds: 260);
     return Material(
       type: MaterialType.transparency,
       child: Stack(
@@ -162,8 +168,10 @@ class _UpdateWindow extends StatelessWidget {
                 padding: const EdgeInsets.all(AppSemantic.screenPadding),
                 child: TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0, end: 1),
-                  duration: enter,
-                  curve: _strongOut,
+                  duration: still
+                      ? Duration.zero
+                      : const Duration(milliseconds: 360),
+                  curve: const Interval(0.22, 1, curve: _strongOut),
                   builder: (context, t, child) => Opacity(
                     opacity: t,
                     child: Transform.translate(
@@ -199,7 +207,7 @@ class _UpdateWindow extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
         boxShadow: [
           BoxShadow(
-            color: _skyAccent.withValues(alpha: 0.22),
+            color: _greenDeep.withValues(alpha: 0.20),
             blurRadius: 48,
             offset: const Offset(0, 24),
           ),
@@ -225,12 +233,12 @@ class _UpdateWindow extends StatelessWidget {
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [_skyAccentLight, _skyAccent],
+                      colors: [_greenLight, _green],
                     ),
                     borderRadius: BorderRadius.circular(22),
                     boxShadow: [
                       BoxShadow(
-                        color: _skyAccent.withValues(alpha: 0.35),
+                        color: _green.withValues(alpha: 0.38),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -243,7 +251,30 @@ class _UpdateWindow extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 20),
+              if (version.isNotEmpty)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _green.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      'NEW VERSION  $version',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                        color: _greenDeep,
+                      ),
+                    ),
+                  ),
+                ),
+              if (version.isNotEmpty) const SizedBox(height: 12),
               const Text(
                 'Update available',
                 textAlign: TextAlign.center,
@@ -264,6 +295,21 @@ class _UpdateWindow extends StatelessWidget {
               ),
               const SizedBox(height: 26),
               _UpdateButton(onPressed: onUpdate),
+              const SizedBox(height: 16),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.verified_user_rounded, size: 15, color: _green),
+                  SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Your teams and matches stay safe.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12.5, color: _skyMuted),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -350,7 +396,7 @@ class _UpdateBanner extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFCFE6FF), Color(0xFFEAF4FF), Color(0xFFFFFFFF)],
+              colors: [Color(0xFFC4EBD3), Color(0xFFE6F6EC), Color(0xFFFFFFFF)],
               stops: [0, 0.55, 1],
             ),
           ),
@@ -360,28 +406,34 @@ class _UpdateBanner extends StatelessWidget {
           child: Align(
             alignment: Alignment.topCenter,
             child: Padding(
-              padding: const EdgeInsets.only(top: 28),
-              child: Row(
+              padding: const EdgeInsets.only(top: 36),
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // The real app icon, as a squircle with a soft shadow.
                   Container(
-                    width: 30,
-                    height: 30,
+                    width: 64,
+                    height: 64,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [_skyAccentLight, _skyAccent],
-                      ),
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _greenDeep.withValues(alpha: 0.28),
+                          blurRadius: 22,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                    child: const Icon(
-                      Icons.sports_soccer_rounded,
-                      size: 18,
-                      color: Colors.white,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: Image.asset(
+                        'assets/branding/app_icon_512.png',
+                        fit: BoxFit.cover,
+                        excludeFromSemantics: true,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(height: 12),
                   const Text(
                     'FootRank',
                     style: TextStyle(
@@ -390,6 +442,16 @@ class _UpdateBanner extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.4,
                       color: _skyInk,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    '5-a-Side Ranking',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                      color: _greenDeep,
                     ),
                   ),
                 ],
@@ -426,13 +488,9 @@ class _BannerPainter extends CustomPainter {
     glow(
       Offset(w * 0.15, h * 0.18),
       w * 0.9,
-      _skyAccentLight.withValues(alpha: 0.45),
+      _greenLight.withValues(alpha: 0.50),
     );
-    glow(
-      Offset(w * 0.95, h * 0.78),
-      w * 0.85,
-      _skyAccent.withValues(alpha: 0.18),
-    );
+    glow(Offset(w * 0.95, h * 0.78), w * 0.85, _green.withValues(alpha: 0.20));
 
     // Faint pitch markings: halfway line, centre circle, two boxes.
     final line = Paint()
