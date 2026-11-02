@@ -3,6 +3,7 @@ import 'package:footrank/models/match_player_model.dart';
 import 'package:footrank/models/match_proposal_model.dart';
 import 'package:footrank/models/match_request_model.dart';
 import 'package:footrank/services/elo_engine.dart';
+import 'package:footrank/services/analytics_service.dart';
 import 'package:footrank/services/supabase_service.dart';
 
 class MatchRepository {
@@ -47,6 +48,11 @@ class MatchRepository {
         .select('*, teams(name)')
         .single();
 
+    AppAnalytics.log('match_request_created', {
+      'match_type': matchType,
+      'format': format,
+      'city': city,
+    });
     return MatchRequestModel.fromJson(inserted);
   }
 
@@ -233,6 +239,7 @@ class MatchRepository {
           ...venueParam,
         },
       );
+      AppAnalytics.log('match_proposed', {'has_roster': 1});
       return result as String;
     }
     final result = await SupabaseService.client.rpc(
@@ -243,6 +250,7 @@ class MatchRepository {
         ...venueParam,
       },
     );
+    AppAnalytics.log('match_proposed', {'has_roster': 0});
     return result as String;
   }
 
@@ -267,6 +275,7 @@ class MatchRepository {
       'accept_match_proposal',
       params: {'p_proposal_id': proposalId},
     );
+    AppAnalytics.log('proposal_accepted');
     return result as String;
   }
 
@@ -458,6 +467,7 @@ class MatchRepository {
       'p_home_score': homeScore,
       'p_away_score': awayScore,
     });
+    AppAnalytics.log('score_submitted');
     return result as String;
   }
 

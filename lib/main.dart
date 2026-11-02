@@ -13,6 +13,7 @@ import 'package:footrank/core/theme/theme_controller.dart';
 import 'package:footrank/firebase_options.dart';
 import 'package:footrank/onboarding/onboarding_prefs.dart';
 import 'package:footrank/payment/data/payment_repository.dart';
+import 'package:footrank/services/analytics_service.dart';
 import 'package:footrank/services/fcm_token_service.dart';
 import 'package:footrank/services/notification_service.dart';
 import 'package:footrank/services/supabase_service.dart';
@@ -90,6 +91,7 @@ Future<void> main() async {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       return true;
     };
+    AppAnalytics.enable();
   } catch (e) {
     debugPrint('Firebase init failed: $e');
   }

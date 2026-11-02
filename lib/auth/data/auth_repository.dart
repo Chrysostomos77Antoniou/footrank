@@ -10,6 +10,7 @@ import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:footrank/services/analytics_service.dart';
 import 'package:footrank/auth/data/legal_versions.dart';
 import 'package:footrank/services/fcm_token_service.dart';
 import 'package:footrank/services/supabase_service.dart';
@@ -74,9 +75,13 @@ class AuthRepository {
   Future<AuthResponse> signUp({
     required String email,
     required String password,
-  }) => _client.auth
-      .signUp(email: email, password: password)
-      .timeout(_requestTimeout);
+  }) async {
+    final response = await _client.auth
+        .signUp(email: email, password: password)
+        .timeout(_requestTimeout);
+    AppAnalytics.log('sign_up', {'method': 'email'});
+    return response;
+  }
 
   /// Sign in with Google. On iOS/Android this uses Google's native account
   /// picker (no browser, no OS "open this app?" prompt) -- how every

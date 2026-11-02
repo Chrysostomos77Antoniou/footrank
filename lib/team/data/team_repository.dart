@@ -7,6 +7,7 @@ import 'package:footrank/profile/data/profile_repository.dart'
 import 'package:footrank/models/join_request_model.dart';
 import 'package:footrank/models/team_member_model.dart';
 import 'package:footrank/models/team_model.dart';
+import 'package:footrank/services/analytics_service.dart';
 import 'package:footrank/services/supabase_service.dart';
 
 /// Thrown when an action would exceed the 3-teams-per-user limit, so the UI
@@ -197,6 +198,7 @@ class TeamRepository {
     // members-only table, so it is not part of the teams row.
     final json = Map<String, dynamic>.from(created as Map);
     json['invite_code'] = await fetchInviteCode(json['id'] as String);
+    AppAnalytics.log('team_created', {'has_logo': logoUrl == null ? 0 : 1});
     return TeamModel.fromJson(json);
   }
 

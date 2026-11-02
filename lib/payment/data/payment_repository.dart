@@ -5,6 +5,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:footrank/core/constants/app_constants.dart';
 import 'package:footrank/models/match_payment_model.dart';
 import 'package:footrank/payment/data/promo_repository.dart';
+import 'package:footrank/services/analytics_service.dart';
 import 'package:footrank/services/supabase_service.dart';
 
 
@@ -327,6 +328,7 @@ class PaymentRepository {
         ),
       );
       await Stripe.instance.presentPaymentSheet();
+      AppAnalytics.log('fee_paid');
       return const PaymentResult(PaymentOutcome.succeeded);
     } on StripeException catch (e) {
       if (e.error.code == FailureCode.Canceled) {
