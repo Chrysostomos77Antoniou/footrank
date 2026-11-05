@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:footrank/models/match_payment_model.dart';
 import 'package:footrank/payment/data/promo_repository.dart';
-import 'package:footrank/services/analytics_service.dart';
 import 'package:footrank/services/supabase_service.dart';
 
 
@@ -63,7 +62,6 @@ class PendingFee {
 /// webhook can write that, so [fetchMyPayment] is the source of truth.
 class PaymentRepository {
   static const _table = 'match_payments';
-  static const _createFn = 'create-match-payment';
 
   String? get _uid => SupabaseService.client.auth.currentUser?.id;
 
@@ -292,17 +290,5 @@ class PaymentRepository {
       }
     }
     return null;
-  }
-
-  /// Turns the Edge Function's error codes into something a captain can act on.
-  String _createErrorMessage(Object error) {
-    final text = error.toString();
-    if (text.contains('not_a_captain_of_this_match')) {
-      return 'Only your team captain can pay the match fee.';
-    }
-    if (text.contains('match_not_payable')) {
-      return 'This match is not open for payment.';
-    }
-    return 'Could not start the payment. Please try again.';
   }
 }
