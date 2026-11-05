@@ -329,12 +329,42 @@ class AppTypeScale {
   static const double label2 = 12;
   static const double label3 = 11;
 
-  /// Button text.
+  /// Button text, and auth field values that share this step.
   ///
   /// OFF-SCALE (15 sits between [body2] 14 and [body1] 16). Deliberate — it
   /// keeps button labels from shouting next to 16px body copy — but it is a
   /// scale exception, so it is named rather than left as a bare literal.
+  /// There is no second 15: field values use this same step.
   static const double button = 15;
+
+  /// Primary screen titles (Sora).
+  ///
+  /// OFF-SCALE (26 sits between [display3] 24 and [display2] 28). This is the
+  /// size those titles already ship at. Named so a raw 26 is not a second
+  /// display step.
+  static const double screenTitle = 26;
+
+  /// Compact emphasized titles, and the update-window button label.
+  ///
+  /// OFF-SCALE (17 sits between [title2]/[body1] 16 and [title1] 18).
+  static const double emphasis = 17;
+
+  /// Compact meta labels: chips, pills, inline links, the auth "or" divider.
+  ///
+  /// OFF-SCALE (13 sits between [label2]/[body3] 12 and [label1]/[body2] 14).
+  static const double meta = 13;
+
+  /// Fine print: hints and the quiet lines on the update window.
+  ///
+  /// OFF-SCALE (12.5 sits just above [label2]/[body3] 12).
+  static const double caption = 12.5;
+
+  /// Update-window headline only.
+  ///
+  /// OFF-SCALE (42 is larger than [display1] 34) and a single call site.
+  /// Preserved so that headline does not shrink. Brand: keep, or snap the
+  /// window to [display1].
+  static const double launchDisplay = 42;
 
   /// Leading multiplier for display/headline sizes.
   static const double displayHeight = 1.1;

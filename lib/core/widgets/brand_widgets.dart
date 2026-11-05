@@ -50,7 +50,7 @@ class GradientHeader extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 26,
+                        fontSize: AppTypeScale.screenTitle,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -60,7 +60,7 @@ class GradientHeader extends StatelessWidget {
                         subtitle!,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.85),
-                          fontSize: 14,
+                          fontSize: AppTypeScale.body2,
                         ),
                       ),
                     ],
@@ -144,7 +144,8 @@ class BrandButton extends StatelessWidget {
                       style: TextStyle(
                           color: onBrand,
                           fontWeight: FontWeight.w800,
-                          fontSize: 16)),
+                          // 16, not AppTypeScale.button (15): this label ships a step larger.
+                          fontSize: AppTypeScale.body1)),
                 ],
               ),
       ),

@@ -5,10 +5,6 @@ import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/widgets/premium.dart';
 
-/// Secondary ink used on the frosted light card (a touch stronger than
-/// [AppColors.lightSecondary] because the glass sits over a dark video).
-const Color _frostInk = Color(0xFF2F3D35);
-
 /// Marks the subtree as sitting on the see-through [AuthCard] so fields and
 /// labels pick the glass-friendly colours.
 class _AuthSurface extends InheritedWidget {
@@ -47,13 +43,13 @@ class AuthTone {
   /// Labels, helper text and "or".
   Color get secondary => dark
       ? AppColors.darkSecondary
-      : (frosted ? _frostInk : AppColors.lightSecondary);
+      : (frosted ? AppColors.frostInk : AppColors.lightSecondary);
 
   /// Small helper text under a field.
-  Color get hint => dark ? const Color(0xFF8F9BA8) : secondary;
+  Color get hint => dark ? AppColors.authHint : secondary;
 
   /// Leading/trailing icons inside a field.
-  Color get fieldIcon => dark ? const Color(0xFFAEB9C4) : secondary;
+  Color get fieldIcon => dark ? AppColors.onChipDark : secondary;
 
   /// Field fill.
   Color get fieldFill => dark
@@ -178,7 +174,7 @@ class _AuthFieldState extends State<AuthField> {
                     widget.label,
                     style: TextStyle(
                       color: tone.secondary,
-                      fontSize: 11,
+                      fontSize: AppTypeScale.label3,
                       fontWeight: FontWeight.w600,
                       height: 13 / 11,
                     ),
@@ -199,7 +195,7 @@ class _AuthFieldState extends State<AuthField> {
                     cursorColor: tone.focus,
                     style: TextStyle(
                       color: tone.text,
-                      fontSize: 15,
+                      fontSize: AppTypeScale.button,
                       fontWeight: FontWeight.w600,
                       height: 18 / 15,
                     ),
@@ -227,7 +223,7 @@ class _AuthFieldState extends State<AuthField> {
                       errorMaxLines: 2,
                       errorStyle: TextStyle(
                         color: danger,
-                        fontSize: 11,
+                        fontSize: AppTypeScale.label3,
                         fontWeight: FontWeight.w600,
                         height: 1.4,
                       ),
@@ -305,7 +301,8 @@ class AuthPrimaryButton extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: onAction,
-                  fontSize: 16,
+                  // 16, not AppTypeScale.button (15): this label ships a step larger.
+                  fontSize: AppTypeScale.body1,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -381,7 +378,7 @@ class AuthGoogleButton extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: ink,
-                      fontSize: 15,
+                      fontSize: AppTypeScale.button,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -522,7 +519,7 @@ class AuthOrDivider extends StatelessWidget {
             'or',
             style: TextStyle(
               color: tone.secondary,
-              fontSize: 13,
+              fontSize: AppTypeScale.meta,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -558,7 +555,7 @@ class AuthBrandBlock extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final titleColor = dark ? AppColors.darkOnSurface : Colors.white;
     final subColor = dark
-        ? (overVideo ? const Color(0xFFD5DCE3) : AppColors.darkSecondary)
+        ? (overVideo ? AppColors.onVideo : AppColors.darkSecondary)
         : Colors.white.withValues(alpha: 0.9);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -615,7 +612,7 @@ class AuthBrandBlock extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             color: subColor,
-            fontSize: 14,
+            fontSize: AppTypeScale.body2,
             height: 1.45,
             fontWeight: FontWeight.w500,
           ),
@@ -745,16 +742,7 @@ class AuthPitchHero extends StatelessWidget {
                 DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: dark
-                        ? const LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Color(0xFF0F2E20),
-                              Color(0xFF0C1A16),
-                              Color(0xFF0C1015),
-                            ],
-                            stops: [0, 0.74, 1],
-                          )
+                        ? AppColors.authPitchGradient
                         : const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,

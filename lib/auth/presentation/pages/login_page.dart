@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/auth/presentation/widgets/auth_video_background.dart';
 import 'package:footrank/auth/presentation/widgets/auth_widgets.dart';
+import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/routing/app_router.dart';
@@ -238,7 +239,7 @@ class _LoginPageState extends State<LoginPage> {
                                               horizontal: AppSpacing.xxs,
                                             ),
                                             textStyle: TextStyle(
-                                              fontSize: 13,
+                                              fontSize: AppTypeScale.meta,
                                               fontWeight: dark
                                                   ? FontWeight.w600
                                                   : FontWeight.w700,
@@ -266,7 +267,7 @@ class _LoginPageState extends State<LoginPage> {
                                             text: "Don't have an account? ",
                                             style: TextStyle(
                                               color: tone.secondary,
-                                              fontSize: 14,
+                                              fontSize: AppTypeScale.body2,
                                               fontWeight: FontWeight.w500,
                                             ),
                                             children: [
@@ -299,7 +300,7 @@ class _LoginPageState extends State<LoginPage> {
                               Icons.lock_outline,
                               size: 14,
                               color: dark
-                                  ? const Color(0xFFC5CED6)
+                                  ? AppColors.onVideoMuted
                                   : Colors.white,
                             ),
                             const SizedBox(width: 6),
@@ -307,9 +308,9 @@ class _LoginPageState extends State<LoginPage> {
                               'Encrypted & secure sign-in',
                               style: TextStyle(
                                 color: dark
-                                    ? const Color(0xFFC5CED6)
+                                    ? AppColors.onVideoMuted
                                     : Colors.white,
-                                fontSize: 12,
+                                fontSize: AppTypeScale.label2,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),

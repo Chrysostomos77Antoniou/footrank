@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 
 /// A clearly-labelled "Get Directions" pill (icon + text, not just an icon)
 /// meant to sit legibly on top of a photo. Text-only icon buttons were easy
@@ -26,7 +27,7 @@ class MapPillButton extends StatelessWidget {
                 'Get Directions',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 13,
+                  fontSize: AppTypeScale.meta,
                   fontWeight: FontWeight.w700,
                 ),
               ),
