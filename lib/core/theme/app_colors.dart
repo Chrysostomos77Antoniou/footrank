@@ -83,6 +83,29 @@ class AppColors {
     colors: [Color(0xFF0C1015), Color(0xFF0C1015), Color(0xFF151B22)],
   );
 
+  /// Dark auth pitch hero (reset password, onboarding): deep green washing
+  /// into the page background. The last stop is [navy] (same hex as [darkBg]).
+  /// Light mode does not use this; it paints [limeDeep] → [limeDeeper].
+  static const LinearGradient authPitchGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFF0F2E20),
+      Color(0xFF0C1A16),
+      navy,
+    ],
+    stops: [0, 0.74, 1],
+  );
+
+  /// Secondary ink on the frosted light auth card.
+  ///
+  /// Stronger than [lightSecondary] because the glass sits over a dark video
+  /// and the secondary grey washes out. Solid light cards keep [lightSecondary].
+  static const Color frostInk = Color(0xFF2F3D35);
+
+  /// Hint under an auth field in Pitch Night. Dimmer than [darkSecondary].
+  static const Color authHint = Color(0xFF8F9BA8);
+
   static LinearGradient brandGrad(BuildContext context) => brandGrad2(context);
 
   // Medals
@@ -128,6 +151,34 @@ class AppColors {
   static const Color darkSecondary = Color(0xFFAAB5C0);
   static const Color lightSecondary = Color(0xFF55665C);
 
+  /// Soft light grey on a dark video scrim or glass tile.
+  ///
+  /// Dimmer than [darkOnSurface], so a subtitle sits under a near-white title.
+  static const Color onVideo = Color(0xFFD5DCE3);
+
+  /// Quieter than [onVideo]. The login "Encrypted & secure" line on the video.
+  ///
+  /// Not [darkSecondary] (that grey is darker). Kept so the line does not shift.
+  static const Color onVideoMuted = Color(0xFFC5CED6);
+
+  /// Body copy on the always-dark update window.
+  static const Color updateBody = Color(0xFF9BA7B3);
+
+  /// Quiet line under the update-window button.
+  static const Color updateCaption = Color(0xFF6D7A87);
+
+  /// Near-black into a green aurora. The update window stays dark in both themes.
+  static const LinearGradient updateWindowGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFF070A0E),
+      Color(0xFF0A1410),
+      Color(0xFF0C2A1B),
+    ],
+    stops: [0, 0.55, 1],
+  );
+
   /// Hairline borders: white .07 on dark, ink .07 on light.
   static const Color lightBorder = Color(0x120E1A14);
   static Color get darkBorder => Colors.white.withValues(alpha: 0.07);
@@ -147,11 +198,13 @@ class AppColors {
   static Color chip(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark ? darkChip : lightChip;
 
+  /// Pitch Night icon on a raised chip, and the auth field icon in dark mode.
+  /// Light mode uses [limeDeep] via [onChip].
+  static const Color onChipDark = Color(0xFFAEB9C4);
+
   /// Icon colour on a [chip] well.
   static Color onChip(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFFAEB9C4)
-          : limeDeep;
+      Theme.of(context).brightness == Brightness.dark ? onChipDark : limeDeep;
 
   /// Secondary text/icon colour.
   static Color muted(BuildContext context) =>

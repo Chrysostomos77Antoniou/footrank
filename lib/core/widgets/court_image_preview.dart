@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:footrank/core/theme/app_colors.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 
 /// Opens a court's photo at ~70% of the screen over a blurred, brand-tinted
 /// backdrop — tap anywhere outside the photo (or the close button) to
@@ -91,7 +92,7 @@ class _CourtImagePreview extends StatelessWidget {
                           name,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 16,
+                            fontSize: AppTypeScale.title2,
                             fontWeight: FontWeight.w700,
                           ),
                         ),

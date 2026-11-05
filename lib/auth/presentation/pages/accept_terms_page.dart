@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/auth/presentation/pages/legal_page.dart';
+import 'package:footrank/core/theme/app_tokens.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/routing/app_router.dart';
 
@@ -103,7 +104,7 @@ class _AcceptTermsPageState extends State<AcceptTermsPage> {
                       'I have read and agree to the Terms of Service and '
                       'Privacy Policy, and I confirm I am at least 16 years '
                       'old.',
-                      style: TextStyle(fontSize: 14),
+                      style: TextStyle(fontSize: AppTypeScale.body2),
                     ),
                   ),
                   const SizedBox(height: 16),

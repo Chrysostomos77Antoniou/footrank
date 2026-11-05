@@ -133,7 +133,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                         'symbol',
                                         style: TextStyle(
                                           color: tone.hint,
-                                          fontSize: 11,
+                                          fontSize: AppTypeScale.label3,
                                           height: 14 / 11,
                                         ),
                                       ),
@@ -165,7 +165,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                             : AppColors.limeDeep,
                                         minimumSize: const Size(44, 44),
                                         textStyle: TextStyle(
-                                          fontSize: 14,
+                                          fontSize: AppTypeScale.label1,
                                           fontWeight: dark
                                               ? FontWeight.w600
                                               : FontWeight.w700,

@@ -112,7 +112,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Widget _termsRow(AuthTone tone) {
-    const base = TextStyle(fontSize: 12, height: 1.45);
+    const base = TextStyle(fontSize: AppTypeScale.body3, height: 1.45);
     final linkStyle = base.copyWith(
       color: tone.dark ? tone.text : tone.link,
       fontWeight: FontWeight.w700,
@@ -294,7 +294,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                           'symbol',
                                           style: TextStyle(
                                             color: tone.hint,
-                                            fontSize: 11,
+                                            fontSize: AppTypeScale.label3,
                                             height: 14 / 11,
                                           ),
                                         ),
@@ -317,7 +317,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                             text: 'Already have an account? ',
                                             style: TextStyle(
                                               color: tone.secondary,
-                                              fontSize: 14,
+                                              fontSize: AppTypeScale.body2,
                                               fontWeight: FontWeight.w500,
                                             ),
                                             children: [

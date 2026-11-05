@@ -601,7 +601,7 @@ class CaptainArmband extends StatelessWidget {
         style: TextStyle(
           color: AppColors.onBrand(context),
           fontWeight: FontWeight.w900,
-          fontSize: 11,
+          fontSize: AppTypeScale.label3,
           letterSpacing: 0.5,
         ),
       ),
@@ -636,7 +636,7 @@ class GradientPill extends StatelessWidget {
               style: TextStyle(
                   color: onSurface,
                   fontWeight: FontWeight.w700,
-                  fontSize: 13,
+                  fontSize: AppTypeScale.meta,
                   fontFeatures: const [FontFeature.tabularFigures()])),
         ],
       ),

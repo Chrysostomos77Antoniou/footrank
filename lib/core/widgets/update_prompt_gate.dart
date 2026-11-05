@@ -126,7 +126,6 @@ class _UpdatePromptGateState extends State<UpdatePromptGate>
 // (strong ease-out, each piece under 300ms) and the button answers the finger
 // at once with a 3% press-in. With reduced motion, everything is simply there.
 const Curve _strongOut = Cubic(0.23, 1, 0.32, 1);
-const Color _ink = Color(0xFF070A0E);
 
 class _UpdateWindow extends StatefulWidget {
   final VoidCallback onUpdate;
@@ -250,10 +249,10 @@ class _UpdateWindowState extends State<_UpdateWindow>
                               'Update to keep playing.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: AppTypeScale.body1,
                                 height: 1.45,
                                 fontWeight: FontWeight.w500,
-                                color: Color(0xFF9BA7B3),
+                                color: AppColors.updateBody,
                               ),
                             ),
                           ),
@@ -275,8 +274,8 @@ class _UpdateWindowState extends State<_UpdateWindow>
                               'Your teams and matches stay safe.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 12.5,
-                                color: Color(0xFF6D7A87),
+                                fontSize: AppTypeScale.caption,
+                                color: AppColors.updateCaption,
                               ),
                             ),
                             rise: 8,
@@ -297,7 +296,7 @@ class _UpdateWindowState extends State<_UpdateWindow>
 
 const TextStyle _headline = TextStyle(
   fontFamily: AppFonts.display,
-  fontSize: 42,
+  fontSize: AppTypeScale.launchDisplay,
   height: 1.08,
   fontWeight: FontWeight.w800,
   letterSpacing: -1.6,
@@ -476,7 +475,7 @@ class _UpdateButtonState extends State<_UpdateButton> {
               child: const Text(
                 'Update now',
                 style: TextStyle(
-                  fontSize: 17,
+                  fontSize: AppTypeScale.emphasis,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.2,
                   color: AppColors.ink,
@@ -511,12 +510,8 @@ class _ScenePainter extends CustomPainter {
     canvas.drawRect(
       Offset.zero & size,
       Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [_ink, Color(0xFF0A1410), Color(0xFF0C2A1B)],
-          stops: [0, 0.55, 1],
-        ).createShader(Offset.zero & size),
+        ..shader = AppColors.updateWindowGradient
+            .createShader(Offset.zero & size),
     );
 
     void glow(Offset c, double r, Color color) {
@@ -596,10 +591,10 @@ class _FeatureStrip extends StatelessWidget {
                     child: Text(
                       items[i].$2,
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: AppTypeScale.caption,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.2,
-                        color: Color(0xFFD5DCE3),
+                        color: AppColors.onVideo,
                       ),
                     ),
                   ),
