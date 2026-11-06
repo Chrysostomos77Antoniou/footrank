@@ -10,12 +10,13 @@ workflows:
         - footrank_secrets
       vars:
         # Set these in Codemagic > Teams > Environment variables > group
-        # "footrank_secrets" (mark SUPABASE_ANON_KEY and
-        # STRIPE_PUBLISHABLE_KEY as "Secure" so they're masked in logs, even
-        # though a publishable/anon key is not sensitive by itself):
+        # "footrank_secrets" (mark SUPABASE_ANON_KEY as "Secure" so it is
+        # masked in logs, even though an anon key is not sensitive by itself):
         #   SUPABASE_URL
         #   SUPABASE_ANON_KEY
-        #   STRIPE_PUBLISHABLE_KEY   (pk_live_...)
+        # Do not reintroduce STRIPE_PUBLISHABLE_KEY or an Apple Pay merchant
+        # entitlement. flutter_stripe linked PassKit and App Review rejected
+        # 1.1.5 (245) under Guideline 2.1.
         XCODE_WORKSPACE: "ios/Runner.xcworkspace"
         XCODE_SCHEME: "Runner"
       flutter: stable
@@ -24,9 +25,9 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.footballcy.footrank
-    # Manual only: this hits your live Stripe account, so it should never
-    # fire on every push. Start it by hand from the Codemagic dashboard (or
-    # wire up a "Start build" button/tag trigger later once you trust it).
+    # Manual only: this signs a release IPA and uploads it to TestFlight, so
+    # it must not run on every push. Start it from the Codemagic dashboard
+    # (workflow "iOS TestFlight (FootRank)") on the branch you want to ship.
     triggering:
       events: []
     scripts:
