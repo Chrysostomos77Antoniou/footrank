@@ -66,6 +66,8 @@
 		<true/>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>FootRank can show your position on the venue map to help you find a court nearby. Your location is not stored.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>FootRank needs access to your photos so you can choose a profile picture or team logo.</string>
 		<key>NSCameraUsageDescription</key>
