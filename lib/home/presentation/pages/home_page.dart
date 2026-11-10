@@ -19,6 +19,7 @@ import 'package:footrank/models/user_model.dart';
 import 'package:footrank/notifications/data/notification_repository.dart';
 import 'package:footrank/payment/presentation/widgets/pending_fee_banner.dart';
 import 'package:footrank/profile/data/profile_repository.dart';
+import 'package:footrank/rankings/data/ranking_repository.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/team/presentation/widgets/team_picker.dart';
@@ -36,7 +37,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
   final _notifRepo = NotificationRepository();
   final _teamRepo = TeamRepository();
   final _profileRepo = ProfileRepository();
-  late Future<({UserModel profile, int rank, int total})?> _rankFuture;
+  late Future<({UserModel profile, int? rank, int total})?> _rankFuture;
   Future<int> _unread = Future.value(0);
   bool _syncing = false;
   List<TeamModel> _teams = [];
@@ -294,7 +295,7 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
     final cardFill = isDark ? AppColors.darkCard : AppColors.lightCard;
     return Row(
       children: [
-        FutureBuilder<({UserModel profile, int rank, int total})?>(
+        FutureBuilder<({UserModel profile, int? rank, int total})?>(
           future: _rankFuture,
           builder: (context, snapshot) {
             final profile = snapshot.data?.profile;
@@ -491,7 +492,7 @@ class _HeaderButton extends StatelessWidget {
 
 /// The rank hero card: the one green surface, with lime numbers in both themes.
 class _HeroBanner extends StatelessWidget {
-  final Future<({UserModel profile, int rank, int total})?> future;
+  final Future<({UserModel profile, int? rank, int total})?> future;
   final bool compact;
   const _HeroBanner({required this.future, this.compact = false});
 
@@ -534,7 +535,7 @@ class _HeroBanner extends StatelessWidget {
             ),
             Padding(
               padding: EdgeInsets.all(compact ? 14 : 16),
-              child: FutureBuilder<({UserModel profile, int rank, int total})?>(
+              child: FutureBuilder<({UserModel profile, int? rank, int total})?>(
                 future: future,
                 builder: (context, snapshot) {
                   final data = snapshot.data;
@@ -551,7 +552,7 @@ class _HeroBanner extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      if (data != null) ...[
+                      if (data != null && data.rank != null) ...[
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
@@ -583,6 +584,28 @@ class _HeroBanner extends StatelessWidget {
                               ),
                             ),
                           ],
+                        ),
+                      ] else if (data != null) ...[
+                        const Text(
+                          'Unranked',
+                          style: TextStyle(
+                            fontFamily: AppFonts.display,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            height: 1.1,
+                            letterSpacing: -0.5,
+                            color: AppColors.lime,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _matchesToRank(data.profile.matchesPlayed),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
                         ),
                       ] else ...[
                         const Text(
@@ -1116,4 +1139,10 @@ class _SweepBorderPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _SweepBorderPainter old) =>
       old.color != color || old.radius != radius;
+}
+
+/// Hero-card line for a player who has not played enough matches to be ranked.
+String _matchesToRank(int played) {
+  final left = RankingRepository.minMatches - played;
+  return 'Play $left more ${left == 1 ? 'match' : 'matches'} to get your rank.';
 }

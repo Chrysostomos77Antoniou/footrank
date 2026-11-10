@@ -35,7 +35,7 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
   final _matchRepo = MatchRepository();
   late Future<UserModel?> _profileFuture;
   late Future<({String? teamId, List<MatchModel> matches})> _historyFuture;
-  late Future<({int rank, int total})?> _rankFuture;
+  late Future<({int? rank, int total})?> _rankFuture;
 
   @override
   void initState() {
@@ -58,7 +58,7 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
   }
 
   /// Global Pitch Power rank for the hero card; a failure just hides the number.
-  Future<({int rank, int total})?> _loadRank() async {
+  Future<({int? rank, int total})?> _loadRank() async {
     try {
       final card = await _profileRepo.fetchMyRankCard();
       if (card == null) return null;
@@ -578,7 +578,7 @@ String _thousands(int n) {
 
 class _ProfileHero extends StatelessWidget {
   final UserModel user;
-  final Future<({int rank, int total})?> rankFuture;
+  final Future<({int? rank, int total})?> rankFuture;
   final VoidCallback onEdit;
   const _ProfileHero({
     required this.user,
@@ -822,13 +822,13 @@ class _PowerNumber extends StatelessWidget {
 
 /// "#72 of 121", or a dash while the rank is loading or unavailable.
 class _RankValue extends StatelessWidget {
-  final Future<({int rank, int total})?> future;
+  final Future<({int? rank, int total})?> future;
   const _RankValue({required this.future});
 
   @override
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    return FutureBuilder<({int rank, int total})?>(
+    return FutureBuilder<({int? rank, int total})?>(
       future: future,
       builder: (context, snap) {
         final data = snap.data;
@@ -841,7 +841,7 @@ class _RankValue extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                data == null ? '–' : '#${_thousands(data.rank)}',
+                data?.rank == null ? '–' : '#${_thousands(data!.rank!)}',
                 maxLines: 1,
                 style: _bigNumberStyle(context, onSurface),
               ),
