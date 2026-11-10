@@ -43,11 +43,11 @@ workflows:
         script: |
           # Build number comes from Codemagic's own build counter (always goes
           # up), offset past every number already uploaded (212 was the highest
-          # seen, so index 111 + 200 = 311), so App Store
+          # seen, then 350 was also taken, so the offset is now 1000), so App Store
           # Connect can never reject a build as "already used" again. The
           # +N in pubspec.yaml is ignored for this workflow.
           flutter build ipa --release \
-            --build-number=$((BUILD_NUMBER + 200)) \
+            --build-number=$((BUILD_NUMBER + 1000)) \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
             --export-options-plist=/Users/builder/export_options.plist
