@@ -1,3 +1,5 @@
+import 'package:footrank/models/venue_location.dart';
+
 class MatchRequestModel {
   final String id;
   final String teamId;
@@ -18,6 +20,9 @@ class MatchRequestModel {
   /// verbatim to other captains; null when none was given.
   final String? venueText;
 
+  /// Where the venue is on the map (null for older requests).
+  final VenueLocation? venueLocation;
+
   const MatchRequestModel({
     required this.id,
     required this.teamId,
@@ -32,6 +37,7 @@ class MatchRequestModel {
     this.teamRating,
     this.teamLogo,
     this.venueText,
+    this.venueLocation,
   });
 
   bool get isRanked => matchType == 'ranked';
@@ -52,6 +58,7 @@ class MatchRequestModel {
       teamRating: team?['rating'] as int?,
       teamLogo: team?['logo_url'] as String?,
       venueText: json['venue_text'] as String?,
+      venueLocation: VenueLocation.fromJson(json),
     );
   }
 }

@@ -974,8 +974,13 @@ class _MatchDetailPageState extends State<MatchDetailPage>
       isRequester: iAmRequester,
       canEdit: iAmRequester && _isUpcoming(match, status),
       canReport: _myTeamId != null && _myTeamId != match.homeTeamId && hasVenue,
+      location: match.venueLocation,
       onDirections: hasVenue
-          ? () => openInMaps(name: match.venueText!, city: match.city)
+          ? () => openVenueInMaps(
+                name: match.venueText!,
+                city: match.city,
+                location: match.venueLocation,
+              )
           : null,
       callLabel: canCall
           ? 'Call ${otherName == null || otherName.isEmpty ? 'the other captain' : otherName}'
@@ -989,11 +994,22 @@ class _MatchDetailPageState extends State<MatchDetailPage>
   /// The requesting captain corrects where the match is played (e.g. the
   /// venue turned out to be full). The other captain is notified server-side.
   Future<void> _changeVenue(MatchModel match) async {
-    final text = await showEditVenueDialog(context, initial: match.venueText);
-    if (text == null || !mounted) return;
-    if (text == match.venueText) return;
+    final pick = await showEditVenueDialog(
+      context,
+      initial: match.venueText,
+      city: match.city,
+    );
+    if (pick == null || !mounted) return;
+    if (pick.name == match.venueText &&
+        pick.location == match.venueLocation) {
+      return;
+    }
     try {
-      await _matchRepo.updateMatchVenue(matchId: match.id, venueText: text);
+      await _matchRepo.updateMatchVenue(
+        matchId: match.id,
+        venueText: pick.name,
+        venueLocation: pick.location,
+      );
       if (!mounted) return;
       triggerAppRefresh();
       await _load();

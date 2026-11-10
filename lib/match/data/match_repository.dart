@@ -2,6 +2,7 @@ import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_player_model.dart';
 import 'package:footrank/models/match_proposal_model.dart';
 import 'package:footrank/models/match_request_model.dart';
+import 'package:footrank/models/venue_location.dart';
 import 'package:footrank/services/elo_engine.dart';
 import 'package:footrank/services/analytics_service.dart';
 import 'package:footrank/services/supabase_service.dart';
@@ -27,6 +28,7 @@ class MatchRepository {
     required DateTime scheduledAt,
     required String matchType,
     required String venueText,
+    VenueLocation? venueLocation,
     String format = '5v5',
     List<String>? rosterUserIds,
   }) async {
@@ -43,6 +45,7 @@ class MatchRepository {
           'match_type': matchType,
           'format': format,
           'venue_text': venueText.trim(),
+          if (venueLocation != null) ...venueLocation.toColumns(),
           if (rosterUserIds != null) 'roster_user_ids': rosterUserIds,
         })
         .select('*, teams(name)')
@@ -224,11 +227,13 @@ class MatchRepository {
     required String teamId,
     List<String>? rosterUserIds,
     String? venueText,
+    VenueLocation? venueLocation,
   }) async {
     final venue = venueText?.trim();
     final venueParam = <String, dynamic>{
       if (venue != null && venue.isNotEmpty) 'p_venue_text': venue,
     };
+    final String proposalId;
     if (rosterUserIds != null) {
       final result = await SupabaseService.client.rpc(
         'propose_match_with_roster',
@@ -240,18 +245,44 @@ class MatchRepository {
         },
       );
       AppAnalytics.log('match_proposed', {'has_roster': 1});
-      return result as String;
+      proposalId = result as String;
+    } else {
+      final result = await SupabaseService.client.rpc(
+        'propose_match',
+        params: {
+          'p_request_id': requestId,
+          'p_team_id': teamId,
+          ...venueParam,
+        },
+      );
+      AppAnalytics.log('match_proposed', {'has_roster': 0});
+      proposalId = result as String;
     }
-    final result = await SupabaseService.client.rpc(
-      'propose_match',
-      params: {
-        'p_request_id': requestId,
-        'p_team_id': teamId,
-        ...venueParam,
-      },
-    );
-    AppAnalytics.log('match_proposed', {'has_roster': 0});
-    return result as String;
+    if (venueLocation != null && venueParam.isNotEmpty) {
+      await _saveLocation('set_proposal_venue_location', 'p_proposal_id',
+          proposalId, venueLocation);
+    }
+    return proposalId;
+  }
+
+  /// Stores where a venue is on the map. Best effort: the proposal / match is
+  /// already saved with its venue name, so a failure here only means no map
+  /// preview for it.
+  Future<void> _saveLocation(
+    String rpc,
+    String idParam,
+    String id,
+    VenueLocation location,
+  ) async {
+    try {
+      await SupabaseService.client.rpc(rpc, params: {
+        idParam: id,
+        'p_place_id': location.placeId,
+        'p_lat': location.lat,
+        'p_lng': location.lng,
+        'p_source': location.source,
+      });
+    } catch (_) {}
   }
 
   /// Captain / vice-captain sets the team's roster (who is playing) for a
@@ -377,11 +408,16 @@ class MatchRepository {
   Future<void> updateMatchVenue({
     required String matchId,
     required String venueText,
+    VenueLocation? venueLocation,
   }) async {
     await SupabaseService.client.rpc('update_match_venue', params: {
       'p_match_id': matchId,
       'p_venue_text': venueText.trim(),
     });
+    if (venueLocation != null) {
+      await _saveLocation(
+          'set_match_venue_location', 'p_match_id', matchId, venueLocation);
+    }
   }
 
   /// Flags a user-entered venue name (on a request, on a match, or suggested

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:footrank/match/presentation/widgets/venue_map_picker.dart';
+import 'package:footrank/models/venue_location.dart';
 import 'package:footrank/core/theme/app_theme.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/match/presentation/pages/create_match_request_page.dart';
@@ -39,6 +41,7 @@ class _FakeMatchRepository extends MatchRepository {
     required DateTime scheduledAt,
     required String matchType,
     required String venueText,
+    VenueLocation? venueLocation,
     String format = '5v5',
     List<String>? rosterUserIds,
   }) async {
@@ -49,6 +52,7 @@ class _FakeMatchRepository extends MatchRepository {
       'matchType': matchType,
       'format': format,
       'venueText': venueText,
+      'venueLocation': venueLocation,
       'roster': rosterUserIds,
     });
     final e = error;
@@ -147,62 +151,47 @@ void main() {
     await t.pumpAndSettle();
   }
 
-  Future<void> typeVenue(WidgetTester t, String text) async {
-    await t.enterText(find.byType(TextFormField), text);
-    await t.pump();
+  /// Picks a venue the way a captain does: tap the field, choose on the map.
+  /// The map sheet itself is replaced by a fake that returns [name].
+  Future<void> typeVenue(WidgetTester t, String name) async {
+    final original = venuePicker;
+    addTearDown(() => venuePicker = original);
+    venuePicker = (ctx, {required city}) async => VenuePick(
+          name,
+          const VenueLocation(
+              placeId: 'p1', lat: 35.1, lng: 33.3, source: 'google'),
+        );
+    await t.tap(find.byType(VenuePickerField));
+    await t.pumpAndSettle();
   }
 
   group('Create Match: free-text venue', () {
-    testWidgets('there is no court picker and no court list is shown',
-        (t) async {
+    testWidgets('the venue is chosen on the map, not typed', (t) async {
       await openForm(t, _FakeMatchRepository());
 
       expect(find.text('Where will you play?'), findsOneWidget);
-      expect(find.text('Venue name'), findsOneWidget);
-      // Nothing in this flow may name or offer one of the app's own courts.
-      expect(find.textContaining(RegExp('court', caseSensitive: false)),
-          findsNothing);
+      expect(find.text('Venue'), findsOneWidget);
+      expect(find.byIcon(Icons.map_outlined), findsOneWidget);
+      // No free typing for the venue any more.
+      expect(find.byType(TextFormField), findsNothing);
     });
 
-    testWidgets('an empty venue is blocked before anything is sent',
+    testWidgets('no venue picked blocks the request before anything is sent',
         (t) async {
       final repo = _FakeMatchRepository();
       await openForm(t, repo);
 
       await submit(t);
 
-      expect(find.text('Enter where you will play'), findsOneWidget);
+      expect(find.text('Pick the venue on the map'), findsOneWidget);
       expect(repo.created, isEmpty);
     });
 
-    testWidgets('a whitespace-only venue counts as empty', (t) async {
-      final repo = _FakeMatchRepository();
-      await openForm(t, repo);
-
-      await typeVenue(t, '     ');
-      await submit(t);
-
-      expect(find.text('Enter where you will play'), findsOneWidget);
-      expect(repo.created, isEmpty);
-    });
-
-    testWidgets('a one-letter venue is rejected with the length hint',
-        (t) async {
-      final repo = _FakeMatchRepository();
-      await openForm(t, repo);
-
-      await typeVenue(t, 'A');
-      await submit(t);
-
-      expect(find.text('Use 2–60 characters'), findsOneWidget);
-      expect(repo.created, isEmpty);
-    });
-
-    testWidgets('the preview shows what is typed, tidied the way the server does',
+    testWidgets('the preview shows the venue picked on the map',
         (t) async {
       await openForm(t, _FakeMatchRepository());
 
-      await typeVenue(t, '  Seaside   Pitch ');
+      await typeVenue(t, 'Seaside Pitch');
 
       final preview = find.byType(VenuePreviewCard);
       expect(
@@ -217,12 +206,13 @@ void main() {
       final popped = <Object?>[];
       await openForm(t, repo, popped: popped);
 
-      await typeVenue(t, '  Seaside   Pitch ');
+      await typeVenue(t, 'Seaside Pitch');
       await submit(t);
 
       expect(repo.created, hasLength(1));
       final sent = repo.created.single;
       expect(sent['venueText'], 'Seaside Pitch');
+      expect(sent['venueLocation'], isNotNull);
       expect(sent['teamId'], 't1');
       expect(sent['city'], 'Nicosia'); // from the team's own city
       expect(sent['matchType'], 'casual');
@@ -270,7 +260,7 @@ void main() {
             'Enter just the venue name, with no links, emails or phone numbers.'),
         findsOneWidget,
       );
-      // Still on the form, nothing handed back, the typed text is still there.
+      // Still on the form, nothing handed back, the picked venue is still there.
       expect(find.text('Create Match'), findsOneWidget);
       expect(popped, isEmpty);
       expect(find.text('Call me on pitch'), findsWidgets);

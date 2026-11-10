@@ -28,6 +28,7 @@ dependencies:
   video_player: ^2.9.2
   url_launcher: ^6.3.0
   package_info_plus: ^8.0.0
+  google_maps_flutter: ^2.10.0
   webview_flutter: ^4.10.0
   cached_network_image: ^3.4.1
   firebase_crashlytics: ^4.1.5

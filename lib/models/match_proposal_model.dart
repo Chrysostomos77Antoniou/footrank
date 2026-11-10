@@ -4,6 +4,8 @@
 /// every other pending proposal on the same request, plus any other pending
 /// proposal either now-committed team has on a request scheduled the same
 /// calendar day.
+import 'package:footrank/models/venue_location.dart';
+
 class MatchProposalModel {
   final String id;
   final String requestId;
@@ -23,6 +25,10 @@ class MatchProposalModel {
   /// null when they agree to the request's own venue. Accepting the proposal
   /// makes it the match's venue.
   final String? venueText;
+
+  /// Where that suggested venue is on the map, when the proposer picked it
+  /// there.
+  final VenueLocation? venueLocation;
 
   // Optional joined target-request fields (used when listing OUTGOING
   // proposals your team sent -- what you proposed for, and against whom).
@@ -49,6 +55,7 @@ class MatchProposalModel {
     this.teamRating,
     this.teamLogo,
     this.venueText,
+    this.venueLocation,
     this.requestCity,
     this.requestScheduledAt,
     this.requestMatchType,
@@ -82,6 +89,7 @@ class MatchProposalModel {
       teamRating: team?['rating'] as int?,
       teamLogo: team?['logo_url'] as String?,
       venueText: json['venue_text'] as String?,
+      venueLocation: VenueLocation.fromJson(json),
       requestCity: request?['city'] as String?,
       requestScheduledAt: request?['scheduled_at'] != null
           ? DateTime.parse(request!['scheduled_at'] as String)

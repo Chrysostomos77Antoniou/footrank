@@ -1,3 +1,5 @@
+import 'package:footrank/models/venue_location.dart';
+
 class MatchModel {
   final String id;
   final String? requestId;
@@ -25,6 +27,9 @@ class MatchModel {
   /// shown verbatim; null = not set). FootRank never shows names from its own
   /// courts list.
   final String? venueText;
+
+  /// Where the venue is on the map (null for older matches).
+  final VenueLocation? venueLocation;
   final String? cancelReason; // expired_no_score | null (only set when status == cancelled)
 
   /// unpaid | awaiting_payment | paid -- derived match-wide from both teams'
@@ -65,6 +70,7 @@ class MatchModel {
     this.scoreDisputed = false,
     required this.createdAt,
     this.venueText,
+    this.venueLocation,
     this.cancelReason,
     this.paymentStatus = 'unpaid',
     this.homeTeamName,
@@ -115,6 +121,7 @@ class MatchModel {
       scoreDisputed: (json['score_disputed'] as bool?) ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
       venueText: json['venue_text'] as String?,
+      venueLocation: VenueLocation.fromJson(json),
       cancelReason: json['cancel_reason'] as String?,
       paymentStatus: (json['payment_status'] as String?) ?? 'unpaid',
       homeTeamName: home?['name'] as String?,
