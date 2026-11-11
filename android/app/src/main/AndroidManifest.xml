@@ -10,6 +10,7 @@
         android:name="${applicationName}"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher">
+        <meta-data android:name="firebase_analytics_collection_enabled" android:value="false"/>
         <meta-data android:name="com.google.android.geo.API_KEY" android:value="AIzaSyCZBfXgXbfuaZw1-3bJA-CVoeYX4-uzZ4A"/>
         <!-- Default icon for FCM notification messages shown while the app is
              backgrounded or killed. No custom channel id is set here, FCM

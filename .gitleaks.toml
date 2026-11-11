@@ -1,0 +1,17 @@
+# gitleaks configuration. Google Maps / Firebase API keys in the app config are
+# public by design (restricted to the app's package and signing certificate in
+# Google Cloud), so they are allow-listed here; anything else that looks like a
+# secret fails the build.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Public, app-restricted client keys"
+paths = [
+  '''android/app/google-services\.json''',
+  '''ios/Runner/GoogleService-Info\.plist''',
+  '''lib/firebase_options\.dart''',
+  '''android/app/src/main/AndroidManifest\.xml''',
+  '''ios/Runner/AppDelegate\.swift''',
+  '''lib/core/config/maps_config\.dart''',
+]

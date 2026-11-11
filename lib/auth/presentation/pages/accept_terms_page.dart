@@ -4,6 +4,7 @@ import 'package:footrank/auth/data/auth_repository.dart';
 import 'package:footrank/auth/presentation/pages/legal_page.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/routing/app_router.dart';
+import 'package:footrank/services/analytics_consent.dart';
 
 /// Shown to any signed-in user who hasn't accepted the current Terms of
 /// Service and Privacy Policy yet -- including people who just created an
@@ -19,12 +20,14 @@ class AcceptTermsPage extends StatefulWidget {
 class _AcceptTermsPageState extends State<AcceptTermsPage> {
   final _repo = AuthRepository();
   bool _agreed = false;
+  bool _analytics = false;
   bool _saving = false;
 
   Future<void> _accept() async {
     setState(() => _saving = true);
     try {
       await _repo.recordLegalConsent(source: 'consent_screen');
+      await AnalyticsConsent.set(_analytics);
       if (!mounted) return;
       context.go(AppRoutes.home);
     } catch (e) {
@@ -103,6 +106,20 @@ class _AcceptTermsPageState extends State<AcceptTermsPage> {
                       'I have read and agree to the Terms of Service and '
                       'Privacy Policy, and I confirm I am at least 16 years '
                       'old.',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                  ),
+                  CheckboxListTile(
+                    key: const Key('analytics-opt-in'),
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: _analytics,
+                    onChanged: _saving
+                        ? null
+                        : (v) => setState(() => _analytics = v ?? false),
+                    title: const Text(
+                      'Optional: share anonymous usage statistics to help '
+                      'improve FootRank. You can change this in Profile.',
                       style: TextStyle(fontSize: 14),
                     ),
                   ),

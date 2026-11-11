@@ -7,9 +7,15 @@
 // function talks to api.telegram.org directly, removing Vercel from the path.
 //
 // The database cannot call Telegram itself: the bot token lives in Edge Function
-// secrets, which Postgres cannot read. So the DB calls here with the service-role
-// key (which it does hold, in the vault) and this function holds the Telegram
-// credentials. verify_jwt = true keeps it service-role only.
+// secrets, which Postgres cannot read. So the DB calls here with the internal
+// secret (vault `push_secret`, function secret PUSH_SECRET) in the
+// x-internal-secret header, and this function holds the Telegram credentials.
+// Deployed with verify_jwt = false; the secret check below is the gate. The
+// database no longer holds the service-role key at all.
+//
+// Content: team names, captain names and captain phone numbers (owner's
+// explicit choice, 2026-11-11: he calls captains straight from the alert).
+// CHAT_ID must stay the owner's private admin chat, never a group.
 //
 // Input: { match_id: uuid, kind?: "fixture_confirmed" }
 //
@@ -22,6 +28,19 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
+const INTERNAL_SECRET = Deno.env.get("PUSH_SECRET");
+
+/// Constant-time string comparison, so the secret can't be guessed byte by
+/// byte from response timing.
+function safeEqual(a: string, b: string): boolean {
+  const x = new TextEncoder().encode(a);
+  const y = new TextEncoder().encode(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  }
+  return diff === 0;
+}
 
 const ok = (body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -29,8 +48,7 @@ const ok = (body: unknown) =>
     headers: { "Content-Type": "application/json" },
   });
 
-/// Name + phone for a team's captain, so whoever reads the alert can ring them
-/// without opening the app. Mirrors what the mission-control payload carried.
+/// The team captain's display name and phone number (see the header note).
 async function captain(
   supa: ReturnType<typeof createClient>,
   teamId: string | null | undefined,
@@ -66,21 +84,13 @@ Deno.serve(async (req) => {
 
   const supa = createClient(SUPABASE_URL, SERVICE_ROLE);
 
-  // --- Caller must be OUR own service-role call, not just any signed-in user.
-  // Platform verify_jwt=true only checks that *some* valid Supabase JWT was
-  // presented -- a normal authenticated user's JWT passes that check too. The
-  // caller comment above says "verify_jwt = true keeps it service-role only",
-  // which was never actually enforced in code: any signed-in user could hit
-  // this endpoint with an arbitrary match_id and get a captain's name+phone
-  // for a match they have no relationship to, or spam the real Telegram chat.
-  // Require the exact service-role key as the bearer token.
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const jwt = authHeader.replace(/^Bearer\s+/i, "");
-  if (jwt !== SERVICE_ROLE) {
+  // --- Only our own database may call this (verify_jwt is off).
+  const presented = req.headers.get("x-internal-secret") ?? "";
+  if (!INTERNAL_SECRET || !safeEqual(presented, INTERNAL_SECRET)) {
     await supa.rpc("log_security_alert", {
       p_source: "notify-telegram",
       p_severity: "warning",
-      p_detail: { reason: "non_service_role_caller" },
+      p_detail: { reason: "bad_internal_secret" },
     }).catch(() => {});
     return new Response(JSON.stringify({ error: "forbidden" }), {
       status: 403,
@@ -96,8 +106,8 @@ Deno.serve(async (req) => {
     }
 
     // Rate limit: at most 60 Telegram sends per 10-minute window. This is an
-    // internal/service-only endpoint, so hitting this means either a bug in
-    // the calling triggers or a leaked service-role key -- either way, log it.
+    // internal-only endpoint, so hitting this means either a bug in the
+    // calling triggers or a leaked internal secret -- either way, log it.
     const { data: allowed } = await supa.rpc("check_rate_limit", {
       p_key: "notify-telegram",
       p_max_count: 60,
@@ -167,6 +177,6 @@ Deno.serve(async (req) => {
     return ok({ sent: res.ok, status: res.status });
   } catch (e) {
     console.error("notify-telegram threw:", e);
-    return ok({ sent: false, error: String(e) });
+    return ok({ sent: false, error: "internal_error" });
   }
 });

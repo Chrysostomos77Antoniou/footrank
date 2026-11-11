@@ -237,6 +237,17 @@ class AuthRepository {
     _consentCachedFor = _client.auth.currentUser?.id;
   }
 
+  /// Everything stored about the signed-in user, as one JSON document
+  /// (GDPR right of access / portability).
+  Future<Map<String, dynamic>> exportMyData() async {
+    final res = await _client.rpc('export_my_data');
+    return Map<String, dynamic>.from(res as Map);
+  }
+
+  /// Signs this account out on every device (e.g. after losing a phone).
+  Future<void> signOutEverywhere() =>
+      _client.auth.signOut(scope: SignOutScope.global);
+
   /// Permanently deletes the current user's account and all their data.
   ///
   /// Routed through the delete-account Edge Function rather than calling the

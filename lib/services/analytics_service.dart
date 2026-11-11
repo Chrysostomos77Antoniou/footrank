@@ -24,6 +24,9 @@ class AppAnalytics {
   /// the numbers.
   static void enable() => _enabled = !kDebugMode;
 
+  /// Stop logging (the user withdrew consent for usage statistics).
+  static void disable() => _enabled = false;
+
   static void log(String name, [Map<String, Object>? parameters]) {
     if (!_enabled) return;
     try {

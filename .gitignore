@@ -56,3 +56,16 @@ store_screens/
 
 # Local Claude Code config (contains local permission history, not for git)
 .claude/
+
+# Release bundles, media and local build logs never belong in git
+*.aab
+*.apk
+*.ipa
+*.mp4
+*.mov
+_*.log
+_done.flag
+.commitmsg.txt
+.adm_*
+.fin_*
+.s_*
