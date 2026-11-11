@@ -36,6 +36,20 @@ class MatchModel {
   /// fee rows. Advisory: nothing blocks an unpaid match from being played.
   final String paymentStatus;
 
+  // ---- Court booking (who books, and whether it is done) ----
+  /// The team that must book the court (null on older matches).
+  final String? bookerTeamId;
+
+  /// not_booked | booked | cancelled_unbooked | null (older matches).
+  final String? courtBookingStatus;
+  final DateTime? bookedAt;
+
+  /// "I booked it" must be tapped before this, or the match cancels.
+  final DateTime? bookingDeadlineAt;
+
+  /// A "court full" suggestion is waiting for an answer.
+  final bool venueChangeOpen;
+
   // Optional joined team fields
   final String? homeTeamName;
   final String? awayTeamName;
@@ -73,6 +87,11 @@ class MatchModel {
     this.venueLocation,
     this.cancelReason,
     this.paymentStatus = 'unpaid',
+    this.bookerTeamId,
+    this.courtBookingStatus,
+    this.bookedAt,
+    this.bookingDeadlineAt,
+    this.venueChangeOpen = false,
     this.homeTeamName,
     this.awayTeamName,
     this.homeTeamLogo,
@@ -93,6 +112,20 @@ class MatchModel {
   }
 
   bool get hasScore => homeScore != null && awayScore != null;
+
+  /// The booking flow applies (confirmed or cancelled matches with a Booker).
+  bool get hasBookingFlow => bookerTeamId != null && courtBookingStatus != null;
+  bool get isBooked => courtBookingStatus == 'booked';
+  bool get needsBooking =>
+      status == 'confirmed' && courtBookingStatus == 'not_booked';
+
+  /// Name of the booking team, when the team names were joined.
+  String? get bookerTeamName => bookerTeamId == null
+      ? null
+      : (bookerTeamId == homeTeamId ? homeTeamName : awayTeamName);
+
+  static DateTime? _date(Object? v) =>
+      v == null ? null : DateTime.parse(v as String);
 
   factory MatchModel.fromJson(Map<String, dynamic> json) {
     final home = json['home_team'] as Map<String, dynamic>?;
@@ -124,6 +157,11 @@ class MatchModel {
       venueLocation: VenueLocation.fromJson(json),
       cancelReason: json['cancel_reason'] as String?,
       paymentStatus: (json['payment_status'] as String?) ?? 'unpaid',
+      bookerTeamId: json['booker_team_id'] as String?,
+      courtBookingStatus: json['court_booking_status'] as String?,
+      bookedAt: _date(json['booked_at']),
+      bookingDeadlineAt: _date(json['booking_deadline_at']),
+      venueChangeOpen: (json['venue_change_open'] as bool?) ?? false,
       homeTeamName: home?['name'] as String?,
       awayTeamName: away?['name'] as String?,
       homeTeamLogo: home?['logo_url'] as String?,

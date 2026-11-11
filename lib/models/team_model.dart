@@ -14,6 +14,11 @@ class TeamModel {
   final DateTime createdAt;
   final DateTime? disbandedAt;
 
+  /// Court booking reliability, 0-100 (starts at 100, -10 for every match
+  /// cancelled because the court wasn't booked). Null until the server has it.
+  final int? reliabilityScore;
+  final int unbookedCancels;
+
   const TeamModel({
     required this.id,
     required this.name,
@@ -27,6 +32,8 @@ class TeamModel {
     this.draws = 0,
     required this.createdAt,
     this.disbandedAt,
+    this.reliabilityScore,
+    this.unbookedCancels = 0,
   });
 
   bool get isDisbanded => disbandedAt != null;
@@ -54,5 +61,7 @@ class TeamModel {
         disbandedAt: json['disbanded_at'] != null
             ? DateTime.parse(json['disbanded_at'] as String)
             : null,
+        reliabilityScore: json['reliability_score'] as int?,
+        unbookedCancels: (json['unbooked_cancels'] as int?) ?? 0,
       );
 }

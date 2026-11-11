@@ -749,6 +749,8 @@ void main() {
         matching: find.byType(VenuePickerField),
       ));
       await settle(t);
+      await t.tap(find.byKey(const Key('propose-booking-ack')));
+      await t.pump();
       await t.tap(_inDialog('Send Proposal'));
       await settle(t);
 

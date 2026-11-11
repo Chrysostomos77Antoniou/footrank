@@ -1,3 +1,4 @@
+import 'package:footrank/match/presentation/widgets/booking_widgets.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -205,6 +206,8 @@ class _HomePageState extends State<HomePage> with ThemeRepaintMixin {
               // detail was not discoverable: a captain had to already know a
               // fee existed and go looking. Renders nothing when none is owed.
               const PendingFeeBanner(),
+              // The Booker's court still to book, with a countdown.
+              const PendingBookingBanner(),
               FadeSlideIn(
                 delay: const Duration(milliseconds: 60),
                 child: _HeroBanner(future: _rankFuture, compact: compact),

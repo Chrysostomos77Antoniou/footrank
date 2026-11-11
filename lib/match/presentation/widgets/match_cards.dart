@@ -1,3 +1,4 @@
+import 'package:footrank/match/presentation/widgets/booking_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/theme/app_colors.dart';
@@ -1174,6 +1175,12 @@ class MatchCard extends StatelessWidget {
               ),
             ],
           ),
+          // Who books the court, and whether it is done.
+          if (match.hasBookingFlow &&
+              (match.status == 'confirmed' || bookingCancelText(match.cancelReason) != null)) ...[
+            const SizedBox(height: AppSpacing.sm),
+            BookingStatusStrip(match: match, compact: true),
+          ],
           // The fee, payable right here: captains used to have to open the
           // match and scroll to find out one was owed at all. It sits under a
           // hairline as the card's footer.

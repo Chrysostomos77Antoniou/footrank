@@ -10,6 +10,7 @@ import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/team_member_model.dart';
 import 'package:footrank/match/presentation/widgets/roster_picker.dart';
 import 'package:footrank/match/presentation/widgets/venue_map_picker.dart';
+import 'package:footrank/match/presentation/widgets/booking_widgets.dart';
 import 'package:footrank/match/presentation/widgets/venue_widgets.dart';
 import 'package:footrank/models/venue_location.dart';
 import 'package:footrank/team/data/team_repository.dart';
@@ -57,6 +58,9 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
   // Matches are 5-a-side only.
   static const String _format = '5v5';
   bool _loading = false;
+
+  /// "If this match is confirmed, you book the court." Must be ticked.
+  bool _bookingAck = false;
 
   // Roster tab: who is playing. Starts with the whole team selected.
   List<TeamMemberModel> _members = [];
@@ -364,16 +368,11 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'If the venue turns out to be full, you decide where to '
-                    'play. Change it on the match and give the other captain '
-                    'a call.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          height: 1.4,
-                          color: AppColors.muted(context),
-                        ),
+                  BookingAckRow(
+                    key: const Key('booking-ack'),
+                    value: _bookingAck,
+                    onChanged: (v) => setState(() => _bookingAck = v),
+                    text: 'FootRank is not affiliated with any court. If this match is confirmed, you book the court.',
                   ),
                   const SizedBox(height: 20),
                   FadeSlideIn(
@@ -426,7 +425,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                   FadeSlideIn(
                     delay: const Duration(milliseconds: 240),
                     child: FilledButton(
-                      onPressed: _loading ? null : _submit,
+                      onPressed: _loading || !_bookingAck ? null : _submit,
                       child: _loading
                           ? SizedBox(
                               height: 20,

@@ -13,6 +13,16 @@ const _matchTypes = {
   // of hunting for it, 'fee_paid' so the receipt opens the match it belongs to.
   'fee_due',
   'fee_paid',
+  // Court booking flow: all open the match, where the booking panel is.
+  'booking_booker',
+  'booking_info',
+  'booking_claimed',
+  'booking_booked',
+  'booking_reminder',
+  'booking_cancelled',
+  'venue_suggested',
+  'venue_accepted',
+  'venue_declined',
 };
 
 // Notification types backed by a `match_requests` row -- there's no single-

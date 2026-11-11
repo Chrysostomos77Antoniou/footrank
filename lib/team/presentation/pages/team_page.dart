@@ -1,3 +1,4 @@
+import 'package:footrank/match/presentation/widgets/booking_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
@@ -418,6 +419,16 @@ class _TeamView extends StatelessWidget {
               ],
             ),
           ),
+          if (team.reliabilityScore != null) ...[
+            const SizedBox(height: 14),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 130),
+              child: ReliabilityCard(
+                score: team.reliabilityScore!,
+                missed: team.unbookedCancels,
+              ),
+            ),
+          ],
           if (!team.isDisbanded) ...[
             const SizedBox(height: 14),
             FadeSlideIn(

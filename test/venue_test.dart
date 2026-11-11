@@ -621,6 +621,8 @@ void main() {
       await open(t, requestVenue: 'Their Ground');
       await t.tap(find.byType(VenuePickerField));
       await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('propose-booking-ack')));
+      await t.pump();
       await t.tap(find.text('Send Proposal'));
       await t.pumpAndSettle();
       expect(choice!.venueText, 'Seaside Pitch');
@@ -634,6 +636,8 @@ void main() {
       await open(t);
       await t.tap(find.byType(VenuePickerField));
       await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('propose-booking-ack')));
+      await t.pump();
       await t.tap(find.text('Send Proposal'));
       await t.pumpAndSettle();
       expect(choice!.venueText, 'Λιβάδι ⚽');
@@ -645,6 +649,8 @@ void main() {
       await open(t, requestVenue: 'Their Ground');
       await t.tap(find.byType(VenuePickerField));
       await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('propose-booking-ack')));
+      await t.pump();
       await t.tap(find.byTooltip('Remove venue'));
       await t.pumpAndSettle();
       await t.tap(find.text('Send Proposal'));
@@ -658,6 +664,8 @@ void main() {
       await open(t, requestVenue: 'Their Ground');
       await t.tap(find.byType(VenuePickerField));
       await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('propose-booking-ack')));
+      await t.pump();
       await t.tap(find.text('Cancel'));
       await t.pumpAndSettle();
       expect(closed, isTrue);

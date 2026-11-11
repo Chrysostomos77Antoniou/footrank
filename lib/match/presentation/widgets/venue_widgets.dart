@@ -6,6 +6,7 @@ import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/match/presentation/widgets/match_surfaces.dart';
 import 'package:footrank/match/presentation/widgets/venue_map_picker.dart';
+import 'package:footrank/match/presentation/widgets/booking_widgets.dart';
 import 'package:footrank/models/venue_location.dart';
 
 /// Shown wherever a user-entered venue name appears. FootRank never displays
@@ -150,9 +151,13 @@ class _ProposeDialogState extends State<_ProposeDialog> {
   final _formKey = GlobalKey<FormState>();
   VenuePick? _pick;
 
+  /// Picking your own venue means you book it if it is accepted.
+  bool _bookingAck = false;
+
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final pick = _pick;
+    if (pick != null && !_bookingAck) return;
     Navigator.pop(
       context,
       pick == null
@@ -216,8 +221,15 @@ class _ProposeDialogState extends State<_ProposeDialog> {
                   ? 'Prefer a different venue? (optional)'
                   : 'Where would you like to play? (optional)',
               hintText: 'Find the court on the map',
-              onChanged: (p) => _pick = p,
+              onChanged: (p) => setState(() => _pick = p),
             ),
+            if (_pick != null)
+              BookingAckRow(
+                    key: const Key('propose-booking-ack'),
+                    value: _bookingAck,
+                    onChanged: (v) => setState(() => _bookingAck = v),
+                    text: 'If your venue is accepted, you book the court.',
+                  ),
             const SizedBox(height: 4),
             Text(
               hasTheirVenue
@@ -241,7 +253,10 @@ class _ProposeDialogState extends State<_ProposeDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        FilledButton(onPressed: _submit, child: const Text('Send Proposal')),
+        FilledButton(
+          onPressed: _pick != null && !_bookingAck ? null : _submit,
+          child: const Text('Send Proposal'),
+        ),
       ],
     );
   }

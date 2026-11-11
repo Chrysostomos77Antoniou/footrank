@@ -145,6 +145,15 @@ void main() {
   }
 
   Future<void> submit(WidgetTester t) async {
+    // Tick "you book the court" first; the button stays disabled until then.
+    final ack = find.byKey(const Key('booking-ack'));
+    final box = t.widget<Checkbox>(
+        find.descendant(of: ack, matching: find.byType(Checkbox)));
+    if (box.value != true) {
+      await t.ensureVisible(ack);
+      await t.tap(ack);
+      await t.pump();
+    }
     final button = find.text('Create Match Request');
     await t.ensureVisible(button);
     await t.tap(button);
@@ -174,6 +183,24 @@ void main() {
       expect(find.byIcon(Icons.map_outlined), findsOneWidget);
       // No free typing for the venue any more.
       expect(find.byType(TextFormField), findsNothing);
+    });
+
+    testWidgets('the request cannot be sent until "you book the court" is ticked',
+        (t) async {
+      final repo = _FakeMatchRepository();
+      await openForm(t, repo);
+      await typeVenue(t, 'Seaside Pitch');
+
+      final button = find.ancestor(
+          of: find.text('Create Match Request'),
+          matching: find.byWidgetPredicate((w) => w is ButtonStyleButton));
+      expect(t.widget<ButtonStyleButton>(button).onPressed, isNull);
+      expect(
+          find.textContaining('FootRank is not affiliated with any court'),
+          findsOneWidget);
+
+      await submit(t); // ticks the box, then sends
+      expect(repo.created, hasLength(1));
     });
 
     testWidgets('no venue picked blocks the request before anything is sent',

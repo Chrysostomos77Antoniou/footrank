@@ -32,6 +32,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
           'in your city.',
     ),
     (
+      icon: Icons.event_available,
+      title: 'You book the court',
+      body: 'FootRank finds the match. You book the court. We are not '
+          'affiliated with any court.',
+    ),
+    (
       icon: Icons.emoji_events,
       title: 'Climb the rankings',
       body: 'Play matches, log fair results, and watch your Pitch Power rise '

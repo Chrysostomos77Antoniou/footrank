@@ -19,6 +19,7 @@ import 'package:footrank/match/presentation/widgets/match_fee_card.dart';
 import 'package:footrank/match/presentation/widgets/match_surfaces.dart';
 import 'package:footrank/match/presentation/widgets/match_team_avatar.dart';
 import 'package:footrank/match/presentation/widgets/venue_widgets.dart';
+import 'package:footrank/match/presentation/widgets/booking_widgets.dart';
 import 'package:footrank/payment/data/payment_repository.dart';
 import 'package:footrank/payment/data/promo_repository.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
@@ -972,7 +973,8 @@ class _MatchDetailPageState extends State<MatchDetailPage>
     return VenueCard(
       venueText: match.venueText,
       isRequester: iAmRequester,
-      canEdit: iAmRequester && _isUpcoming(match, status),
+      // Once confirmed, the court only changes through "Court full".
+      canEdit: iAmRequester && _isUpcoming(match, status) && match.status == 'pending',
       canReport: _myTeamId != null && _myTeamId != match.homeTeamId && hasVenue,
       location: match.venueLocation,
       onDirections: hasVenue
@@ -1066,6 +1068,15 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         if (_showVenueCard(match, status)) ...[
           const SizedBox(height: AppSpacing.xs),
           _buildVenueCard(match, status),
+        ],
+        if (match.hasBookingFlow) ...[
+          const SizedBox(height: AppSpacing.xs),
+          BookingPanel(
+            match: match,
+            myTeamId: _myTeamId,
+            isCaptain: _isCaptain,
+            onChanged: _load,
+          ),
         ],
         if (status != MatchStatus.completed && _myTeamId != null) ...[
           const SizedBox(height: AppSpacing.xs),
