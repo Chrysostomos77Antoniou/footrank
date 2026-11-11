@@ -64,6 +64,16 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
         next ? 'Usage statistics on. Thank you.' : 'Usage statistics off.');
   }
 
+  /// Where the iOS share sheet anchors: this page's on-screen rect.
+  Rect _shareOrigin() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize || box.size.isEmpty) {
+      final size = MediaQuery.sizeOf(context);
+      return Rect.fromLTWH(0, 0, size.width, size.height / 2);
+    }
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
+
   /// Download everything FootRank stores about you (GDPR access/portability).
   Future<void> _downloadMyData() async {
     try {
@@ -76,6 +86,9 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
         ],
         fileNameOverrides: const ['footrank-my-data.json'],
         subject: 'My FootRank data',
+        // iOS requires an anchor rect for the share sheet (iPad popover and
+        // iOS 26 on iPhone); without it the share throws a PlatformException.
+        sharePositionOrigin: _shareOrigin(),
       ));
     } catch (e) {
       if (mounted) showError(context, e);

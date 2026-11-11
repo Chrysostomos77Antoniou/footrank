@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       p_source: "notify-telegram",
       p_severity: "warning",
       p_detail: { reason: "bad_internal_secret" },
-    }).catch(() => {});
+    }).then(() => {}, () => {}); // rpc() returns a thenable without .catch
     return new Response(JSON.stringify({ error: "forbidden" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },
@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
         p_source: "notify-telegram",
         p_severity: "critical",
         p_detail: { reason: "rate_limit_exceeded", match_id },
-      }).catch(() => {});
+      }).then(() => {}, () => {}); // rpc() returns a thenable without .catch
       return ok({ sent: false, reason: "rate_limited" });
     }
 
