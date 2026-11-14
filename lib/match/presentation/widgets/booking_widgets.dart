@@ -620,8 +620,13 @@ class _PendingBookingBannerState extends State<PendingBookingBanner>
     }
     _gateShown[m.id] = DateTime.now();
     _gateOpen = true;
-    await showBookerGate(context, m);
-    _gateOpen = false;
+    try {
+      await showBookerGate(context, m);
+    } finally {
+      // Always reset: if the gate throws, the flag must not stay set or the
+      // Booker card would never open again until the app restarts.
+      _gateOpen = false;
+    }
     if (mounted) _load();
   }
 

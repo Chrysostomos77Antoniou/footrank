@@ -135,7 +135,9 @@ Deno.serve(async (req) => {
         // problem); logs are purged after 30 days.
         const errText = (await r.text()).slice(0, 1000);
         logRows.push({ user_id, token_prefix: token.slice(0, 12), ok: false, http_status: r.status, error_text: errText });
-        if (r.status === 404 || /UNREGISTERED|INVALID_ARGUMENT|NOT_FOUND/i.test(errText)) {
+        // Only drop a token FCM says is gone or malformed. A bare INVALID_ARGUMENT also comes back for a bad
+        // *message* (e.g. oversized), and deleting on that would wipe a user's working devices.
+        if (r.status === 404 || /UNREGISTERED|NOT_FOUND|not a valid FCM registration token/i.test(errText)) {
           await supa.from("fcm_tokens").delete().eq("user_id", user_id).eq("token", token);
         }
       }
