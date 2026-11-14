@@ -9,7 +9,10 @@ import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/models/team_member_model.dart';
 import 'package:footrank/match/presentation/widgets/roster_picker.dart';
+import 'package:footrank/match/presentation/widgets/venue_map_picker.dart';
+import 'package:footrank/match/presentation/widgets/booking_widgets.dart';
 import 'package:footrank/match/presentation/widgets/venue_widgets.dart';
+import 'package:footrank/models/venue_location.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
@@ -46,6 +49,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
   late final MatchRepository _repo = widget.matchRepository ?? MatchRepository();
   late final TeamRepository _teamRepo = widget.teamRepository ?? TeamRepository();
   final _venueCtrl = TextEditingController();
+  VenueLocation? _venueLocation;
 
   String? _city;
   DateTime? _date;
@@ -54,6 +58,9 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
   // Matches are 5-a-side only.
   static const String _format = '5v5';
   bool _loading = false;
+
+  /// "If this match is confirmed, you book the court." Must be ticked.
+  bool _bookingAck = false;
 
   // Roster tab: who is playing. Starts with the whole team selected.
   List<TeamMemberModel> _members = [];
@@ -177,6 +184,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
         scheduledAt: scheduledAt,
         matchType: _matchType,
         venueText: cleanVenueInput(_venueCtrl.text),
+        venueLocation: _venueLocation,
         format: _format,
         rosterUserIds: _roster.toList(),
       );
@@ -323,8 +331,8 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Type the venue name. Other captains will see it '
-                          'exactly as you write it.',
+                          'Find the court on the map. Other captains will '
+                          'see its name and can open it in Maps.',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                   fontSize: 12,
@@ -337,17 +345,14 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                   const SizedBox(height: 8),
                   FadeSlideIn(
                     delay: const Duration(milliseconds: 160),
-                    child: TextFormField(
-                      controller: _venueCtrl,
-                      maxLength: kVenueMaxLength,
-                      textCapitalization: TextCapitalization.words,
-                      textInputAction: TextInputAction.done,
-                      decoration: const InputDecoration(
-                        labelText: 'Venue name',
-                        prefixIcon: Icon(Icons.stadium_outlined),
-                      ),
-                      validator: validateVenueInput,
-                      onChanged: (_) => setState(() {}),
+                    child: VenuePickerField(
+                      city: _city,
+                      labelText: 'Venue',
+                      hintText: 'Find the court on the map',
+                      onChanged: (pick) => setState(() {
+                        _venueCtrl.text = pick?.name ?? '';
+                        _venueLocation = pick?.location;
+                      }),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -363,16 +368,11 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'If the venue turns out to be full, you decide where to '
-                    'play. Change it on the match and give the other captain '
-                    'a call.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          height: 1.4,
-                          color: AppColors.muted(context),
-                        ),
+                  BookingAckRow(
+                    key: const Key('booking-ack'),
+                    value: _bookingAck,
+                    onChanged: (v) => setState(() => _bookingAck = v),
+                    text: 'FootRank is not affiliated with any court. If this match is confirmed, you book the court.',
                   ),
                   const SizedBox(height: 20),
                   FadeSlideIn(
@@ -425,7 +425,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                   FadeSlideIn(
                     delay: const Duration(milliseconds: 240),
                     child: FilledButton(
-                      onPressed: _loading ? null : _submit,
+                      onPressed: _loading || !_bookingAck ? null : _submit,
                       child: _loading
                           ? SizedBox(
                               height: 20,

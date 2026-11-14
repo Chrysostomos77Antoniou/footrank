@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:footrank/models/user_model.dart';
+import 'package:footrank/rankings/data/ranking_repository.dart';
 import 'package:footrank/services/supabase_service.dart';
 
 class ProfileRepository {
@@ -57,16 +58,24 @@ class ProfileRepository {
     return UserModel.fromJson(data);
   }
 
-  /// The signed-in user's profile plus their global Pitch Power (elo) rank and
-  /// the total number of ranked players. Returns null if there's no profile yet.
-  Future<({UserModel profile, int rank, int total})?> fetchMyRankCard() async {
+  /// The signed-in user's profile plus their Pitch Power (elo) rank among
+  /// ranked players and the number of ranked players. It counts the same
+  /// players the Rankings tab lists ([RankingRepository.minMatches] matches
+  /// or more), so the two always agree. `rank` is null while the user has
+  /// played too few matches to be ranked. Returns null if there's no profile.
+  Future<({UserModel profile, int? rank, int total})?> fetchMyRankCard() async {
     final profile = await fetchMyProfile();
     if (profile == null) return null;
 
-    // One light query of every player's elo, to compute rank + total locally.
-    // Rank = how many players sit strictly above this elo, +1.
-    final rows =
-        await SupabaseService.client.from(_table).select('id, elo') as List;
+    // One light query of every ranked player's elo, to compute rank + total
+    // locally. Rank = how many ranked players sit strictly above this elo, +1.
+    final rows = await SupabaseService.client
+        .from(_table)
+        .select('id, elo')
+        .gte('matches_played', RankingRepository.minMatches) as List;
+    if (profile.matchesPlayed < RankingRepository.minMatches) {
+      return (profile: profile, rank: null, total: rows.length);
+    }
     final higher = rows
         .where((r) => ((r as Map)['elo'] as int? ?? 1500) > profile.elo)
         .length;

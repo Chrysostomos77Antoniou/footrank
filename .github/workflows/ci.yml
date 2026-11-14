@@ -1,10 +1,14 @@
 name: CI
 
 on:
+  # Every branch: release builds are cut from feature branches too, so a
+  # change must be green wherever it is pushed, not only on master.
   push:
-    branches: [master]
   pull_request:
     branches: [master]
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -52,7 +56,7 @@ jobs:
     runs-on: macos-latest
     # macOS runner minutes cost 10x Linux — only run on actual pushes to
     # master, not on every PR, to keep this catch worthwhile but affordable.
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v4
 
@@ -70,3 +74,17 @@ jobs:
       # the Linux APK job above gives zero coverage for.
       - name: Build iOS (no-codesign, validates plugin/native compilation)
         run: flutter build ios --release --no-codesign
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Fails the build if a key, token or password is committed. Public,
+      # app-restricted client keys are allow-listed in .gitleaks.toml.
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml

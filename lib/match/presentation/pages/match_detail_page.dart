@@ -19,6 +19,7 @@ import 'package:footrank/match/presentation/widgets/match_fee_card.dart';
 import 'package:footrank/match/presentation/widgets/match_surfaces.dart';
 import 'package:footrank/match/presentation/widgets/match_team_avatar.dart';
 import 'package:footrank/match/presentation/widgets/venue_widgets.dart';
+import 'package:footrank/match/presentation/widgets/booking_widgets.dart';
 import 'package:footrank/payment/data/payment_repository.dart';
 import 'package:footrank/payment/data/promo_repository.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
@@ -972,10 +973,16 @@ class _MatchDetailPageState extends State<MatchDetailPage>
     return VenueCard(
       venueText: match.venueText,
       isRequester: iAmRequester,
-      canEdit: iAmRequester && _isUpcoming(match, status),
+      // Once confirmed, the court only changes through "Court full".
+      canEdit: iAmRequester && _isUpcoming(match, status) && match.status == 'pending',
       canReport: _myTeamId != null && _myTeamId != match.homeTeamId && hasVenue,
+      location: match.venueLocation,
       onDirections: hasVenue
-          ? () => openInMaps(name: match.venueText!, city: match.city)
+          ? () => openVenueInMaps(
+                name: match.venueText!,
+                city: match.city,
+                location: match.venueLocation,
+              )
           : null,
       callLabel: canCall
           ? 'Call ${otherName == null || otherName.isEmpty ? 'the other captain' : otherName}'
@@ -989,11 +996,22 @@ class _MatchDetailPageState extends State<MatchDetailPage>
   /// The requesting captain corrects where the match is played (e.g. the
   /// venue turned out to be full). The other captain is notified server-side.
   Future<void> _changeVenue(MatchModel match) async {
-    final text = await showEditVenueDialog(context, initial: match.venueText);
-    if (text == null || !mounted) return;
-    if (text == match.venueText) return;
+    final pick = await showEditVenueDialog(
+      context,
+      initial: match.venueText,
+      city: match.city,
+    );
+    if (pick == null || !mounted) return;
+    if (pick.name == match.venueText &&
+        pick.location == match.venueLocation) {
+      return;
+    }
     try {
-      await _matchRepo.updateMatchVenue(matchId: match.id, venueText: text);
+      await _matchRepo.updateMatchVenue(
+        matchId: match.id,
+        venueText: pick.name,
+        venueLocation: pick.location,
+      );
       if (!mounted) return;
       triggerAppRefresh();
       await _load();
@@ -1050,6 +1068,15 @@ class _MatchDetailPageState extends State<MatchDetailPage>
         if (_showVenueCard(match, status)) ...[
           const SizedBox(height: AppSpacing.xs),
           _buildVenueCard(match, status),
+        ],
+        if (match.hasBookingFlow) ...[
+          const SizedBox(height: AppSpacing.xs),
+          BookingPanel(
+            match: match,
+            myTeamId: _myTeamId,
+            isCaptain: _isCaptain,
+            onChanged: _load,
+          ),
         ],
         if (status != MatchStatus.completed && _myTeamId != null) ...[
           const SizedBox(height: AppSpacing.xs),

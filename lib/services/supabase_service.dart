@@ -1,3 +1,4 @@
+import 'package:footrank/services/secure_session_storage.dart';
 import 'package:http/http.dart' show Client;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:footrank/core/constants/app_constants.dart';
@@ -12,6 +13,13 @@ class SupabaseService {
       url: AppConstants.supabaseUrl,
       anonKey: AppConstants.supabaseAnonKey,
       httpClient: httpClient,
+      // Session tokens live in the Keychain / Keystore, not plain preferences.
+      authOptions: FlutterAuthClientOptions(
+        localStorage: SecureSessionStorage(
+          persistSessionKey:
+              'sb-${Uri.parse(AppConstants.supabaseUrl).host.split('.').first}-auth-token',
+        ),
+      ),
     );
   }
 }

@@ -5,11 +5,14 @@ import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/match/data/match_repository.dart';
 import 'package:footrank/match/presentation/widgets/match_surfaces.dart';
+import 'package:footrank/match/presentation/widgets/venue_map_picker.dart';
+import 'package:footrank/match/presentation/widgets/booking_widgets.dart';
+import 'package:footrank/models/venue_location.dart';
 
 /// Shown wherever a user-entered venue name appears. FootRank never displays
 /// names from its own court list in the match flow, only what captains type.
 const String kVenueDisclaimer =
-    'Venue names are entered by users. FootRank is not affiliated with any venue.';
+    'Venues are picked on the map by users. FootRank is not affiliated with any venue.';
 
 /// Longest venue name the server accepts.
 const int kVenueMaxLength = 60;
@@ -97,7 +100,10 @@ class ProposeChoice {
   /// The cleaned venue they would rather play at, or null to play at the
   /// request's own venue.
   final String? venueText;
-  const ProposeChoice({this.venueText});
+
+  /// Where that venue is on the map (null when no venue was suggested).
+  final VenueLocation? location;
+  const ProposeChoice({this.venueText, this.location});
 }
 
 /// Confirms a proposal and lets the proposing member optionally type another
@@ -143,18 +149,21 @@ class _ProposeDialog extends StatefulWidget {
 
 class _ProposeDialogState extends State<_ProposeDialog> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _ctrl = TextEditingController();
+  VenuePick? _pick;
 
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  /// Picking your own venue means you book it if it is accepted.
+  bool _bookingAck = false;
 
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    final venue = cleanVenueInput(_ctrl.text);
-    Navigator.pop(context, ProposeChoice(venueText: venue.isEmpty ? null : venue));
+    final pick = _pick;
+    if (pick != null && !_bookingAck) return;
+    Navigator.pop(
+      context,
+      pick == null
+          ? const ProposeChoice()
+          : ProposeChoice(venueText: pick.name, location: pick.location),
+    );
   }
 
   @override
@@ -205,24 +214,26 @@ class _ProposeDialogState extends State<_ProposeDialog> {
               ),
             ],
             const SizedBox(height: 14),
-            TextFormField(
-              controller: _ctrl,
-              maxLength: kVenueMaxLength,
-              textCapitalization: TextCapitalization.words,
-              textInputAction: TextInputAction.done,
-              decoration: InputDecoration(
-                labelText: hasTheirVenue
-                    ? 'Prefer a different venue? (optional)'
-                    : 'Where would you like to play? (optional)',
-                prefixIcon: const Icon(Icons.place_outlined),
-              ),
-              validator: validateOptionalVenueInput,
-              onFieldSubmitted: (_) => _submit(),
+            VenuePickerField(
+              city: widget.city,
+              required: false,
+              labelText: hasTheirVenue
+                  ? 'Prefer a different venue? (optional)'
+                  : 'Where would you like to play? (optional)',
+              hintText: 'Find the court on the map',
+              onChanged: (p) => setState(() => _pick = p),
             ),
+            if (_pick != null)
+              BookingAckRow(
+                    key: const Key('propose-booking-ack'),
+                    value: _bookingAck,
+                    onChanged: (v) => setState(() => _bookingAck = v),
+                    text: 'If your venue is accepted, you book the court.',
+                  ),
             const SizedBox(height: 4),
             Text(
               hasTheirVenue
-                  ? 'Leave it empty to play at their venue. If you type one, '
+                  ? 'Leave it empty to play at their venue. If you pick one, '
                       'their captain can accept it or decline.'
                   : 'Their captain can accept your venue or decline.',
               style: theme.textTheme.bodySmall
@@ -242,7 +253,10 @@ class _ProposeDialogState extends State<_ProposeDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        FilledButton(onPressed: _submit, child: const Text('Send Proposal')),
+        FilledButton(
+          onPressed: _pick != null && !_bookingAck ? null : _submit,
+          child: const Text('Send Proposal'),
+        ),
       ],
     );
   }
@@ -320,18 +334,23 @@ Future<bool?> showAcceptProposalDialog(
   );
 }
 
-/// Asks the requesting captain for a new venue name. Resolves to the cleaned
-/// text, or null when cancelled.
-Future<String?> showEditVenueDialog(BuildContext context, {String? initial}) {
-  return showDialog<String>(
+/// Asks the requesting captain for a new venue, picked on the map. Resolves to
+/// the chosen place, or null when cancelled.
+Future<VenuePick?> showEditVenueDialog(
+  BuildContext context, {
+  String? initial,
+  required String city,
+}) {
+  return showDialog<VenuePick>(
     context: context,
-    builder: (_) => _EditVenueDialog(initial: initial),
+    builder: (_) => _EditVenueDialog(initial: initial, city: city),
   );
 }
 
 class _EditVenueDialog extends StatefulWidget {
   final String? initial;
-  const _EditVenueDialog({this.initial});
+  final String city;
+  const _EditVenueDialog({this.initial, required this.city});
 
   @override
   State<_EditVenueDialog> createState() => _EditVenueDialogState();
@@ -339,18 +358,11 @@ class _EditVenueDialog extends StatefulWidget {
 
 class _EditVenueDialogState extends State<_EditVenueDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _ctrl =
-      TextEditingController(text: widget.initial ?? '');
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  VenuePick? _pick;
 
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    Navigator.pop(context, cleanVenueInput(_ctrl.text));
+    Navigator.pop(context, _pick);
   }
 
   @override
@@ -370,18 +382,13 @@ class _EditVenueDialogState extends State<_EditVenueDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextFormField(
-              controller: _ctrl,
-              autofocus: true,
-              maxLength: kVenueMaxLength,
-              textCapitalization: TextCapitalization.words,
-              textInputAction: TextInputAction.done,
-              decoration: const InputDecoration(
-                labelText: 'Venue name',
-                prefixIcon: Icon(Icons.place_outlined),
-              ),
-              validator: validateVenueInput,
-              onFieldSubmitted: (_) => _submit(),
+            VenuePickerField(
+              city: widget.city,
+              labelText: 'New venue',
+              hintText: (widget.initial ?? '').isEmpty
+                  ? 'Find the court on the map'
+                  : 'Now: ${widget.initial}. Tap to change.',
+              onChanged: (p) => _pick = p,
             ),
             const SizedBox(height: 8),
             Text(
@@ -512,6 +519,9 @@ class VenueCard extends StatelessWidget {
   final VoidCallback? onReport;
   final VoidCallback? onDirections;
 
+  /// Where the venue is on the map; shows a small map when present.
+  final VenueLocation? location;
+
   const VenueCard({
     super.key,
     required this.venueText,
@@ -523,6 +533,7 @@ class VenueCard extends StatelessWidget {
     this.onEdit,
     this.onReport,
     this.onDirections,
+    this.location,
   });
 
   Widget _action(
@@ -607,6 +618,8 @@ class VenueCard extends StatelessWidget {
               ),
             ],
           ),
+          if (hasVenue)
+            VenueMiniMap(location: location, onTap: onDirections),
           const SizedBox(height: 8),
           Text(
             hint,

@@ -5,6 +5,7 @@
 // Every date is relative to the moment the test runs ("tomorrow at 19:30"),
 // because the screens say "Today" and "Tomorrow" and a fixed date would turn
 // every test into a time bomb.
+import 'package:footrank/models/venue_location.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -264,6 +265,7 @@ class FakeMatchRepository extends MatchRepository {
     required String teamId,
     List<String>? rosterUserIds,
     String? venueText,
+    VenueLocation? venueLocation,
   }) async {
     d.proposed.add((
       requestId: requestId,

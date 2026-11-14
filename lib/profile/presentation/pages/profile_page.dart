@@ -20,6 +20,9 @@ import 'package:footrank/profile/presentation/widgets/profile_avatar.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/core/widgets/feedback.dart';
+import 'package:footrank/services/analytics_consent.dart';
+import 'dart:convert';
+import 'package:share_plus/share_plus.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -35,7 +38,7 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
   final _matchRepo = MatchRepository();
   late Future<UserModel?> _profileFuture;
   late Future<({String? teamId, List<MatchModel> matches})> _historyFuture;
-  late Future<({int rank, int total})?> _rankFuture;
+  late Future<({int? rank, int total})?> _rankFuture;
 
   @override
   void initState() {
@@ -44,6 +47,80 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
     _historyFuture = _loadHistory();
     _rankFuture = _loadRank();
     appRefresh.addListener(_refresh);
+    AnalyticsConsent.isOptedIn().then((v) {
+      if (mounted) setState(() => _analyticsOn = v);
+    });
+  }
+
+  /// Usage statistics (Firebase Analytics) -- opt-in, off by default.
+  bool _analyticsOn = false;
+
+  Future<void> _toggleAnalytics() async {
+    final next = !_analyticsOn;
+    await AnalyticsConsent.set(next);
+    if (!mounted) return;
+    setState(() => _analyticsOn = next);
+    showSuccess(context,
+        next ? 'Usage statistics on. Thank you.' : 'Usage statistics off.');
+  }
+
+  /// Where the iOS share sheet anchors: this page's on-screen rect.
+  Rect _shareOrigin() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize || box.size.isEmpty) {
+      final size = MediaQuery.sizeOf(context);
+      return Rect.fromLTWH(0, 0, size.width, size.height / 2);
+    }
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
+
+  /// Download everything FootRank stores about you (GDPR access/portability).
+  Future<void> _downloadMyData() async {
+    try {
+      final data = await _authRepo.exportMyData();
+      final bytes = utf8.encode(const JsonEncoder.withIndent('  ').convert(data));
+      await SharePlus.instance.share(ShareParams(
+        files: [
+          XFile.fromData(bytes,
+              mimeType: 'application/json', name: 'footrank-my-data.json'),
+        ],
+        fileNameOverrides: const ['footrank-my-data.json'],
+        subject: 'My FootRank data',
+        // iOS requires an anchor rect for the share sheet (iPad popover and
+        // iOS 26 on iPhone); without it the share throws a PlatformException.
+        sharePositionOrigin: _shareOrigin(),
+      ));
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
+  /// Sign out on every device (lost phone, shared device).
+  Future<void> _signOutEverywhere() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign out of all devices?'),
+        content: const Text(
+            'You will be signed out here and on every other phone or tablet '
+            'where you use FootRank.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Sign out everywhere')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _authRepo.signOutEverywhere();
+      if (mounted) context.go(AppRoutes.login);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
   }
 
   Future<({String? teamId, List<MatchModel> matches})> _loadHistory() async {
@@ -58,7 +135,7 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
   }
 
   /// Global Pitch Power rank for the hero card; a failure just hides the number.
-  Future<({int rank, int total})?> _loadRank() async {
+  Future<({int? rank, int total})?> _loadRank() async {
     try {
       final card = await _profileRepo.fetchMyRankCard();
       if (card == null) return null;
@@ -287,6 +364,24 @@ class _ProfilePageState extends State<ProfilePage> with ThemeRepaintMixin {
                               context: context,
                               applicationName: 'FootRank',
                             ),
+                          ),
+                          _SettingsRow(
+                            icon: Icons.insights_outlined,
+                            label: _analyticsOn
+                                ? 'Usage statistics: on'
+                                : 'Usage statistics: off',
+                            onTap: _toggleAnalytics,
+                          ),
+                          _SettingsRow(
+                            icon: Icons.download_outlined,
+                            label: 'Download my data',
+                            trailing: Icons.chevron_right,
+                            onTap: _downloadMyData,
+                          ),
+                          _SettingsRow(
+                            icon: Icons.devices_outlined,
+                            label: 'Sign out of all devices',
+                            onTap: _signOutEverywhere,
                           ),
                           _SettingsRow(
                             icon: Icons.delete_outline,
@@ -578,7 +673,7 @@ String _thousands(int n) {
 
 class _ProfileHero extends StatelessWidget {
   final UserModel user;
-  final Future<({int rank, int total})?> rankFuture;
+  final Future<({int? rank, int total})?> rankFuture;
   final VoidCallback onEdit;
   const _ProfileHero({
     required this.user,
@@ -822,13 +917,13 @@ class _PowerNumber extends StatelessWidget {
 
 /// "#72 of 121", or a dash while the rank is loading or unavailable.
 class _RankValue extends StatelessWidget {
-  final Future<({int rank, int total})?> future;
+  final Future<({int? rank, int total})?> future;
   const _RankValue({required this.future});
 
   @override
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    return FutureBuilder<({int rank, int total})?>(
+    return FutureBuilder<({int? rank, int total})?>(
       future: future,
       builder: (context, snap) {
         final data = snap.data;
@@ -841,7 +936,7 @@ class _RankValue extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                data == null ? '–' : '#${_thousands(data.rank)}',
+                data?.rank == null ? '–' : '#${_thousands(data!.rank!)}',
                 maxLines: 1,
                 style: _bigNumberStyle(context, onSurface),
               ),

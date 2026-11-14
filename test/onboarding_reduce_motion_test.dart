@@ -20,12 +20,12 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.bySemanticsLabel('Slide 1 of 4'), findsOneWidget);
+      expect(find.bySemanticsLabel('Slide 1 of 5'), findsOneWidget);
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(find.bySemanticsLabel('Slide 2 of 4'), findsOneWidget);
+      expect(find.bySemanticsLabel('Slide 2 of 5'), findsOneWidget);
     });
   }
 }

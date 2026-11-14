@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:footrank/admin/models/flagged_venue_model.dart';
 import 'package:footrank/core/theme/app_theme.dart';
+import 'package:footrank/match/presentation/widgets/venue_map_picker.dart';
 import 'package:footrank/match/presentation/widgets/venue_widgets.dart';
+import 'package:footrank/models/venue_location.dart';
 import 'package:footrank/models/match_model.dart';
 import 'package:footrank/models/match_proposal_model.dart';
 import 'package:footrank/models/match_request_model.dart';
@@ -351,13 +353,20 @@ void main() {
       expect(find.text('Your venue name'), findsOneWidget);
     });
 
-    testWidgets('the change-venue dialog validates and returns clean text',
+    testWidgets('the change-venue dialog saves the venue picked on the map',
         (t) async {
-      String? result = 'unset';
+      final original = venuePicker;
+      addTearDown(() => venuePicker = original);
+      venuePicker = (ctx, {required city}) async => const VenuePick(
+            'New Venue',
+            VenueLocation(
+                placeId: 'abc', lat: 35.1, lng: 33.3, source: 'google'),
+          );
+      VenuePick? result;
       await t.pumpWidget(host(Builder(
         builder: (ctx) => TextButton(
-          onPressed: () async =>
-              result = await showEditVenueDialog(ctx, initial: 'Old Venue'),
+          onPressed: () async => result = await showEditVenueDialog(ctx,
+              initial: 'Old Venue', city: 'Nicosia'),
           child: const Text('open'),
         ),
       )));
@@ -365,23 +374,20 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('Change venue'), findsOneWidget);
 
-      await t.enterText(find.byType(TextFormField), '   ');
-      await t.tap(find.text('Save'));
-      await t.pump();
-      expect(find.text('Enter where you will play'), findsOneWidget);
-      expect(result, 'unset');
-
-      await t.enterText(find.byType(TextFormField), '  New   Venue ');
+      await t.tap(find.byIcon(Icons.map_outlined));
+      await t.pumpAndSettle();
       await t.tap(find.text('Save'));
       await t.pumpAndSettle();
-      expect(result, 'New Venue');
+      expect(result?.name, 'New Venue');
+      expect(result?.location.placeId, 'abc');
     });
 
     testWidgets('cancelling the dialog returns null', (t) async {
-      String? result = 'unset';
+      Object? result = 'unset';
       await t.pumpWidget(host(Builder(
         builder: (ctx) => TextButton(
-          onPressed: () async => result = await showEditVenueDialog(ctx),
+          onPressed: () async =>
+              result = await showEditVenueDialog(ctx, city: 'Nicosia'),
           child: const Text('open'),
         ),
       )));
@@ -466,7 +472,7 @@ void main() {
       await t.pumpWidget(app(
         Builder(
           builder: (ctx) => TextButton(
-            onPressed: () => showEditVenueDialog(ctx, initial: names[1]),
+            onPressed: () => showEditVenueDialog(ctx, initial: names[1], city: 'Nicosia'),
             child: const Text('open'),
           ),
         ),
@@ -474,9 +480,7 @@ void main() {
       ));
       await t.tap(find.text('open'));
       await t.pumpAndSettle();
-      expect(find.byType(TextFormField), findsOneWidget);
-      await t.enterText(find.byType(TextFormField), names[2]);
-      await t.pump();
+      expect(find.byType(VenuePickerField), findsOneWidget);
     });
 
     for (final scale in [1.0, 2.0]) {
@@ -542,8 +546,6 @@ void main() {
             ));
             await t.tap(find.text('open'));
             await t.pumpAndSettle();
-            await t.enterText(find.byType(TextFormField), name);
-            await t.pump();
             // Whatever the screen, the dialog is there and can be dismissed:
             // an overflow anywhere would already have failed the test.
             expect(find.text('Propose this match?'), findsOneWidget);
@@ -603,77 +605,67 @@ void main() {
       expect(choice!.venueText, isNull);
     });
 
-    testWidgets('a typed venue comes back cleaned', (t) async {
+    /// Swaps the map sheet for a fake that returns [name] / [location].
+    void fakeMap(WidgetTester t, String name, VenueLocation location) {
+      final original = venuePicker;
+      addTearDown(() => venuePicker = original);
+      venuePicker = (ctx, {required city}) async => VenuePick(name, location);
+    }
+
+    const pin = VenueLocation(
+        placeId: 'p1', lat: 35.0, lng: 33.0, source: 'google');
+
+    testWidgets('a venue picked on the map comes back with its location',
+        (t) async {
+      fakeMap(t, 'Seaside Pitch', pin);
       await open(t, requestVenue: 'Their Ground');
-      await t.enterText(find.byType(TextFormField), '  Seaside   Pitch ');
+      await t.tap(find.byType(VenuePickerField));
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('propose-booking-ack')));
+      await t.pump();
       await t.tap(find.text('Send Proposal'));
       await t.pumpAndSettle();
       expect(choice!.venueText, 'Seaside Pitch');
+      expect(choice!.location, pin);
     });
 
-    testWidgets('the keyboard "done" key sends it as well', (t) async {
+    testWidgets('a hand-dropped pin is sent as a manual location', (t) async {
+      const manual =
+          VenueLocation(lat: 35.2, lng: 33.4, source: 'manual');
+      fakeMap(t, 'Λιβάδι ⚽', manual);
       await open(t);
-      await t.enterText(find.byType(TextFormField), 'Beach Arena');
-      await t.testTextInput.receiveAction(TextInputAction.done);
+      await t.tap(find.byType(VenuePickerField));
       await t.pumpAndSettle();
-      expect(closed, isTrue);
-      expect(choice!.venueText, 'Beach Arena');
-    });
-
-    testWidgets('Greek and emoji names are kept as typed', (t) async {
-      await open(t);
-      await t.enterText(find.byType(TextFormField), 'Γήπεδο Κέντρο ⚽');
-      await t.tap(find.text('Send Proposal'));
-      await t.pumpAndSettle();
-      expect(choice!.venueText, 'Γήπεδο Κέντρο ⚽');
-    });
-
-    testWidgets('a one-letter venue is refused and the dialog stays open',
-        (t) async {
-      await open(t);
-      await t.enterText(find.byType(TextFormField), 'a');
-      await t.tap(find.text('Send Proposal'));
+      await t.tap(find.byKey(const Key('propose-booking-ack')));
       await t.pump();
-      expect(find.text('Use 2–60 characters'), findsOneWidget);
-      expect(closed, isFalse);
-      expect(find.text('Propose this match?'), findsOneWidget);
-
-      // Correcting it lets the proposal through.
-      await t.enterText(find.byType(TextFormField), 'Arena');
       await t.tap(find.text('Send Proposal'));
       await t.pumpAndSettle();
-      expect(choice!.venueText, 'Arena');
+      expect(choice!.venueText, 'Λιβάδι ⚽');
+      expect(choice!.location!.isManual, isTrue);
     });
 
-    testWidgets('digits alone are not a venue name', (t) async {
-      await open(t);
-      await t.enterText(find.byType(TextFormField), '12345');
-      await t.tap(find.text('Send Proposal'));
+    testWidgets('a picked venue can be removed again', (t) async {
+      fakeMap(t, 'Arena', pin);
+      await open(t, requestVenue: 'Their Ground');
+      await t.tap(find.byType(VenuePickerField));
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('propose-booking-ack')));
       await t.pump();
-      expect(find.text("Enter the venue's name"), findsOneWidget);
-      expect(closed, isFalse);
-    });
-
-    testWidgets('spaces only count as no venue', (t) async {
-      await open(t);
-      await t.enterText(find.byType(TextFormField), '     ');
+      await t.tap(find.byTooltip('Remove venue'));
+      await t.pumpAndSettle();
       await t.tap(find.text('Send Proposal'));
       await t.pumpAndSettle();
-      expect(closed, isTrue);
       expect(choice!.venueText, isNull);
-    });
-
-    testWidgets('the field stops at 60 characters', (t) async {
-      await open(t);
-      await t.enterText(find.byType(TextFormField), 'A' * 90);
-      await t.tap(find.text('Send Proposal'));
-      await t.pumpAndSettle();
-      expect(choice!.venueText, 'A' * 60);
+      expect(choice!.location, isNull);
     });
 
     testWidgets('Cancel sends nothing', (t) async {
+      fakeMap(t, 'Seaside Pitch', pin);
       await open(t, requestVenue: 'Their Ground');
-      await t.enterText(find.byType(TextFormField), 'Seaside Pitch');
+      await t.tap(find.byType(VenuePickerField));
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('propose-booking-ack')));
+      await t.pump();
       await t.tap(find.text('Cancel'));
       await t.pumpAndSettle();
       expect(closed, isTrue);

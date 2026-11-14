@@ -49,6 +49,23 @@ Deno.serve(async (req) => {
       return json({ error: "cleanup_failed" }, 500);
     }
 
+    // Remove the user's profile photos from public storage (GDPR Art. 17):
+    // the avatar_* files under avatars/<uid>/. team_* files in the same folder
+    // are team logos that other members still use, so they stay. Best effort -- a storage hiccup must not leave the
+    // account half-deleted, so failures are logged, not returned.
+    try {
+      const { data: files } = await admin.storage.from("avatars").list(uid, { limit: 1000 });
+      const paths = (files ?? [])
+        .filter((f) => f.name.startsWith("avatar_"))
+        .map((f) => `${uid}/${f.name}`);
+      if (paths.length > 0) {
+        const { error: rmErr } = await admin.storage.from("avatars").remove(paths);
+        if (rmErr) console.error("avatar cleanup failed:", rmErr.message);
+      }
+    } catch (e) {
+      console.error("avatar cleanup threw:", e);
+    }
+
     // Now remove the actual auth.users row (and everything GoTrue itself
     // manages: sessions, refresh tokens, identities, MFA factors) through the
     // Admin API rather than raw SQL.

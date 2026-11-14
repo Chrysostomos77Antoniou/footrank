@@ -18,3 +18,13 @@ String? canonicalCity(String? value) {
   }
   return null;
 }
+
+/// Approximate centre (latitude, longitude) of each city, used to open the
+/// venue map on the right town and to bias place search.
+const Map<String, List<double>> kCityCenters = {
+  'Nicosia': [35.1856, 33.3823],
+  'Limassol': [34.7071, 33.0226],
+  'Famagusta': [35.0420, 33.9800],
+  'Larnaca': [34.9229, 33.6233],
+  'Paphos': [34.7754, 32.4245],
+};

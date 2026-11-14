@@ -1,7 +1,9 @@
+import 'package:footrank/match/presentation/widgets/booking_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
+import 'package:footrank/core/utils/maps_launcher.dart';
 import 'package:footrank/core/utils/motion.dart';
 import 'package:footrank/core/widgets/app_button.dart';
 import 'package:footrank/core/widgets/premium.dart';
@@ -244,7 +246,10 @@ class _VenuePanel extends StatelessWidget {
   final String venue;
   final Widget? trailing;
 
-  const _VenuePanel({required this.venue, this.trailing});
+  /// Opens the venue in Maps; shown as a button when the venue has a location.
+  final VoidCallback? onMap;
+
+  const _VenuePanel({required this.venue, this.trailing, this.onMap});
 
   @override
   Widget build(BuildContext context) {
@@ -298,6 +303,14 @@ class _VenuePanel extends StatelessWidget {
               ],
             ),
           ),
+          if (onMap != null)
+            IconButton(
+              tooltip: 'Open in Maps',
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              padding: EdgeInsets.zero,
+              icon: Icon(Icons.map_outlined, color: brand),
+              onPressed: onMap,
+            ),
           if (trailing != null) trailing!,
         ],
       ),
@@ -522,6 +535,13 @@ class OpponentCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             _VenuePanel(
               venue: venue,
+              onMap: opponent.venueLocation == null
+                  ? null
+                  : () => openVenueInMaps(
+                        name: venue,
+                        city: opponent.city,
+                        location: opponent.venueLocation,
+                      ),
               trailing: _FlagButton(
                 onPressed: () =>
                     reportVenueFlow(context, requestId: opponent.id),
@@ -635,7 +655,16 @@ class RequestCard extends StatelessWidget {
           ),
           if (venue != null && venue.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
-            _VenuePanel(venue: venue),
+            _VenuePanel(
+              venue: venue,
+              onMap: request.venueLocation == null
+                  ? null
+                  : () => openVenueInMaps(
+                        name: venue,
+                        city: request.city,
+                        location: request.venueLocation,
+                      ),
+            ),
           ],
           // Proposals ease in when they arrive after the card is already on
           // screen, instead of shoving everything below down in one frame.
@@ -1146,6 +1175,12 @@ class MatchCard extends StatelessWidget {
               ),
             ],
           ),
+          // Who books the court, and whether it is done.
+          if (match.hasBookingFlow &&
+              (match.status == 'confirmed' || bookingCancelText(match.cancelReason) != null)) ...[
+            const SizedBox(height: AppSpacing.sm),
+            BookingStatusStrip(match: match, compact: true),
+          ],
           // The fee, payable right here: captains used to have to open the
           // match and scroll to find out one was owed at all. It sits under a
           // hairline as the card's footer.

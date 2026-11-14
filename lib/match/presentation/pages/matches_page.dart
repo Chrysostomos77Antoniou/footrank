@@ -399,6 +399,7 @@ class _MatchesPageState extends State<MatchesPage> with ThemeRepaintMixin {
         teamId: team.id,
         rosterUserIds: roster,
         venueText: choice.venueText,
+        venueLocation: choice.location,
       );
       if (!mounted) return;
       showSuccess(

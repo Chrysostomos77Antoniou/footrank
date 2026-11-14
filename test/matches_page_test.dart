@@ -6,6 +6,8 @@
 // Pitch Power preview has to be about THAT opponent.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:footrank/match/presentation/widgets/venue_map_picker.dart';
+import 'package:footrank/models/venue_location.dart';
 import 'package:footrank/core/widgets/app_button.dart';
 import 'package:footrank/core/widgets/async_views.dart';
 import 'package:footrank/core/widgets/pitch_power_preview.dart';
@@ -729,19 +731,26 @@ void main() {
       expect(d.callsTo('sent'), 2);
     });
 
-    testWidgets('a venue typed in the dialog goes along', (t) async {
+    testWidgets('a venue picked on the map goes along', (t) async {
       final d = busyTeam();
       await pumpMatchesPage(t, d, height: 2600, pitchPowerLoader: _Stakes().call);
 
       await t.tap(_button('Propose Match').first);
       await settle(t);
-      await t.enterText(
-        find.descendant(
-          of: find.byType(AlertDialog),
-          matching: find.byType(TextFormField),
-        ),
-        'Seaside Pitch',
-      );
+      final original = venuePicker;
+      addTearDown(() => venuePicker = original);
+      venuePicker = (ctx, {required city}) async => const VenuePick(
+            'Seaside Pitch',
+            VenueLocation(
+                placeId: 'p1', lat: 35.0, lng: 33.0, source: 'google'),
+          );
+      await t.tap(find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(VenuePickerField),
+      ));
+      await settle(t);
+      await t.tap(find.byKey(const Key('propose-booking-ack')));
+      await t.pump();
       await t.tap(_inDialog('Send Proposal'));
       await settle(t);
 

@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
         p_source: "create-match-payment",
         p_severity: "warning",
         p_detail: { reason: "rate_limit_exceeded", uid },
-      }).catch(() => {});
+      }).then(() => {}, () => {}); // rpc builders have .then but no .catch (calling .catch threw: 500 instead of 429/403, alert never saved)
       return json({ error: "rate_limited" }, 429);
     }
 
@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
         p_source: "create-match-payment",
         p_severity: "warning",
         p_detail: { reason: "not_a_captain_of_this_match", uid, match_id },
-      }).catch(() => {});
+      }).then(() => {}, () => {}); // rpc builders have .then but no .catch (calling .catch threw: 500 instead of 429/403, alert never saved)
       return json({ error: "not_a_captain_of_this_match" }, 403);
     }
 

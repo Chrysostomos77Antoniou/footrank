@@ -6,6 +6,6 @@
 /// again on their next launch.
 class LegalVersions {
   static const terms = '2026-10-10';
-  static const privacy = '2026-10-10';
+  static const privacy = '2026-11-11';
   static const baseUrl = 'https://chrysostomos77antoniou.github.io/footrank';
 }
