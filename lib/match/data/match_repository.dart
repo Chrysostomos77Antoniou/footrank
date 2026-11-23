@@ -31,6 +31,7 @@ class MatchRepository {
     VenueLocation? venueLocation,
     String format = '5v5',
     List<String>? rosterUserIds,
+    String? bookingName,
   }) async {
     final uid = _uid;
     if (uid == null) throw StateError('No authenticated user');
@@ -50,6 +51,20 @@ class MatchRepository {
         })
         .select('*, teams(name)')
         .single();
+
+    // Kept in a private table (not on the request) so other captains cannot
+    // read it before the match is confirmed. Without it the request is
+    // withdrawn, so a retry cannot leave a duplicate.
+    final booking = bookingName?.trim() ?? '';
+    if (booking.isNotEmpty) {
+      try {
+        await SupabaseService.client.rpc('set_request_booking_name',
+            params: {'p_request_id': inserted['id'], 'p_name': booking});
+      } catch (_) {
+        await deleteRequest(inserted['id'] as String);
+        rethrow;
+      }
+    }
 
     AppAnalytics.log('match_request_created', {
       'match_type': matchType,

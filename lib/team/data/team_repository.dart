@@ -52,6 +52,18 @@ class TeamRepository {
     return rows.isEmpty ? null : rows.first;
   }
 
+  /// userId -> phone for every member of the team. Only callable by members of
+  /// that team (enforced server-side).
+  Future<Map<String, String>> fetchMemberPhones(String teamId) async {
+    final data = await SupabaseService.client
+        .rpc('team_member_phones', params: {'p_team_id': teamId});
+    return {
+      for (final r in (data as List).cast<Map<String, dynamic>>())
+        if ((r['phone'] as String?)?.trim().isNotEmpty ?? false)
+          r['user_id'] as String: (r['phone'] as String).trim(),
+    };
+  }
+
   Future<List<TeamModel>> fetchAll() async {
     final data = await SupabaseService.client
         .from(_teams)

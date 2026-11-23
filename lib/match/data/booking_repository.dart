@@ -10,6 +10,30 @@ class BookingRepository {
   static const _select =
       '*, home_team:home_team_id(name, logo_url, rating, wins, losses, draws), away_team:away_team_id(name, logo_url, rating, wins, losses, draws)';
 
+  /// The name the match was booked under, and the team that set it. Server
+  /// RLS only returns it to the opponent once the match is confirmed.
+  Future<({String teamId, String name, bool edited})?> fetchBookingName(
+      String requestId) async {
+    final row = await SupabaseService.client
+        .from('match_booking_names')
+        .select('team_id, name, edited')
+        .eq('request_id', requestId)
+        .maybeSingle();
+    return row == null
+        ? null
+        : (
+            teamId: row['team_id'] as String,
+            name: row['name'] as String,
+            edited: row['edited'] as bool,
+          );
+  }
+
+  /// The Booker adds or changes the booking name. Allowed once per Booker
+  /// while the match is confirmed (the server enforces it).
+  Future<void> changeBookingName(String matchId, String name) =>
+      SupabaseService.client.rpc('change_match_booking_name',
+          params: {'p_match_id': matchId, 'p_name': name.trim()});
+
   /// The other captain takes over the booking ("I'll book it").
   Future<void> claimBooking(String matchId) => SupabaseService.client
       .rpc('claim_booking', params: {'p_match_id': matchId});

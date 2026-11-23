@@ -117,6 +117,7 @@ class _BookingPanelState extends State<BookingPanel> {
   List<MatchEventModel> _events = const [];
   int _mySuggestions = 0;
   int? _bookerReliability;
+  ({String teamId, String name, bool edited})? _bookingName;
   bool _busy = false;
   Timer? _tick;
 
@@ -141,8 +142,18 @@ class _BookingPanelState extends State<BookingPanel> {
     super.dispose();
   }
 
+  Future<void> _loadBookingName() async {
+    final id = widget.match.requestId;
+    if (id == null) return;
+    try {
+      final r = await _repo.fetchBookingName(id);
+      if (mounted) setState(() => _bookingName = r);
+    } catch (_) {}
+  }
+
   Future<void> _load() async {
     final m = widget.match;
+    unawaited(_loadBookingName());
     try {
       final results = await Future.wait([
         _repo.fetchPendingSuggestion(m.id),
@@ -185,6 +196,42 @@ class _BookingPanelState extends State<BookingPanel> {
     if (id == m.homeTeamId) return m.homeTeamName;
     if (id == m.awayTeamId) return m.awayTeamName;
     return null;
+  }
+
+  Future<void> _editBookingName() async {
+    final current = _bookingName?.teamId == widget.myTeamId
+        ? _bookingName!.name
+        : '';
+    final ctrl = TextEditingController(text: current);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Booking name'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 60,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            helperText:
+                'You can change it only once. The other team is notified.',
+            helperMaxLines: 2,
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('Save')),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (name == null || name.isEmpty || name == current || !mounted) return;
+    await _run(() => _repo.changeBookingName(widget.match.id, name),
+        'Booking name updated. The other team was notified.');
   }
 
   Future<void> _confirmBooked() async {
@@ -271,6 +318,59 @@ class _BookingPanelState extends State<BookingPanel> {
               '${m.bookerTeamName ?? 'The Booker'} booked the court'
               '${m.bookedAt == null ? '' : ' at ${_hhmm(m.bookedAt!)}'}.',
               style: TextStyle(color: muted),
+            ),
+          // Only while the name's author is still the Booker: after a takeover
+          // or a court change the court is booked under someone else's name.
+          if (active &&
+              _bookingName != null &&
+              _bookingName!.teamId == m.bookerTeamId) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: kBookingAmber.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.badge_outlined, color: kBookingAmber),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Booking name',
+                            style: TextStyle(fontSize: 12, color: muted)),
+                        SelectableText(_bookingName!.name,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w800, fontSize: 16)),
+                        Text(
+                          iAmBooker
+                              ? 'The court is booked under this name.'
+                              : 'Say this name at the court so they find the booking.',
+                          style: TextStyle(fontSize: 12, color: muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (active &&
+              iAmBooker &&
+              (_bookingName == null ||
+                  _bookingName!.teamId != widget.myTeamId ||
+                  !_bookingName!.edited))
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _busy ? null : _editBookingName,
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: Text(_bookingName?.teamId == widget.myTeamId
+                    ? 'Change booking name (once)'
+                    : 'Add booking name'),
+              ),
             ),
           if (active && m.needsBooking && !m.venueChangeOpen) ...[
             const SizedBox(height: AppSpacing.sm),

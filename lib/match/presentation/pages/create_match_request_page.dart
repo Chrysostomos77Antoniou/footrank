@@ -49,6 +49,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
   late final MatchRepository _repo = widget.matchRepository ?? MatchRepository();
   late final TeamRepository _teamRepo = widget.teamRepository ?? TeamRepository();
   final _venueCtrl = TextEditingController();
+  final _bookingNameCtrl = TextEditingController();
   VenueLocation? _venueLocation;
 
   String? _city;
@@ -69,6 +70,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
   @override
   void dispose() {
     _venueCtrl.dispose();
+    _bookingNameCtrl.dispose();
     super.dispose();
   }
 
@@ -187,6 +189,7 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
         venueLocation: _venueLocation,
         format: _format,
         rosterUserIds: _roster.toList(),
+        bookingName: _bookingNameCtrl.text,
       );
       if (mounted) {
         showSuccess(context, 'Match request created');
@@ -365,6 +368,21 @@ class _CreateMatchRequestPageState extends State<CreateMatchRequestPage>
                         timeLabel,
                         if (_city != null) _city!,
                       ].join(' · '),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: const Key('booking-name'),
+                    controller: _bookingNameCtrl,
+                    maxLength: 60,
+                    textInputAction: TextInputAction.next,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Booking name (optional)',
+                      hintText: 'The name you book the court under',
+                      helperText:
+                          'Only your opponent sees it, and only once the match is confirmed.',
+                      helperMaxLines: 2,
                     ),
                   ),
                   const SizedBox(height: 8),

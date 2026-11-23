@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:footrank/core/app_refresh.dart';
 import 'package:footrank/core/theme/app_colors.dart';
 import 'package:footrank/core/theme/theme_controller.dart';
@@ -942,16 +943,24 @@ class _MemberList extends StatefulWidget {
 
 class _MemberListState extends State<_MemberList> {
   late Future<List<TeamMemberModel>> _future;
+  late Future<Map<String, String>> _phones;
 
   @override
   void initState() {
     super.initState();
     _future = widget.repo.fetchMembers(widget.teamId);
+    _phones = _loadPhones();
   }
+
+  // The roster must still render if the phone lookup fails.
+  Future<Map<String, String>> _loadPhones() => widget.repo
+      .fetchMemberPhones(widget.teamId)
+      .catchError((_) => <String, String>{});
 
   void _reload() {
     setState(() {
       _future = widget.repo.fetchMembers(widget.teamId);
+      _phones = _loadPhones();
     });
   }
 
@@ -1029,13 +1038,14 @@ class _MemberListState extends State<_MemberList> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<TeamMemberModel>>(
-      future: _future,
+    return FutureBuilder<List<Object>>(
+      future: Future.wait<Object>([_future, _phones]),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SkeletonList(count: 3, itemHeight: 60);
         }
-        final members = snapshot.data ?? [];
+        final members = (snapshot.data?[0] as List<TeamMemberModel>?) ?? [];
+        final phones = (snapshot.data?[1] as Map<String, String>?) ?? {};
         if (members.isEmpty) {
           return const EmptyView(
             icon: Icons.groups_outlined,
@@ -1046,6 +1056,7 @@ class _MemberListState extends State<_MemberList> {
         return Column(
           children: members.map((m) {
             final showActions = widget.isCaptain && !m.isCaptain;
+            final phone = phones[m.userId];
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: GlassCard(
@@ -1082,9 +1093,21 @@ class _MemberListState extends State<_MemberList> {
                             style: TextStyle(
                                 fontSize: 12, color: AppColors.muted(context)),
                           ),
+                          if (phone != null)
+                            Text(phone,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.muted(context))),
                         ],
                       ),
                     ),
+                    if (phone != null)
+                      IconButton(
+                        tooltip: 'Call ${m.name}',
+                        icon: const Icon(Icons.call_outlined),
+                        onPressed: () =>
+                            launchUrl(Uri(scheme: 'tel', path: phone)),
+                      ),
                     if (showActions)
                       PopupMenuButton<String>(
                         tooltip: 'Player options',

@@ -64,6 +64,12 @@ String friendlyError(Object error) {
   if (lower.contains('bad_venue:inappropriate')) {
     return 'Please keep the venue name appropriate.';
   }
+  if (lower.contains('booking_name_already_changed')) {
+    return 'The booking name can only be changed once.';
+  }
+  if (lower.contains('booking_name_invalid')) {
+    return 'The booking name must be between 1 and 60 characters.';
+  }
   if (lower.contains('rate_limited')) {
     return "You're doing that too often. Please try again in a little while.";
   }

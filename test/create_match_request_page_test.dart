@@ -44,6 +44,7 @@ class _FakeMatchRepository extends MatchRepository {
     VenueLocation? venueLocation,
     String format = '5v5',
     List<String>? rosterUserIds,
+    String? bookingName,
   }) async {
     created.add({
       'teamId': teamId,
@@ -54,6 +55,7 @@ class _FakeMatchRepository extends MatchRepository {
       'venueText': venueText,
       'venueLocation': venueLocation,
       'roster': rosterUserIds,
+      'bookingName': bookingName,
     });
     final e = error;
     if (e != null) throw e;
