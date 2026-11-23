@@ -21,6 +21,7 @@ class _HomeShellPageState extends State<HomeShellPage>
   static const _items = [
     (Icons.home_rounded, 'Home'),
     (Icons.groups_rounded, 'Team'),
+    (Icons.person_search_rounded, 'Recruit'),
     (Icons.leaderboard_rounded, 'Ranks'),
     (Icons.sports_soccer_rounded, 'Matches'),
     (Icons.person_rounded, 'Profile'),
@@ -228,7 +229,7 @@ class _NavItem extends StatelessWidget {
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOutCubic,
-                  width: 56,
+                  width: 48,
                   height: 30,
                   decoration: BoxDecoration(
                     color: pillColor,

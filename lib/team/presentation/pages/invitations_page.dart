@@ -7,7 +7,6 @@ import 'package:footrank/core/widgets/premium.dart';
 import 'package:footrank/models/invitation_model.dart';
 import 'package:footrank/rankings/presentation/widgets/profile_sheets.dart';
 import 'package:footrank/team/data/team_repository.dart';
-import 'package:footrank/team/presentation/widgets/leave_team_picker.dart';
 import 'package:footrank/team/presentation/widgets/team_ui.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 
@@ -41,11 +40,6 @@ class _InvitationsPageState extends State<InvitationsPage> {
         showSuccess(context, 'You joined ${inv.teamName}');
       }
       _reload();
-    } on TeamLimitException {
-      // Already in 3 teams — let them leave one, then retry the accept.
-      if (!mounted) return;
-      final freed = await showLeaveTeamPicker(context);
-      if (freed && mounted) await _accept(inv);
     } catch (e) {
       if (mounted) {
         showError(context, e);

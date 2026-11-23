@@ -55,8 +55,12 @@ void handleNotificationTap({String? type, String? referenceId}) {
     appRouter.go(AppRoutes.matches);
   } else if (type == 'player_invite') {
     appRouter.push(AppRoutes.invitations);
-  } else if (type == 'team_recruitment') {
+  } else if (type == 'team_recruitment' ||
+      type == 'join_request' ||
+      type == 'join_accepted') {
     appRouter.go(AppRoutes.team);
+  } else if (type == 'recruit_filled') {
+    appRouter.go(AppRoutes.recruit);
   } else {
     appRouter.push(AppRoutes.notifications);
   }

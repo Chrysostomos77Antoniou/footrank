@@ -27,6 +27,7 @@ import 'package:footrank/profile/presentation/pages/profile_page.dart';
 import 'package:footrank/pwr_assessment/presentation/pages/pwr_assessment_page.dart';
 import 'package:footrank/models/user_model.dart';
 import 'package:footrank/rankings/presentation/pages/rankings_page.dart';
+import 'package:footrank/recruit/presentation/pages/recruit_page.dart';
 import 'package:footrank/profile/presentation/pages/profile_setup_page.dart';
 import 'package:footrank/routing/router_refresh_stream.dart';
 import 'package:footrank/models/team_model.dart';
@@ -58,6 +59,7 @@ class AppRoutes {
   static const home = '/';
   static const team = '/team';
   static const teamDetail = '/team/detail';
+  static const recruit = '/recruit';
   static const createTeam = '/team/create';
   static const editTeam = '/team/edit';
   static const joinTeam = '/team/join';
@@ -392,6 +394,14 @@ GoRouter buildRouter() => GoRouter(
             GoRoute(
               path: AppRoutes.team,
               builder: (context, state) => const TeamPage(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: AppRoutes.recruit,
+              builder: (context, state) => const RecruitPage(),
             ),
           ],
         ),

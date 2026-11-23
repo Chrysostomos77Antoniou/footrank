@@ -10,14 +10,7 @@ import 'package:footrank/models/team_model.dart';
 import 'package:footrank/services/analytics_service.dart';
 import 'package:footrank/services/supabase_service.dart';
 
-/// Thrown when an action would exceed the 3-teams-per-user limit, so the UI
-/// can prompt the user to leave a team before continuing.
-class TeamLimitException implements Exception {
-  const TeamLimitException();
-}
-
 class TeamRepository {
-  static const maxTeamsPerUser = 3;
   static const _teams = 'teams';
   static const _members = 'team_members';
   static const _requests = 'team_join_requests';
@@ -131,7 +124,7 @@ class TeamRepository {
     return teams.isEmpty ? null : teams.first;
   }
 
-  /// All teams the current user belongs to (up to [maxTeamsPerUser]).
+  /// All teams the current user belongs to.
   Future<List<TeamModel>> fetchMyTeams() async {
     final uid = _uid;
     if (uid == null) return [];
@@ -192,13 +185,6 @@ class TeamRepository {
   }) async {
     final uid = _uid;
     if (uid == null) throw StateError('No authenticated user');
-
-    // Guard: at most [maxTeamsPerUser] teams per user (DB trigger is the
-    // backstop). Check before inserting the team row so we never create an
-    // orphan team if membership would fail.
-    if ((await fetchMyTeams()).length >= maxTeamsPerUser) {
-      throw const TeamLimitException();
-    }
 
     final created = await SupabaseService.client.rpc('create_team_atomic', params: {
       'p_name': name,
@@ -289,7 +275,7 @@ class TeamRepository {
   Future<List<JoinRequestModel>> fetchPendingRequests(String teamId) async {
     final data = await SupabaseService.client
         .from(_requests)
-        .select('*, users(name, username, position, elo)')
+        .select('*, users(name, username, position, elo, reliability)')
         .eq('team_id', teamId)
         .eq('status', 'pending')
         .order('created_at');
@@ -388,12 +374,6 @@ class TeamRepository {
   Future<void> acceptInvitation(InvitationModel invitation) async {
     final uid = _uid;
     if (uid == null) throw StateError('No authenticated user');
-
-    // Guard: at most [maxTeamsPerUser] teams. The UI catches this to offer a
-    // leave-picker; the DB trigger is the backstop.
-    if ((await fetchMyTeams()).length >= maxTeamsPerUser) {
-      throw const TeamLimitException();
-    }
 
     await SupabaseService.client.rpc('accept_invitation_atomic',
         params: {'p_invitation_id': invitation.id});

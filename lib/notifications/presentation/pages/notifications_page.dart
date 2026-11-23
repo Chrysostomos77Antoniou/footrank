@@ -86,6 +86,10 @@ class _NotificationsPageState extends State<NotificationsPage>
         return (icon: Icons.sports_soccer, fg: accent.fg, bg: accent.bg);
       case 'player_invite':
         return (icon: Icons.mail_outline, fg: accent.fg, bg: accent.bg);
+      case 'join_request':
+      case 'join_accepted':
+      case 'recruit_filled':
+        return (icon: Icons.group_add_outlined, fg: accent.fg, bg: accent.bg);
       default:
         return (
           icon: Icons.notifications_outlined,

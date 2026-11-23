@@ -17,6 +17,8 @@ import 'package:footrank/models/team_member_model.dart';
 import 'package:footrank/models/team_model.dart';
 import 'package:footrank/routing/app_router.dart';
 import 'package:footrank/services/supabase_service.dart';
+import 'package:footrank/recruit/data/recruit_repository.dart';
+import 'package:footrank/recruit/presentation/widgets/team_recruit_card.dart';
 import 'package:footrank/team/data/team_repository.dart';
 import 'package:footrank/core/widgets/feedback.dart';
 import 'package:footrank/core/theme/app_tokens.dart';
@@ -97,32 +99,14 @@ class _TeamPageState extends State<TeamPage> with ThemeRepaintMixin {
 
   Widget _buildTeamsList(List<TeamModel> teams) {
     final uid = SupabaseService.client.auth.currentUser?.id;
-    final canAdd = teams.length < TeamRepository.maxTeamsPerUser;
     return RefreshIndicator(
       onRefresh: () async => _reload(),
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Semantics(
-                header: true,
-                child: Text('My Teams', style: teamTitleStyle(context)),
-              ),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text(
-                  '${teams.length}/${TeamRepository.maxTeamsPerUser}',
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      color: AppColors.muted(context)),
-                ),
-              ),
-            ],
+          Semantics(
+            header: true,
+            child: Text('My Teams', style: teamTitleStyle(context)),
           ),
           const SizedBox(height: 16),
           ...teams.asMap().entries.map(
@@ -141,30 +125,28 @@ class _TeamPageState extends State<TeamPage> with ThemeRepaintMixin {
                   ),
                 ),
               ),
-          if (canAdd) ...[
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _openCreateTeam,
-                    style: teamFilledStyle(),
-                    icon: const Icon(Icons.add, size: 20),
-                    label: const Text('Create'),
-                  ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _openCreateTeam,
+                  style: teamFilledStyle(),
+                  icon: const Icon(Icons.add, size: 20),
+                  label: const Text('Create'),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _openJoinTeam,
-                    style: teamOutlinedStyle(context),
-                    icon: const Icon(Icons.login, size: 20),
-                    label: const Text('Join'),
-                  ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _openJoinTeam,
+                  style: teamOutlinedStyle(context),
+                  icon: const Icon(Icons.login, size: 20),
+                  label: const Text('Join'),
                 ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -441,6 +423,15 @@ class _TeamView extends StatelessWidget {
               ),
             ),
           ],
+          if (_isCaptain && !team.isDisbanded)
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 180),
+              child: TeamRecruitCard(
+                team: team,
+                repo: RecruitRepository(),
+                onChanged: onChanged,
+              ),
+            ),
           if (_isCaptain && !team.isDisbanded)
             FadeSlideIn(
               delay: const Duration(milliseconds: 200),
@@ -892,7 +883,8 @@ class _PendingRequestsState extends State<_PendingRequests> {
                               Text(
                                 [
                                   if (r.position != null) r.position,
-                                  'PWR ${r.elo}'
+                                  'PWR ${r.elo}',
+                                  'Reliability ${r.reliability}%',
                                 ].join(' · '),
                                 style: TextStyle(
                                     fontSize: 12,

@@ -107,6 +107,18 @@ String friendlyError(Object error) {
   if (lower.contains('teams_name_lower_unique')) {
     return 'A team with that name already exists. Please pick another name.';
   }
+  if (lower.contains('recruit_closed')) {
+    return 'This team is no longer recruiting.';
+  }
+  if (lower.contains('recruit_already_open')) {
+    return 'Your team already has an open request for players.';
+  }
+  if (lower.contains('recruit_spots_invalid')) {
+    return 'Choose between 1 and 5 players.';
+  }
+  if (lower.contains('uq_join_request_recruitment')) {
+    return 'You already asked this team.';
+  }
   if (lower.contains('uniq_pending_request')) {
     return 'You already have a pending request for this team.';
   }

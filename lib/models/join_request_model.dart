@@ -10,6 +10,7 @@ class JoinRequestModel {
   final String username;
   final String? position;
   final int elo;
+  final int reliability;
 
   const JoinRequestModel({
     required this.id,
@@ -21,6 +22,7 @@ class JoinRequestModel {
     required this.username,
     this.position,
     required this.elo,
+    this.reliability = 100,
   });
 
   /// Expects a row from team_join_requests with a nested `users` object.
@@ -36,6 +38,7 @@ class JoinRequestModel {
       username: (user['username'] as String?) ?? '',
       position: user['position'] as String?,
       elo: (user['elo'] as int?) ?? 1500,
+      reliability: (user['reliability'] as int?) ?? 100,
     );
   }
 }
